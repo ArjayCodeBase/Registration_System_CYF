@@ -1,4 +1,4 @@
-# Registration_System_CYF
+# Code Package Need
 
 pip install fastapi uvicorn sqlalchemy pymysql passlib[bcrypt] python-multipart email-validator
 
