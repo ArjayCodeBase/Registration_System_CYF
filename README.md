@@ -2,10 +2,10 @@
 
 pip install fastapi uvicorn sqlalchemy pymysql passlib[bcrypt] python-multipart email-validator
 
-# to start server:
+# To start server:
 uvicorn main:app --reload  
 
-# to stop server: 
+# To stop server: 
 Ctrl + C 
 
 # System Environment 
