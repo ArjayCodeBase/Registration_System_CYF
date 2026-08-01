@@ -160,6 +160,44 @@ class User(Base):
         nullable=True
     )
     
+    
+# ======================================================
+# EVENT MODEL
+# ======================================================
+
+class Event(Base):
+
+    __tablename__ = "events"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    event_name = Column(String(100), nullable=False)
+
+    registration_start = Column(Date, nullable=False)
+
+    registration_end = Column(Date, nullable=False)
+
+    kickoff_date = Column(Date, nullable=False)
+
+    wrapup_date = Column(Date, nullable=False)
+
+    is_archived = Column(Integer, default=0)
+
+    created_at = Column(
+        DateTime,
+        default=datetime.datetime.now
+    )
+
+    updated_at = Column(
+        DateTime,
+        default=datetime.datetime.now,
+        onupdate=datetime.datetime.now
+    )
+    
+    
+    
+    
+    
 Base.metadata.create_all(bind=engine)
 
 # ======================================================
@@ -272,6 +310,35 @@ class AdminUpdateCredentialSchema(BaseModel):
     new_password: str
     
 
+# ======================================================
+# EVENT SCHEMAS
+# ======================================================
+
+class EventCreateSchema(BaseModel):
+
+    event_name: str
+
+    registration_start: datetime.date
+
+    registration_end: datetime.date
+
+    kickoff_date: datetime.date
+
+    wrapup_date: datetime.date
+    
+
+class EventUpdateSchema(BaseModel):
+
+    event_name: str
+
+    registration_start: datetime.date
+
+    registration_end: datetime.date
+
+    kickoff_date: datetime.date
+
+    wrapup_date: datetime.date    
+    
 
 # ======================================================
 # HELPER FUNCTIONS
@@ -298,6 +365,32 @@ def verify_admin(db: Session, username: str):
         )
 
     return admin
+
+
+
+# ======================================================
+# EVENT HELPER FUNCTIONS
+# ======================================================
+
+def get_registration_phase(event):
+
+    today = datetime.date.today()
+
+    if today < event.registration_start:
+
+        return "Registration Closed"
+
+    elif event.registration_start <= today <= event.registration_end:
+
+        return "Early-bird"
+
+    elif event.registration_end < today <= event.wrapup_date:
+
+        return "Walk-in"
+
+    else:
+
+        return "Event Closed"
 
 
     
@@ -736,3 +829,446 @@ def admin_view_registration_team_users(
     
 
 
+# ======================================================
+# CREATE EVENT
+# ======================================================
+
+# ======================================================
+# CREATE EVENT
+# ======================================================
+
+@app.post("/event_create_event")
+def event_create_event(
+
+    data: EventCreateSchema,
+
+    db: Session = Depends(get_db)
+
+):
+
+    # ----------------------------------------
+    # Allowed Event Types
+    # ----------------------------------------
+
+    allowed_events = [
+
+        "Summer Youth Camp",
+
+        "Youth Bible Conference"
+
+    ]
+
+    if data.event_name not in allowed_events:
+
+        raise HTTPException(
+
+            status_code=400,
+
+            detail="Invalid event type."
+
+        )
+
+    # ----------------------------------------
+    # Date Validations
+    # ----------------------------------------
+
+    if data.registration_start > data.registration_end:
+
+        raise HTTPException(
+
+            status_code=400,
+
+            detail="Registration Start Date cannot be later than Registration End Date."
+
+        )
+
+    if data.registration_end > data.kickoff_date:
+
+        raise HTTPException(
+
+            status_code=400,
+
+            detail="Registration End Date must be on or before the Kickoff Date."
+
+        )
+
+    if data.kickoff_date > data.wrapup_date:
+
+        raise HTTPException(
+
+            status_code=400,
+
+            detail="Kickoff Date cannot be later than Wrap-up Date."
+
+        )
+
+    # ----------------------------------------
+    # Duplicate Event Validation
+    # ----------------------------------------
+
+    duplicate = db.query(Event).filter(
+
+        Event.event_name == data.event_name,
+
+        Event.registration_start == data.registration_start,
+
+        Event.registration_end == data.registration_end,
+
+        Event.kickoff_date == data.kickoff_date,
+
+        Event.wrapup_date == data.wrapup_date,
+
+        Event.is_archived == 0
+
+    ).first()
+
+    if duplicate:
+
+        raise HTTPException(
+
+            status_code=400,
+
+            detail="This active event already exists."
+
+        )
+
+    # ----------------------------------------
+    # Create Event
+    # ----------------------------------------
+
+    new_event = Event(
+
+        event_name=data.event_name,
+
+        registration_start=data.registration_start,
+
+        registration_end=data.registration_end,
+
+        kickoff_date=data.kickoff_date,
+
+        wrapup_date=data.wrapup_date,
+
+        is_archived=0
+
+    )
+
+    db.add(new_event)
+
+    db.commit()
+
+    db.refresh(new_event)
+
+    return {
+
+        "message": "Event created successfully.",
+
+        "event_id": new_event.id,
+
+        "event_name": new_event.event_name,
+
+        "registration_period": {
+
+            "start": new_event.registration_start,
+
+            "end": new_event.registration_end
+
+        },
+
+        "event_schedule": {
+
+            "kickoff": new_event.kickoff_date,
+
+            "wrapup": new_event.wrapup_date
+
+        }
+
+    }
+
+# ======================================================
+# VIEW EVENTS
+# ======================================================
+
+@app.get("/event_view_all_events")
+def event_view_all_events(
+
+    db: Session = Depends(get_db)
+
+):
+
+    events = db.query(Event).filter(
+
+        Event.is_archived == 0
+
+    ).all()
+
+    result = []
+
+    for event in events:
+
+        result.append({
+
+            "id": event.id,
+
+            "event_name": event.event_name,
+
+            "registration_start": event.registration_start,
+
+            "registration_end": event.registration_end,
+
+            "kickoff_date": event.kickoff_date,
+
+            "wrapup_date": event.wrapup_date,
+
+            "registration_phase": get_registration_phase(event)
+
+        })
+
+    return result
+
+
+# ======================================================
+# UPDATE EVENTS
+# ======================================================
+
+
+@app.put("/event_update_event")
+def event_update_event(
+
+    event_id: int,
+
+    data: EventUpdateSchema,
+
+    db: Session = Depends(get_db)
+
+):
+
+    event = db.query(Event).filter(
+
+        Event.id == event_id,
+
+        Event.is_archived == 0
+
+    ).first()
+
+    if not event:
+
+        raise HTTPException(
+
+            status_code=404,
+
+            detail="Event not found."
+
+        )
+
+    allowed_events = [
+
+        "Summer Youth Camp",
+
+        "Youth Bible Conference"
+
+    ]
+
+    if data.event_name not in allowed_events:
+
+        raise HTTPException(
+
+            status_code=400,
+
+            detail="Invalid event name."
+
+        )
+
+    if data.registration_start > data.registration_end:
+
+        raise HTTPException(
+
+            status_code=400,
+
+            detail="Registration start cannot be later than registration end."
+
+        )
+
+    if data.registration_end > data.kickoff_date:
+
+        raise HTTPException(
+
+            status_code=400,
+
+            detail="Registration must end on or before the Kickoff date."
+
+        )
+
+    if data.kickoff_date > data.wrapup_date:
+
+        raise HTTPException(
+
+            status_code=400,
+
+            detail="Kickoff date cannot be later than Wrap-up date."
+
+        )
+
+    duplicate = db.query(Event).filter(
+
+        Event.event_name == data.event_name,
+
+        Event.kickoff_date == data.kickoff_date,
+
+        Event.id != event_id,
+
+        Event.is_archived == 0
+
+    ).first()
+
+    if duplicate:
+
+        raise HTTPException(
+
+            status_code=400,
+
+            detail="Another active event with the same name and kickoff date already exists."
+
+        )
+
+    event.event_name = data.event_name
+
+    event.registration_start = data.registration_start
+
+    event.registration_end = data.registration_end
+
+    event.kickoff_date = data.kickoff_date
+
+    event.wrapup_date = data.wrapup_date
+
+    event.updated_at = datetime.datetime.now()
+
+    db.commit()
+
+    return {
+
+        "message":"Event updated successfully."
+
+    }
+    
+    
+# ======================================================
+# DELETE EVENTS
+# ======================================================    
+
+
+@app.delete("/event_delete_event")
+def event_delete_event(
+
+    event_id: int,
+
+    db: Session = Depends(get_db)
+
+):
+
+    event = db.query(Event).filter(
+
+        Event.id == event_id
+
+    ).first()
+
+    if not event:
+
+        raise HTTPException(
+
+            status_code=404,
+
+            detail="Event not found."
+
+        )
+
+    db.delete(event)
+
+    db.commit()
+
+    return {
+
+        "message":"Event deleted successfully."
+
+    }
+
+
+# ======================================================
+# ARCHIVE EVENT
+# ======================================================  
+    
+    
+@app.put("/event_archive_event")
+def event_archive_event(
+
+    event_id: int,
+
+    db: Session = Depends(get_db)
+
+):
+
+    event = db.query(Event).filter(
+
+        Event.id == event_id,
+
+        Event.is_archived == 0
+
+    ).first()
+
+    if not event:
+
+        raise HTTPException(
+
+            status_code=404,
+
+            detail="Event not found."
+
+        )
+
+    event.is_archived = 1
+
+    event.updated_at = datetime.datetime.now()
+
+    db.commit()
+
+    return {
+
+        "message":"Event archived successfully."
+
+    }
+
+
+# ======================================================
+# VIEW ARCHIVE EVENT
+# ======================================================  
+    
+
+@app.get("/event_view_archived_events")
+def event_view_archived_events(
+
+    db: Session = Depends(get_db)
+
+):
+
+    events = db.query(Event).filter(
+
+        Event.is_archived == 1
+
+    ).all()
+
+    result = []
+
+    for event in events:
+
+        result.append({
+
+            "id":event.id,
+
+            "event_name":event.event_name,
+
+            "kickoff_date":event.kickoff_date,
+
+            "wrapup_date":event.wrapup_date
+
+        })
+
+    return result
