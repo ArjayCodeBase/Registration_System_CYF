@@ -10,6 +10,7 @@ from sqlalchemy import (
     DateTime
 )
 
+
 from sqlalchemy.orm import (
     declarative_base,
     sessionmaker,
