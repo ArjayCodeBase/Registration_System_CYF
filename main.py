@@ -10,7 +10,6 @@ from sqlalchemy import (
     DateTime
 )
 
-
 from sqlalchemy.orm import (
     declarative_base,
     sessionmaker,
@@ -296,6 +295,12 @@ class Participant(Base):
         nullable=False,
         default="Pending"
     )
+    
+    participant_type = Column(
+    String(50),
+    nullable=False,
+    default="Regular Participants"
+    )
 
     # ======================================================
     # PARTICIPANT INFORMATION
@@ -523,7 +528,180 @@ class EventRulesAgreement(Base):
         default=datetime.datetime.now
     )        
 
+# ======================================================
+# CHAPERONE MODEL
+# ======================================================
 
+class Chaperone(Base):
+
+    __tablename__ = "chaperones"
+
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True
+    )
+
+    # ======================================================
+    # EVENT REFERENCE
+    # ======================================================
+
+    event_id = Column(
+        Integer,
+        nullable=False
+    )
+
+    # ======================================================
+    # CHAPERONE INFORMATION
+    # ======================================================
+
+    fname = Column(
+        String(100),
+        nullable=False
+    )
+
+    mname = Column(
+        String(100)
+    )
+
+    lname = Column(
+        String(100),
+        nullable=False
+    )
+
+    sex = Column(
+        String(20),
+        nullable=False
+    )
+
+    birthday = Column(
+        Date,
+        nullable=False
+    )
+
+    contact = Column(
+        String(20),
+        nullable=False
+    )
+
+    local_church = Column(
+        String(150),
+        nullable=False
+    )
+
+    sector = Column(
+        String(100),
+        nullable=False
+    )
+
+    # ======================================================
+    # RECORD STATUS
+    # ======================================================
+
+    is_archived = Column(
+        Integer,
+        default=0
+    )
+
+    created_at = Column(
+        DateTime,
+        default=datetime.datetime.now
+    )
+
+    updated_at = Column(
+        DateTime,
+        default=datetime.datetime.now,
+        onupdate=datetime.datetime.now
+    )
+    
+    
+# ======================================================
+# STAFF MODEL
+# ======================================================
+
+class Staff(Base):
+
+    __tablename__ = "staff"
+
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True
+    )
+
+    # ======================================================
+    # EVENT REFERENCE
+    # ======================================================
+
+    event_id = Column(
+        Integer,
+        nullable=False
+    )
+
+    # ======================================================
+    # STAFF INFORMATION
+    # ======================================================
+
+    fname = Column(
+        String(100),
+        nullable=False
+    )
+
+    mname = Column(
+        String(100)
+    )
+
+    lname = Column(
+        String(100),
+        nullable=False
+    )
+
+    sex = Column(
+        String(20),
+        nullable=False
+    )
+
+    birthday = Column(
+        Date,
+        nullable=False
+    )
+
+    contact = Column(
+        String(20),
+        nullable=False
+    )
+
+    local_church = Column(
+        String(150),
+        nullable=False
+    )
+
+    sector = Column(
+        String(100),
+        nullable=False
+    )
+
+    # ======================================================
+    # RECORD STATUS
+    # ======================================================
+
+    is_archived = Column(
+        Integer,
+        default=0
+    )
+
+    created_at = Column(
+        DateTime,
+        default=datetime.datetime.now
+    )
+
+    updated_at = Column(
+        DateTime,
+        default=datetime.datetime.now,
+        onupdate=datetime.datetime.now
+    )    
+    
+    
     
 Base.metadata.create_all(bind=engine)
 
@@ -678,6 +856,8 @@ class EventUpdateSchema(BaseModel):
 class ParticipantCreateSchema(BaseModel):
 
     event_id:int
+    
+    participant_type: str
 
     fname:str
 
@@ -705,6 +885,8 @@ class ParticipantCreateSchema(BaseModel):
 class ParticipantUpdateSchema(BaseModel):
 
     event_id:int
+    
+    participant_type: str
 
     fname:str
 
@@ -774,16 +956,92 @@ class EventRulesAgreementSchema(BaseModel):
 
 
 
+# ======================================================
+# CHAPERONE SCHEMA
+# ======================================================
+
+class ChaperoneCreateSchema(BaseModel):
+
+    event_id: int
+
+    fname: str
+
+    mname: str = ""
+
+    lname: str
+
+    sex: str
+
+    birthday: datetime.date
+
+    contact: str
+
+    local_church: str
+
+    sector: str
 
 
+# ======================================================
+# STAFF SCHEMA
+# ======================================================
+
+class StaffCreateSchema(BaseModel):
+
+    event_id: int
+
+    fname: str
+
+    mname: str = ""
+
+    lname: str
+
+    sex: str
+
+    birthday: datetime.date
+
+    contact: str
+
+    local_church: str
+
+    sector: str
 
 
+class ChaperoneUpdateSchema(BaseModel):
+
+    fname: str
+
+    mname: str = ""
+
+    lname: str
+
+    sex: str
+
+    birthday: datetime.date
+
+    contact: str
+
+    local_church: str
+
+    sector: str
 
 
+class StaffUpdateSchema(BaseModel):
 
+    fname: str
 
+    mname: str = ""
 
+    lname: str
 
+    sex: str
+
+    birthday: datetime.date
+
+    contact: str
+
+    local_church: str
+
+    sector: str
 
 
 
@@ -1645,6 +1903,884 @@ def admin_create_registration_team_user(
 
     }
     
+
+# ======================================================
+# REGISTER CHAPERONE
+# ======================================================
+
+@app.post("/register_chaperone")
+def register_chaperone(
+    data: ChaperoneCreateSchema,
+    db: Session = Depends(get_db)
+):
+
+    # ======================================================
+    # CHECK EVENT
+    # ======================================================
+
+    event = db.query(Event).filter(
+        Event.id == data.event_id,
+        Event.is_archived == 0
+    ).first()
+
+    if not event:
+        raise HTTPException(
+            status_code=404,
+            detail="Event not found."
+        )
+
+    # ======================================================
+    # DUPLICATE VALIDATION
+    # ======================================================
+
+    duplicate = db.query(Chaperone).filter(
+        Chaperone.event_id == data.event_id,
+        Chaperone.fname == data.fname,
+        Chaperone.mname == data.mname,
+        Chaperone.lname == data.lname,
+        Chaperone.birthday == data.birthday,
+        Chaperone.is_archived == 0
+    ).first()
+
+    if duplicate:
+        raise HTTPException(
+            status_code=400,
+            detail="Chaperone is already registered for this event."
+        )
+
+    # ======================================================
+    # CREATE CHAPERONE
+    # ======================================================
+
+    chaperone = Chaperone(
+        event_id=event.id,
+
+        fname=data.fname,
+        mname=data.mname,
+        lname=data.lname,
+
+        sex=data.sex,
+        birthday=data.birthday,
+        contact=data.contact,
+        local_church=data.local_church,
+        sector=data.sector,
+
+        is_archived=0
+    )
+
+    db.add(chaperone)
+    db.commit()
+    db.refresh(chaperone)
+
+    # ======================================================
+    # RESPONSE
+    # ======================================================
+
+    return {
+        "message": "Chaperone registered successfully.",
+
+        "chaperone": {
+            "chaperone_id": chaperone.id,
+            "event_id": chaperone.event_id,
+
+            # Event name comes from Event table
+            "event_name": event.event_name,
+
+            "name": (
+                f"{chaperone.fname} "
+                f"{chaperone.mname or ''} "
+                f"{chaperone.lname}"
+            ).strip(),
+
+            "sex": chaperone.sex,
+            "birthday": chaperone.birthday,
+            "contact": chaperone.contact,
+            "local_church": chaperone.local_church,
+            "sector": chaperone.sector
+        }
+    }
+
+
+# ======================================================
+# REGISTER STAFF
+# ======================================================
+
+@app.post("/register_staff")
+def register_staff(
+    data: StaffCreateSchema,
+    db: Session = Depends(get_db)
+):
+
+    # ======================================================
+    # CHECK EVENT
+    # ======================================================
+
+    event = db.query(Event).filter(
+        Event.id == data.event_id,
+        Event.is_archived == 0
+    ).first()
+
+    if not event:
+        raise HTTPException(
+            status_code=404,
+            detail="Event not found."
+        )
+
+    # ======================================================
+    # DUPLICATE VALIDATION
+    # ======================================================
+
+    duplicate = db.query(Staff).filter(
+        Staff.event_id == data.event_id,
+        Staff.fname == data.fname,
+        Staff.mname == data.mname,
+        Staff.lname == data.lname,
+        Staff.birthday == data.birthday,
+        Staff.is_archived == 0
+    ).first()
+
+    if duplicate:
+        raise HTTPException(
+            status_code=400,
+            detail="Staff member is already registered for this event."
+        )
+
+    # ======================================================
+    # CREATE STAFF
+    # ======================================================
+
+    staff = Staff(
+        event_id=event.id,
+
+        fname=data.fname,
+        mname=data.mname,
+        lname=data.lname,
+
+        sex=data.sex,
+        birthday=data.birthday,
+        contact=data.contact,
+        local_church=data.local_church,
+        sector=data.sector,
+
+        is_archived=0
+    )
+
+    db.add(staff)
+    db.commit()
+    db.refresh(staff)
+
+    # ======================================================
+    # RESPONSE
+    # ======================================================
+
+    return {
+        "message": "Staff registered successfully.",
+
+        "staff": {
+            "staff_id": staff.id,
+            "event_id": staff.event_id,
+
+            # Get event name from the Event table
+            "event_name": event.event_name,
+
+            "name": f"{staff.fname} {staff.mname} {staff.lname}".strip(),
+
+            "sex": staff.sex,
+            "birthday": staff.birthday,
+            "contact": staff.contact,
+            "local_church": staff.local_church,
+            "sector": staff.sector
+        }
+    }
+
+
+# ======================================================
+# VIEW ALL CHAPERONES
+# ======================================================
+
+@app.get("/register_view_all_chaperones")
+def register_view_all_chaperones(
+
+    event_id: int,
+
+    db: Session = Depends(get_db)
+
+):
+
+    chaperones = db.query(Chaperone).filter(
+
+        Chaperone.event_id == event_id,
+
+        Chaperone.is_archived == 0
+
+    ).all()
+
+    return [
+
+        {
+
+            "chaperone_id": chaperone.id,
+
+            "event_id": chaperone.event_id,
+
+            "event_name": chaperone.event_name,
+
+            "fname": chaperone.fname,
+
+            "mname": chaperone.mname,
+
+            "lname": chaperone.lname,
+
+            "sex": chaperone.sex,
+
+            "birthday": chaperone.birthday,
+
+            "contact": chaperone.contact,
+
+            "local_church": chaperone.local_church,
+
+            "sector": chaperone.sector
+
+        }
+
+        for chaperone in chaperones
+
+    ]
+
+
+# ======================================================
+# VIEW SINGLE CHAPERONE
+# ======================================================
+
+@app.get("/register_view_chaperone/{chaperone_id}")
+def register_view_chaperone(
+
+    chaperone_id: int,
+
+    db: Session = Depends(get_db)
+
+):
+
+    chaperone = db.query(Chaperone).filter(
+
+        Chaperone.id == chaperone_id,
+
+        Chaperone.is_archived == 0
+
+    ).first()
+
+    if not chaperone:
+
+        raise HTTPException(
+
+            status_code=404,
+
+            detail="Chaperone not found."
+
+        )
+
+    return {
+
+        "chaperone_id": chaperone.id,
+
+        "event_id": chaperone.event_id,
+
+        "event_name": chaperone.event_name,
+
+        "fname": chaperone.fname,
+
+        "mname": chaperone.mname,
+
+        "lname": chaperone.lname,
+
+        "sex": chaperone.sex,
+
+        "birthday": chaperone.birthday,
+
+        "contact": chaperone.contact,
+
+        "local_church": chaperone.local_church,
+
+        "sector": chaperone.sector
+
+    }
+
+
+# ======================================================
+# UPDATE CHAPERONE
+# ======================================================
+
+@app.put("/register_update_chaperone/{chaperone_id}")
+def register_update_chaperone(
+
+    chaperone_id: int,
+
+    data: ChaperoneCreateSchema,
+
+    db: Session = Depends(get_db)
+
+):
+
+    # ======================================================
+    # CHECK CHAPERONE
+    # ======================================================
+
+    chaperone = db.query(Chaperone).filter(
+
+        Chaperone.id == chaperone_id,
+
+        Chaperone.is_archived == 0
+
+    ).first()
+
+    if not chaperone:
+
+        raise HTTPException(
+
+            status_code=404,
+
+            detail="Chaperone not found."
+
+        )
+
+    # ======================================================
+    # CHECK EVENT
+    # ======================================================
+
+    event = db.query(Event).filter(
+
+        Event.id == data.event_id,
+
+        Event.is_archived == 0
+
+    ).first()
+
+    if not event:
+
+        raise HTTPException(
+
+            status_code=404,
+
+            detail="Event not found."
+
+        )
+
+    # ======================================================
+    # DUPLICATE VALIDATION
+    # ======================================================
+
+    duplicate = db.query(Chaperone).filter(
+
+        Chaperone.event_id == data.event_id,
+
+        Chaperone.fname == data.fname,
+
+        Chaperone.mname == data.mname,
+
+        Chaperone.lname == data.lname,
+
+        Chaperone.birthday == data.birthday,
+
+        Chaperone.id != chaperone_id,
+
+        Chaperone.is_archived == 0
+
+    ).first()
+
+    if duplicate:
+
+        raise HTTPException(
+
+            status_code=400,
+
+            detail="Another chaperone with the same name and birthday already exists for this event."
+
+        )
+
+    # ======================================================
+    # UPDATE INFORMATION
+    # ======================================================
+
+    chaperone.event_id = event.id
+
+    chaperone.event_name = event.event_name
+
+    chaperone.fname = data.fname
+
+    chaperone.mname = data.mname
+
+    chaperone.lname = data.lname
+
+    chaperone.sex = data.sex
+
+    chaperone.birthday = data.birthday
+
+    chaperone.contact = data.contact
+
+    chaperone.local_church = data.local_church
+
+    chaperone.sector = data.sector
+
+    chaperone.updated_at = datetime.datetime.now()
+
+    db.commit()
+
+    db.refresh(chaperone)
+
+    return {
+
+        "message": "Chaperone updated successfully.",
+
+        "chaperone_id": chaperone.id,
+
+        "event_id": chaperone.event_id,
+
+        "event_name": chaperone.event_name
+
+    }
+
+
+# ======================================================
+# ARCHIVE CHAPERONE
+# ======================================================
+
+@app.put("/register_archive_chaperone/{chaperone_id}")
+def register_archive_chaperone(
+
+    chaperone_id: int,
+
+    db: Session = Depends(get_db)
+
+):
+
+    chaperone = db.query(Chaperone).filter(
+
+        Chaperone.id == chaperone_id,
+
+        Chaperone.is_archived == 0
+
+    ).first()
+
+    if not chaperone:
+
+        raise HTTPException(
+
+            status_code=404,
+
+            detail="Chaperone not found."
+
+        )
+
+    chaperone.is_archived = 1
+
+    chaperone.updated_at = datetime.datetime.now()
+
+    db.commit()
+
+    return {
+
+        "message": "Chaperone archived successfully.",
+
+        "chaperone_id": chaperone.id
+
+    }
+
+
+# ======================================================
+# VIEW ARCHIVED CHAPERONES
+# ======================================================
+
+@app.get("/register_view_archived_chaperones")
+def register_view_archived_chaperones(
+
+    event_id: int,
+
+    db: Session = Depends(get_db)
+
+):
+
+    chaperones = db.query(Chaperone).filter(
+
+        Chaperone.event_id == event_id,
+
+        Chaperone.is_archived == 1
+
+    ).all()
+
+    return [
+
+        {
+
+            "chaperone_id": chaperone.id,
+
+            "event_id": chaperone.event_id,
+
+            "event_name": chaperone.event_name,
+
+            "name": f"{chaperone.fname} {chaperone.mname} {chaperone.lname}".strip(),
+
+            "sex": chaperone.sex,
+
+            "birthday": chaperone.birthday,
+
+            "contact": chaperone.contact,
+
+            "local_church": chaperone.local_church,
+
+            "sector": chaperone.sector
+
+        }
+
+        for chaperone in chaperones
+
+    ]
+
+
+# ======================================================
+# VIEW ALL STAFF
+# ======================================================
+
+@app.get("/register_view_all_staff")
+def register_view_all_staff(
+
+    event_id: int,
+
+    db: Session = Depends(get_db)
+
+):
+
+    staff_members = db.query(Staff).filter(
+
+        Staff.event_id == event_id,
+
+        Staff.is_archived == 0
+
+    ).all()
+
+    return [
+
+        {
+
+            "staff_id": staff.id,
+
+            "event_id": staff.event_id,
+
+            "event_name": staff.event_name,
+
+            "fname": staff.fname,
+
+            "mname": staff.mname,
+
+            "lname": staff.lname,
+
+            "sex": staff.sex,
+
+            "birthday": staff.birthday,
+
+            "contact": staff.contact,
+
+            "local_church": staff.local_church,
+
+            "sector": staff.sector
+
+        }
+
+        for staff in staff_members
+
+    ]
+
+
+# ======================================================
+# VIEW SINGLE STAFF
+# ======================================================
+
+@app.get("/register_view_staff/{staff_id}")
+def register_view_staff(
+
+    staff_id: int,
+
+    db: Session = Depends(get_db)
+
+):
+
+    staff = db.query(Staff).filter(
+
+        Staff.id == staff_id,
+
+        Staff.is_archived == 0
+
+    ).first()
+
+    if not staff:
+
+        raise HTTPException(
+
+            status_code=404,
+
+            detail="Staff member not found."
+
+        )
+
+    return {
+
+        "staff_id": staff.id,
+
+        "event_id": staff.event_id,
+
+        "event_name": staff.event_name,
+
+        "fname": staff.fname,
+
+        "mname": staff.mname,
+
+        "lname": staff.lname,
+
+        "sex": staff.sex,
+
+        "birthday": staff.birthday,
+
+        "contact": staff.contact,
+
+        "local_church": staff.local_church,
+
+        "sector": staff.sector
+
+    }
+
+
+# ======================================================
+# UPDATE STAFF
+# ======================================================
+
+@app.put("/register_update_staff/{staff_id}")
+def register_update_staff(
+
+    staff_id: int,
+
+    data: StaffCreateSchema,
+
+    db: Session = Depends(get_db)
+
+):
+
+    # ======================================================
+    # CHECK STAFF
+    # ======================================================
+
+    staff = db.query(Staff).filter(
+
+        Staff.id == staff_id,
+
+        Staff.is_archived == 0
+
+    ).first()
+
+    if not staff:
+
+        raise HTTPException(
+
+            status_code=404,
+
+            detail="Staff member not found."
+
+        )
+
+    # ======================================================
+    # CHECK EVENT
+    # ======================================================
+
+    event = db.query(Event).filter(
+
+        Event.id == data.event_id,
+
+        Event.is_archived == 0
+
+    ).first()
+
+    if not event:
+
+        raise HTTPException(
+
+            status_code=404,
+
+            detail="Event not found."
+
+        )
+
+    # ======================================================
+    # DUPLICATE VALIDATION
+    # ======================================================
+
+    duplicate = db.query(Staff).filter(
+
+        Staff.event_id == data.event_id,
+
+        Staff.fname == data.fname,
+
+        Staff.mname == data.mname,
+
+        Staff.lname == data.lname,
+
+        Staff.birthday == data.birthday,
+
+        Staff.id != staff_id,
+
+        Staff.is_archived == 0
+
+    ).first()
+
+    if duplicate:
+
+        raise HTTPException(
+
+            status_code=400,
+
+            detail="Another staff member with the same name and birthday already exists for this event."
+
+        )
+
+    # ======================================================
+    # UPDATE INFORMATION
+    # ======================================================
+
+    staff.event_id = event.id
+
+    staff.event_name = event.event_name
+
+    staff.fname = data.fname
+
+    staff.mname = data.mname
+
+    staff.lname = data.lname
+
+    staff.sex = data.sex
+
+    staff.birthday = data.birthday
+
+    staff.contact = data.contact
+
+    staff.local_church = data.local_church
+
+    staff.sector = data.sector
+
+    staff.updated_at = datetime.datetime.now()
+
+    db.commit()
+
+    db.refresh(staff)
+
+    return {
+
+        "message": "Staff member updated successfully.",
+
+        "staff_id": staff.id,
+
+        "event_id": staff.event_id,
+
+        "event_name": staff.event_name
+
+    }
+
+
+# ======================================================
+# ARCHIVE STAFF
+# ======================================================
+
+@app.put("/register_archive_staff/{staff_id}")
+def register_archive_staff(
+
+    staff_id: int,
+
+    db: Session = Depends(get_db)
+
+):
+
+    staff = db.query(Staff).filter(
+
+        Staff.id == staff_id,
+
+        Staff.is_archived == 0
+
+    ).first()
+
+    if not staff:
+
+        raise HTTPException(
+
+            status_code=404,
+
+            detail="Staff member not found."
+
+        )
+
+    staff.is_archived = 1
+
+    staff.updated_at = datetime.datetime.now()
+
+    db.commit()
+
+    return {
+
+        "message": "Staff member archived successfully.",
+
+        "staff_id": staff.id
+
+    }
+
+
+# ======================================================
+# VIEW ARCHIVED STAFF
+# ======================================================
+
+@app.get("/register_view_archived_staff")
+def register_view_archived_staff(
+
+    event_id: int,
+
+    db: Session = Depends(get_db)
+
+):
+
+    staff_members = db.query(Staff).filter(
+
+        Staff.event_id == event_id,
+
+        Staff.is_archived == 1
+
+    ).all()
+
+    return [
+
+        {
+
+            "staff_id": staff.id,
+
+            "event_id": staff.event_id,
+
+            "event_name": staff.event_name,
+
+            "name": f"{staff.fname} {staff.mname} {staff.lname}".strip(),
+
+            "sex": staff.sex,
+
+            "birthday": staff.birthday,
+
+            "contact": staff.contact,
+
+            "local_church": staff.local_church,
+
+            "sector": staff.sector
+
+        }
+
+        for staff in staff_members
+
+    ]
+
+
+
+
+
 
 @app.get("/admin_view_registration_team_users")
 def admin_view_registration_team_users(
@@ -2616,6 +3752,28 @@ def registration_create_participant(
         )
 
     # ======================================================
+    # CHECK PARTICIPANT TYPE
+    # ======================================================
+
+    allowed_participant_types = [
+
+        "Regular Participants",
+
+        "Finding Sponsor"
+
+    ]
+
+    if data.participant_type not in allowed_participant_types:
+
+        raise HTTPException(
+
+            status_code=400,
+
+            detail="Invalid participant type. Choose either Regular Participants or Finding Sponsor."
+
+        )
+
+    # ======================================================
     # CHECK REGISTRATION PERIOD
     # ======================================================
 
@@ -2631,10 +3789,9 @@ def registration_create_participant(
 
         )
 
-    # Optional:
-    # Prevent registration after the event has started.
-    # Walk-in participants can still register after
-    # registration_end but before kickoff_date.
+    # ======================================================
+    # CHECK EVENT KICKOFF
+    # ======================================================
 
     if today > event.kickoff_date:
 
@@ -2746,6 +3903,8 @@ def registration_create_participant(
 
         registration_status="Pending",
 
+        participant_type=data.participant_type,
+
         registration_age=registration_age,
 
         # -----------------------------
@@ -2776,11 +3935,19 @@ def registration_create_participant(
 
     )
 
+    # ======================================================
+    # SAVE PARTICIPANT
+    # ======================================================
+
     db.add(participant)
 
     db.commit()
 
     db.refresh(participant)
+
+    # ======================================================
+    # RESPONSE
+    # ======================================================
 
     return {
 
@@ -2791,6 +3958,8 @@ def registration_create_participant(
             "participant_id": participant.id,
 
             "registration_number": participant.registration_number,
+
+            "participant_type": participant.participant_type,
 
             "registration_phase": participant.registration_phase,
 
@@ -3104,12 +4273,56 @@ def registration_update_participant(
         )
 
     # ======================================================
+    # CHECK PARTICIPANT TYPE
+    # ======================================================
+
+    allowed_participant_types = [
+
+        "Regular Participants",
+
+        "Finding Sponsor"
+
+    ]
+
+    if data.participant_type not in allowed_participant_types:
+
+        raise HTTPException(
+
+            status_code=400,
+
+            detail="Invalid participant type. Choose either Regular Participants or Finding Sponsor."
+
+        )
+
+    # ======================================================
+    # CHECK EVENT
+    # ======================================================
+
+    event = db.query(Event).filter(
+
+        Event.id == data.event_id,
+
+        Event.is_archived == 0
+
+    ).first()
+
+    if not event:
+
+        raise HTTPException(
+
+            status_code=404,
+
+            detail="Event not found."
+
+        )
+
+    # ======================================================
     # DUPLICATE VALIDATION
     # ======================================================
 
     duplicate = db.query(Participant).filter(
 
-        Participant.event_id == participant.event_id,
+        Participant.event_id == data.event_id,
 
         Participant.fname == data.fname,
 
@@ -3136,12 +4349,41 @@ def registration_update_participant(
         )
 
     # ======================================================
+    # UPDATE EVENT REFERENCE
+    # ======================================================
+
+    participant.event_id = event.id
+
+    # ======================================================
+    # UPDATE EVENT SNAPSHOT
+    # ======================================================
+
+    participant.event_name = event.event_name
+
+    participant.registration_start = event.registration_start
+
+    participant.registration_end = event.registration_end
+
+    participant.kickoff_date = event.kickoff_date
+
+    participant.wrapup_date = event.wrapup_date
+
+    # ======================================================
+    # UPDATE PARTICIPANT TYPE
+    # ======================================================
+
+    participant.participant_type = data.participant_type
+
+    # ======================================================
     # UPDATE PARTICIPANT INFORMATION
     # ======================================================
 
     participant.fname = data.fname
+
     participant.mname = data.mname
+
     participant.lname = data.lname
+
     participant.sex = data.sex
 
     participant.birthdate = data.birthdate
@@ -3153,17 +4395,34 @@ def registration_update_participant(
     )
 
     participant.address = data.address
+
     participant.contact_number = data.contact_number
+
     participant.emergency_contact = data.emergency_contact
+
     participant.email = data.email
+
     participant.local_church = data.local_church
+
     participant.sector = data.sector
 
+    # ======================================================
+    # UPDATE TIMESTAMP
+    # ======================================================
+
     participant.updated_at = datetime.datetime.now()
+
+    # ======================================================
+    # SAVE CHANGES
+    # ======================================================
 
     db.commit()
 
     db.refresh(participant)
+
+    # ======================================================
+    # RESPONSE
+    # ======================================================
 
     return {
 
@@ -3175,9 +4434,29 @@ def registration_update_participant(
 
             "registration_number": participant.registration_number,
 
+            "participant_type": participant.participant_type,
+
             "registration_age": participant.registration_age,
 
+            "registration_phase": participant.registration_phase,
+
             "registration_status": participant.registration_status
+
+        },
+
+        "event": {
+
+            "event_id": participant.event_id,
+
+            "event_name": participant.event_name,
+
+            "registration_start": participant.registration_start,
+
+            "registration_end": participant.registration_end,
+
+            "kickoff_date": participant.kickoff_date,
+
+            "wrapup_date": participant.wrapup_date
 
         }
 
@@ -4170,4 +5449,119 @@ def evaluation_view_participant_evaluation(
 
         }
 
+    }
+    
+
+# ======================================================
+# DASHBOARD TOTALS
+# ======================================================
+
+@app.get("/dashboard_totals")
+def dashboard_totals(
+    db: Session = Depends(get_db)
+):
+    """
+    Return live totals used by the Admin and Registration Team dashboards.
+    Only non-archived records are included.
+    """
+
+    total_participants = db.query(Participant).filter(
+        Participant.is_archived == 0
+    ).count()
+
+    total_staff = db.query(Staff).filter(
+        Staff.is_archived == 0
+    ).count()
+
+    total_chaperones = db.query(Chaperone).filter(
+        Chaperone.is_archived == 0
+    ).count()
+
+    total_events = db.query(Event).filter(
+        Event.is_archived == 0
+    ).count()
+
+    return {
+        "participants": total_participants,
+        "staff": total_staff,
+        "chaperones": total_chaperones,
+        "events": total_events
+    }
+
+
+# ======================================================
+# ACTIVE EVENT PARTICIPANT COUNT
+# ======================================================
+
+@app.get("/event_participant_count")
+def event_participant_count(
+
+    db: Session = Depends(get_db)
+
+):
+
+    events = db.query(Event).filter(
+
+        Event.is_archived == 0
+
+    ).all()
+
+    result = []
+
+    for event in events:
+
+        participant_count = db.query(Participant).filter(
+
+            Participant.event_id == event.id,
+
+            Participant.is_archived == 0
+
+        ).count()
+
+        result.append({
+
+            "event_id": event.id,
+
+            "event_name": event.event_name,
+
+            "participant_count": participant_count
+
+        })
+
+    return {
+
+        "events": result
+
+    }    
+    
+    
+# ======================================================
+# DASHBOARD TOTALS
+# ======================================================
+
+@app.get("/dashboard_totals")
+def dashboard_totals(
+    db: Session = Depends(get_db)
+):
+    total_participants = db.query(Participant).filter(
+        Participant.is_archived == 0
+    ).count()
+
+    total_staff = db.query(Staff).filter(
+        Staff.is_archived == 0
+    ).count()
+
+    total_chaperones = db.query(Chaperone).filter(
+        Chaperone.is_archived == 0
+    ).count()
+
+    total_events = db.query(Event).filter(
+        Event.is_archived == 0
+    ).count()
+
+    return {
+        "participants": total_participants,
+        "staff": total_staff,
+        "chaperones": total_chaperones,
+        "events": total_events
     }
