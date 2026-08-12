@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Home | CYF Registration System</title>
+
+    <meta
+        name="description"
+        content="CYF Registration System"
+    >
+
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+<header class="navbar">
+
+    <div class="nav-inner">
+
+        <a class="brand" href="home.html">
+
+            <span class="logo">CYF</span>
+
+            <span class="brand-text">
+                CYF Registration System
+            </span>
+
+        </a>
+
+        <button
+            class="menu-toggle"
+            onclick="toggleMenu()"
+            aria-label="Open menu"
+        >
+            ☰
+        </button>
+
+        <nav class="nav-links">
+
+            <a href="home.html" class="active">
+                Home
+            </a>
+
+            <a href="sponsor.html">
+                Sponsor
+            </a>
+
+            <a href="contact.html">
+                Contact
+            </a>
+
+            <a href="about.html">
+                About
+            </a>
+
+            <a href="login.html">
+                Login
+            </a>
+
+        </nav>
+
+    </div>
+
+</header>
+
+
+<main>
+
+<!-- ======================================================
+     HERO
+====================================================== -->
+
+<section class="hero">
+
+    <div class="hero-inner">
+
+        <div>
+
+            <span class="eyebrow">
+                Faith • Fellowship • Growth
+            </span>
+
+            <h1>
+                Register. Connect.
+                <br>
+                <span>Grow Together.</span>
+            </h1>
+
+            <p>
+                Welcome to the CYF Registration System —
+                your central place for upcoming youth camps,
+                conferences, registration, and event information.
+            </p>
+
+            <div class="actions">
+
+                <a
+                    id="register-event-btn"
+                    class="btn btn-primary"
+                    href="register.html"
+                >
+                    Register Now →
+                </a>
+
+                <a
+                    class="btn btn-outline"
+                    href="about.html"
+                >
+                    Learn More
+                </a>
+
+            </div>
+
+        </div>
+
+
+        <!-- ======================================================
+             EVENT CARD
+        ====================================================== -->
+
+        <div class="event-card">
+
+            <div class="event-top">
+
+                <div>
+
+                    <div class="event-label">
+                        Featured Event
+                    </div>
+
+                    <h2 id="event-name">
+                        Loading event...
+                    </h2>
+
+                </div>
+
+                <div class="event-icon">
+                    ✦
+                </div>
+
+            </div>
+
+
+            <div class="event-count">
+
+                <div>
+
+                    <div
+                        class="count-number"
+                        id="participant-count"
+                    >
+                        —
+                    </div>
+
+                    <div class="count-label">
+                        Registered Participants
+                    </div>
+
+                </div>
+
+                <div style="font-size:26px">
+                    👥
+                </div>
+
+            </div>
+
+
+            <div
+                id="event-status"
+                style="
+                    color:#ffe8e8;
+                    font-size:13px;
+                    font-weight:700;
+                    margin-bottom:12px;
+                "
+            >
+                Loading live event information...
+            </div>
+
+
+            <a
+                id="register-event-btn-2"
+                class="btn btn-gold"
+                href="register.html"
+            >
+                View Registration →
+            </a>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+<!-- ======================================================
+     FEATURES
+====================================================== -->
+
+<section class="section">
+
+    <div class="container">
+
+        <div class="section-head">
+
+            <div class="kicker">
+                CYF Registration
+            </div>
+
+            <h2>
+                Everything you need in one place.
+            </h2>
+
+            <p>
+                The landing page is ready for navigation now,
+                while the supporting pages remain static until
+                their individual features are connected.
+            </p>
+
+        </div>
+
+
+        <div class="cards">
+
+            <article class="info-card">
+
+                <div class="info-icon">
+                    📝
+                </div>
+
+                <h3>
+                    Easy Registration
+                </h3>
+
+                <p>
+                    Start your event registration through a
+                    clean, mobile-friendly form.
+                </p>
+
+            </article>
+
+
+            <article class="info-card">
+
+                <div class="info-icon">
+                    🤝
+                </div>
+
+                <h3>
+                    Sponsorship
+                </h3>
+
+                <p>
+                    Learn how you can support CYF activities
+                    and youth programs.
+                </p>
+
+            </article>
+
+
+            <article class="info-card">
+
+                <div class="info-icon">
+                    📣
+                </div>
+
+                <h3>
+                    Event Updates
+                </h3>
+
+                <p>
+                    Use the website as a central place for
+                    event announcements and information.
+                </p>
+
+            </article>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+<!-- ======================================================
+     SEARCH
+====================================================== -->
+
+<section class="section alt">
+
+    <div class="container">
+
+        <div class="section-head">
+
+            <div class="kicker">
+                Quick Search
+            </div>
+
+            <h2>
+                Find information faster.
+            </h2>
+
+            <p>
+                The search field is currently a UI placeholder
+                and can be connected to event or participant
+                search later.
+            </p>
+
+        </div>
+
+
+        <div class="search-wrap">
+
+            <span class="search-icon">
+                ⌕
+            </span>
+
+            <input
+                type="search"
+                placeholder="Search events, information, or announcements..."
+                aria-label="Search"
+            >
+
+        </div>
+
+    </div>
+
+</section>
+
+</main>
+
+
+<!-- ======================================================
+     FOOTER
+====================================================== -->
+
+<footer class="footer">
+
+    <div class="container footer-grid">
+
+        <div>
+
+            <h3>
+                CYF Registration System
+            </h3>
+
+            <p>
+                A simple and organized online registration
+                experience for CYF events, participants,
+                sponsors, and the community.
+            </p>
+
+        </div>
+
+
+        <div>
+
+            <h3>
+                Quick Links
+            </h3>
+
+            <p>
+
+                <a href="register.html">
+                    Register
+                </a>
+
+                <br>
+
+                <a href="sponsor.html">
+                    Sponsor
+                </a>
+
+                <br>
+
+                <a href="contact.html">
+                    Contact
+                </a>
+
+            </p>
+
+        </div>
+
+
+        <div>
+
+            <h3>
+                Information
+            </h3>
+
+            <p>
+
+                <a href="about.html">
+                    About CYF
+                </a>
+
+                <br>
+
+                <a href="login.html">
+                    Login
+                </a>
+
+            </p>
+
+        </div>
+
+    </div>
+
+
+    <div class="container copyright">
+
+        © 2026 CYF Registration System.
+        All rights reserved.
+
+    </div>
+
+</footer>
+
+
+<!-- ======================================================
+     JAVASCRIPT
+====================================================== -->
+
+<script>
+
+async function loadActiveEvent() {
+
+    const eventName =
+        document.getElementById("event-name");
+
+    const participantCount =
+        document.getElementById("participant-count");
+
+    const eventStatus =
+        document.getElementById("event-status");
+
+    const registerButton =
+        document.getElementById("register-event-btn");
+
+    const registerButton2 =
+        document.getElementById("register-event-btn-2");
+
+
+    try {
+
+        /*
+         * Because home.html is served by FastAPI,
+         * we can use a relative URL.
+         *
+         * NO API_URL is required.
+         */
+
+        const response = await fetch(
+            "http://127.0.0.1:8000/event_participant_count",
+            {
+                method: "GET",
+
+                headers: {
+                    "Accept": "application/json"
+                },
+
+                cache: "no-store"
+            }
+        );
+
+
+        if (!response.ok) {
+
+            throw new Error(
+                "FastAPI returned HTTP " +
+                response.status
+            );
+
+        }
+
+
+        const data = await response.json();
+
+
+        console.log(
+            "FastAPI event response:",
+            data
+        );
+
+
+        /*
+         * Expected response:
+         *
+         * {
+         *     "events": [
+         *         {
+         *             "event_id": 1,
+         *             "event_name": "Youth Bible Conference",
+         *             "participant_count": 14
+         *         }
+         *     ]
+         * }
+         */
+
+
+        if (
+            !data.events ||
+            data.events.length === 0
+        ) {
+
+            eventName.textContent =
+                "No Active Event";
+
+            participantCount.textContent =
+                "0";
+
+            eventStatus.textContent =
+                "There is currently no active event.";
+
+            registerButton.style.display =
+                "none";
+
+            registerButton2.style.display =
+                "none";
+
+            return;
+        }
+
+
+        /*
+         * Get the first active event.
+         */
+
+        const event =
+            data.events[0];
+
+
+        /*
+         * Event Name
+         */
+
+        eventName.textContent =
+            event.event_name;
+
+
+        /*
+         * Participant Count
+         */
+
+        participantCount.textContent =
+            Number(
+                event.participant_count || 0
+            ).toLocaleString();
+
+
+        /*
+         * Registration Status
+         */
+
+        eventStatus.textContent =
+            "Registration is currently available.";
+
+
+        /*
+         * Send event_id to register.html
+         */
+
+        const registerURL =
+            "register.html?event_id=" +
+            encodeURIComponent(
+                event.event_id
+            );
+
+
+        registerButton.href =
+            registerURL;
+
+        registerButton2.href =
+            registerURL;
+
+
+    } catch (error) {
+
+        console.error(
+            "FastAPI connection error:",
+            error
+        );
+
+
+        eventName.textContent =
+            "Unable to Load Event";
+
+        participantCount.textContent =
+            "—";
+
+        eventStatus.textContent =
+            "Could not connect to the registration server.";
+
+
+        registerButton.href =
+            "register.html";
+
+        registerButton2.href =
+            "register.html";
+
+    }
+
+}
+
+
+/* ======================================================
+   MOBILE MENU
+====================================================== */
+
+function toggleMenu() {
+
+    const menu =
+        document.querySelector(".nav-links");
+
+
+    if (menu) {
+
+        menu.classList.toggle("open");
+
+    }
+
+}
+
+
+/* ======================================================
+   PAGE LOAD
+====================================================== */
+
+document.addEventListener(
+    "DOMContentLoaded",
+    function () {
+
+        loadActiveEvent();
+
+
+        /*
+         * Close mobile menu after
+         * clicking a navigation link.
+         */
+
+        document
+            .querySelectorAll(".nav-links a")
+            .forEach(function (link) {
+
+                link.addEventListener(
+                    "click",
+                    function () {
+
+                        const menu =
+                            document.querySelector(
+                                ".nav-links"
+                            );
+
+
+                        if (menu) {
+
+                            menu.classList.remove(
+                                "open"
+                            );
+
+                        }
+
+                    }
+                );
+
+            });
+
+    }
+);
+
+</script>
+
+
+</body>
+
+</html>

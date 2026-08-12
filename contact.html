@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Contact | CYF Registration System</title>
+<meta name="description" content="CYF Registration System">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="navbar">
+  <div class="nav-inner">
+    <a class="brand" href="home.html">
+      <span class="logo">CYF</span><span class="brand-text">CYF Registration System</span>
+    </a>
+    <button class="menu-toggle" onclick="toggleMenu()" aria-label="Open menu">☰</button>
+    <nav class="nav-links"><a href="home.html" class="">Home</a><a href="sponsor.html" class="">Sponsor</a><a href="contact.html" class="active">Contact</a><a href="about.html" class="">About</a><a href="login.html" class="">Login</a></nav>
+  </div>
+</header>
+
+
+<section class="page-hero"><div class="container"><h1>Contact Us</h1><p>Have a question about registration, events, sponsorship, or CYF? Reach out to us.</p></div></section>
+<main class="container"><div class="form-card">
+<div class="form-grid">
+<div class="field"><label>Name</label><input placeholder="Your name"></div>
+<div class="field"><label>Email</label><input type="email" placeholder="you@example.com"></div>
+<div class="field full"><label>Subject</label><input placeholder="How can we help?"></div>
+<div class="field full"><label>Message</label><textarea placeholder="Write your message..."></textarea></div>
+</div>
+<div class="actions"><button class="btn btn-primary" type="button" onclick="alert('Contact submission will be connected later.')">Send Message</button></div>
+</div></main>
+
+
+<footer class="footer">
+  <div class="container footer-grid">
+    <div>
+      <h3>CYF Registration System</h3>
+      <p>A simple and organized online registration experience for CYF events, participants, sponsors, and the community.</p>
+    </div>
+    <div>
+      <h3>Quick Links</h3>
+      <p><a href="register.html">Register</a><br><a href="sponsor.html">Sponsor</a><br><a href="contact.html">Contact</a></p>
+    </div>
+    <div>
+      <h3>Information</h3>
+      <p><a href="about.html">About CYF</a><br><a href="login.html">Staff Login</a></p>
+    </div>
+  </div>
+  <div class="container copyright">© 2026 CYF Registration System. All rights reserved.</div>
+</footer>
+
+<script src="app.js"></script>
+
+</body>
+</html>
