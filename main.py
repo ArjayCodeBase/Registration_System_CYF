@@ -4488,6 +4488,60 @@ def registration_dashboard_html():
     return FileResponse(
         os.path.join(BASE_DIR, "registration_dashboard.html")
     )
+
+@app.get("/activity_event.html")
+def activity_event():
+    return FileResponse(
+        os.path.join(BASE_DIR, "activity_event.html")
+    )
+    
+@app.get("/team_event.html")
+def team_event():
+    return FileResponse(
+        os.path.join(BASE_DIR, "team_event.html")
+    )        
+
+@app.get("/program_event.html")
+def program_event():
+    return FileResponse(
+        os.path.join(BASE_DIR, "program_event.html")
+    )
+
+@app.get("/finances_event.html")
+def finances_event():
+    return FileResponse(
+        os.path.join(BASE_DIR, "finances_event.html")
+    )
+
+@app.get("/report_event.html")
+def report_event():
+    return FileResponse(
+        os.path.join(BASE_DIR, "report_event.html")
+    )
+
+@app.get("/event_event.html")
+def event_event():
+    return FileResponse(
+        os.path.join(BASE_DIR, "event_event.html")
+    )
+
+@app.get("/participants.html")
+def participants_page():
+    return FileResponse(
+        os.path.join(BASE_DIR, "participants.html")
+    )
+    
+@app.get("/staff.html")
+def staff_page():
+    return FileResponse(
+        os.path.join(BASE_DIR, "staff.html")
+    )
+
+
+
+
+
+
     
 # ======================================================
 # AUTHENTICATION
@@ -5443,115 +5497,76 @@ def register_view_archived_chaperones(
     ]
 
 
-# ======================================================
-# VIEW ALL STAFF
-# ======================================================
-
 @app.get("/register_view_all_staff")
 def register_view_all_staff(
-
     event_id: int,
-
     db: Session = Depends(get_db)
-
 ):
 
     staff_members = db.query(Staff).filter(
-
         Staff.event_id == event_id,
-
         Staff.is_archived == 0
-
     ).all()
 
+    event = db.query(Event).filter(
+        Event.id == event_id,
+        Event.is_archived == 0
+    ).first()
+
+    event_name = event.event_name if event else None
+
     return [
-
         {
-
             "staff_id": staff.id,
-
             "event_id": staff.event_id,
-
-            "event_name": staff.event_name,
-
+            "event_name": event_name,
             "fname": staff.fname,
-
             "mname": staff.mname,
-
             "lname": staff.lname,
-
             "sex": staff.sex,
-
             "birthday": staff.birthday,
-
             "contact": staff.contact,
-
             "local_church": staff.local_church,
-
             "sector": staff.sector
-
         }
-
         for staff in staff_members
-
     ]
 
 
-# ======================================================
-# VIEW SINGLE STAFF
-# ======================================================
-
 @app.get("/register_view_staff/{staff_id}")
 def register_view_staff(
-
     staff_id: int,
-
     db: Session = Depends(get_db)
-
 ):
 
     staff = db.query(Staff).filter(
-
         Staff.id == staff_id,
-
         Staff.is_archived == 0
-
     ).first()
 
     if not staff:
-
         raise HTTPException(
-
             status_code=404,
-
             detail="Staff member not found."
-
         )
 
+    event = db.query(Event).filter(
+        Event.id == staff.event_id,
+        Event.is_archived == 0
+    ).first()
+
     return {
-
         "staff_id": staff.id,
-
         "event_id": staff.event_id,
-
-        "event_name": staff.event_name,
-
+        "event_name": event.event_name if event else None,
         "fname": staff.fname,
-
         "mname": staff.mname,
-
         "lname": staff.lname,
-
         "sex": staff.sex,
-
         "birthday": staff.birthday,
-
         "contact": staff.contact,
-
         "local_church": staff.local_church,
-
         "sector": staff.sector
-
     }
 
 
@@ -5838,9 +5853,7 @@ def admin_view_registration_team_users(
     
 
 
-# ======================================================
-# CREATE EVENT
-# ======================================================
+
 
 # ======================================================
 # CREATE EVENT
