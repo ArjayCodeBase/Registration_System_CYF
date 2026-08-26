@@ -1,0 +1,2665 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        Home | CYF Registration System
+    </title>
+
+    <meta
+        name="description"
+        content="CYF Registration System"
+    >
+
+    <!-- Your existing stylesheet -->
+    <link
+        rel="stylesheet"
+        href="styles.css"
+    >
+
+
+    <style>
+
+        /* ======================================================
+           PARTICIPANT SEARCH SECTION
+        ====================================================== */
+
+        .participant-search-box {
+
+            margin-top: 25px;
+
+            background: #ffffff;
+
+            border-radius: 20px;
+
+            padding: 25px;
+
+            border: 1px solid #eeeeee;
+
+            box-shadow:
+                0 10px 35px rgba(0, 0, 0, 0.08);
+
+        }
+
+
+        .search-form {
+
+            display: flex;
+
+            gap: 12px;
+
+            width: 100%;
+
+        }
+
+
+        .search-input-wrap {
+
+            position: relative;
+
+            flex: 1;
+
+        }
+
+
+        .search-input-wrap span {
+
+            position: absolute;
+
+            left: 16px;
+
+            top: 50%;
+
+            transform:
+                translateY(-50%);
+
+            font-size: 20px;
+
+            color: #888888;
+
+            pointer-events: none;
+
+        }
+
+
+        .participant-search-input {
+
+            width: 100%;
+
+            box-sizing: border-box;
+
+            padding:
+                15px
+                18px
+                15px
+                48px;
+
+            border:
+                1px solid #dddddd;
+
+            border-radius: 12px;
+
+            font-size: 15px;
+
+            outline: none;
+
+            transition:
+                border-color 0.2s,
+                box-shadow 0.2s;
+
+        }
+
+
+        .participant-search-input:focus {
+
+            border-color: #b5121b;
+
+            box-shadow:
+                0 0 0 3px
+                rgba(181, 18, 27, 0.10);
+
+        }
+
+
+        .search-button {
+
+            border: none;
+
+            border-radius: 12px;
+
+            padding:
+                0 24px;
+
+            min-width: 120px;
+
+            background: #b5121b;
+
+            color: #ffffff;
+
+            font-size: 15px;
+
+            font-weight: 800;
+
+            cursor: pointer;
+
+            transition:
+                transform 0.2s,
+                background 0.2s;
+
+        }
+
+
+        .search-button:hover {
+
+            background: #8f0d15;
+
+            transform:
+                translateY(-1px);
+
+        }
+
+
+        .search-button:disabled {
+
+            opacity: 0.6;
+
+            cursor: not-allowed;
+
+            transform: none;
+
+        }
+
+
+        .search-help {
+
+            margin-top: 10px;
+
+            font-size: 13px;
+
+            color: #777777;
+
+        }
+
+
+        /* ======================================================
+           SEARCH RESULTS
+        ====================================================== */
+
+        #participant-search-results {
+
+            margin-top: 25px;
+
+        }
+
+
+        .search-results-header {
+
+            display: flex;
+
+            justify-content: space-between;
+
+            align-items: center;
+
+            margin-bottom: 15px;
+
+            gap: 15px;
+
+        }
+
+
+        .search-results-title {
+
+            font-size: 18px;
+
+            font-weight: 800;
+
+            color: #222222;
+
+        }
+
+
+        .search-results-count {
+
+            font-size: 13px;
+
+            color: #777777;
+
+        }
+
+
+        .participant-results {
+
+            display: grid;
+
+            grid-template-columns:
+                repeat(
+                    auto-fit,
+                    minmax(300px, 1fr)
+                );
+
+            gap: 18px;
+
+        }
+
+
+        .participant-result-card {
+
+            background: #ffffff;
+
+            border:
+                1px solid #eeeeee;
+
+            border-radius: 18px;
+
+            padding: 20px;
+
+            box-shadow:
+                0 8px 25px
+                rgba(0, 0, 0, 0.06);
+
+            transition:
+                transform 0.2s,
+                box-shadow 0.2s;
+
+        }
+
+
+        .participant-result-card:hover {
+
+            transform:
+                translateY(-3px);
+
+            box-shadow:
+                0 14px 35px
+                rgba(0, 0, 0, 0.10);
+
+        }
+
+
+        /* ======================================================
+           PARTICIPANT TOP
+        ====================================================== */
+
+        .participant-result-top {
+
+            display: flex;
+
+            align-items: flex-start;
+
+            justify-content: space-between;
+
+            gap: 15px;
+
+            margin-bottom: 16px;
+
+        }
+
+
+        .participant-avatar {
+
+            width: 48px;
+
+            height: 48px;
+
+            border-radius: 50%;
+
+            display: flex;
+
+            align-items: center;
+
+            justify-content: center;
+
+            background:
+                linear-gradient(
+                    135deg,
+                    #b5121b,
+                    #8e0c13
+                );
+
+            color: #ffffff;
+
+            font-weight: 900;
+
+            font-size: 17px;
+
+            flex-shrink: 0;
+
+        }
+
+
+        .participant-main-info {
+
+            flex: 1;
+
+            min-width: 0;
+
+        }
+
+
+        .participant-name {
+
+            margin: 0;
+
+            font-size: 17px;
+
+            font-weight: 900;
+
+            color: #222222;
+
+            word-break: break-word;
+
+        }
+
+
+        .participant-registration {
+
+            margin-top: 4px;
+
+            font-size: 12px;
+
+            color: #777777;
+
+            font-weight: 700;
+
+        }
+
+
+        /* ======================================================
+           STATUS BADGES
+        ====================================================== */
+
+        .status-badge {
+
+            display: inline-flex;
+
+            align-items: center;
+
+            justify-content: center;
+
+            padding:
+                5px
+                9px;
+
+            border-radius: 999px;
+
+            font-size: 11px;
+
+            font-weight: 900;
+
+            white-space: nowrap;
+
+        }
+
+
+        .status-paid {
+
+            background: #e8f7ed;
+
+            color: #16753b;
+
+        }
+
+
+        .status-partial {
+
+            background: #fff5d9;
+
+            color: #946c00;
+
+        }
+
+
+        .status-unpaid {
+
+            background: #fde9e9;
+
+            color: #b5121b;
+
+        }
+
+
+        .status-pending {
+
+            background: #fff5d9;
+
+            color: #946c00;
+
+        }
+
+
+        .status-confirmed {
+
+            background: #e8f7ed;
+
+            color: #16753b;
+
+        }
+
+
+        /* ======================================================
+           PARTICIPANT DETAILS
+        ====================================================== */
+
+        .participant-details {
+
+            border-top:
+                1px solid #eeeeee;
+
+            padding-top: 15px;
+
+            display: grid;
+
+            grid-template-columns:
+                repeat(2, minmax(0, 1fr));
+
+            gap: 12px;
+
+        }
+
+
+        .participant-detail {
+
+            min-width: 0;
+
+        }
+
+
+        .participant-detail-label {
+
+            display: block;
+
+            font-size: 10px;
+
+            text-transform: uppercase;
+
+            letter-spacing: 0.5px;
+
+            color: #999999;
+
+            font-weight: 800;
+
+            margin-bottom: 3px;
+
+        }
+
+
+        .participant-detail-value {
+
+            display: block;
+
+            font-size: 13px;
+
+            color: #333333;
+
+            font-weight: 700;
+
+            word-break: break-word;
+
+        }
+
+
+        .participant-event {
+
+            grid-column:
+                1 / -1;
+
+            padding:
+                10px 12px;
+
+            background: #fff9e6;
+
+            border-left:
+                3px solid #d4a017;
+
+            border-radius: 8px;
+
+        }
+
+
+        /* ======================================================
+           PAYMENT AREA
+        ====================================================== */
+
+        .participant-payment {
+
+            margin-top: 17px;
+
+            padding-top: 15px;
+
+            border-top:
+                1px solid #eeeeee;
+
+        }
+
+
+        .payment-status-row {
+
+            display: flex;
+
+            justify-content: space-between;
+
+            align-items: center;
+
+            gap: 10px;
+
+            margin-bottom: 12px;
+
+        }
+
+
+        .payment-status-label {
+
+            font-size: 13px;
+
+            font-weight: 800;
+
+            color: #555555;
+
+        }
+
+
+        .merchandise-status {
+
+            display: flex;
+
+            gap: 8px;
+
+            flex-wrap: wrap;
+
+            margin-bottom: 14px;
+
+        }
+
+
+        .merchandise-item {
+
+            display: inline-flex;
+
+            align-items: center;
+
+            gap: 5px;
+
+            padding:
+                5px
+                9px;
+
+            border-radius: 8px;
+
+            background: #f7f7f7;
+
+            border:
+                1px solid #eeeeee;
+
+            font-size: 11px;
+
+            font-weight: 700;
+
+        }
+
+
+        /* ======================================================
+           PAY NOW
+        ====================================================== */
+
+        .pay-now-button {
+
+            display: flex;
+
+            align-items: center;
+
+            justify-content: center;
+
+            width: 100%;
+
+            box-sizing: border-box;
+
+            padding:
+                12px
+                16px;
+
+            border: none;
+
+            border-radius: 10px;
+
+            background:
+                linear-gradient(
+                    135deg,
+                    #b5121b,
+                    #d4a017
+                );
+
+            color: #ffffff;
+
+            text-decoration: none;
+
+            font-size: 14px;
+
+            font-weight: 900;
+
+            cursor: pointer;
+
+            transition:
+                transform 0.2s,
+                box-shadow 0.2s;
+
+        }
+
+
+        .pay-now-button:hover {
+
+            color: #ffffff;
+
+            transform:
+                translateY(-2px);
+
+            box-shadow:
+                0 8px 20px
+                rgba(181, 18, 27, 0.22);
+
+        }
+
+
+        .pay-now-button.disabled {
+
+            background: #dddddd;
+
+            color: #888888;
+
+            cursor: not-allowed;
+
+            pointer-events: none;
+
+            box-shadow: none;
+
+        }
+
+
+        /* ======================================================
+           SEARCH MESSAGE
+        ====================================================== */
+
+        .search-message {
+
+            padding: 25px;
+
+            border-radius: 15px;
+
+            background: #ffffff;
+
+            border:
+                1px solid #eeeeee;
+
+            text-align: center;
+
+            color: #777777;
+
+            font-size: 14px;
+
+        }
+
+
+        .search-message.error {
+
+            color: #b5121b;
+
+            background: #fff6f6;
+
+            border-color: #f1caca;
+
+        }
+
+
+        .search-message.loading {
+
+            color: #946c00;
+
+            background: #fffaf0;
+
+            border-color: #f1dfab;
+
+        }
+
+
+        /* ======================================================
+           SPONSORSHIP STATUS
+        ====================================================== */
+
+        .sponsor-status-box {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            width: 100%;
+            box-sizing: border-box;
+            padding: 14px;
+            border-radius: 12px;
+            border: 1px solid #eeeeee;
+        }
+
+        .sponsor-status-box strong {
+            display: block;
+            font-size: 13px;
+            font-weight: 900;
+            margin-bottom: 4px;
+        }
+
+        .sponsor-status-box span {
+            display: block;
+            font-size: 12px;
+            line-height: 1.45;
+        }
+
+        .sponsor-status-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            font-weight: 900;
+        }
+
+        .sponsor-review {
+            background: #fffaf0;
+            border-color: #f1dfab;
+            color: #795900;
+        }
+
+        .sponsor-review .sponsor-status-icon {
+            background: #fff0c2;
+            color: #946c00;
+        }
+
+        .sponsor-confirmed {
+            background: #eefaf2;
+            border-color: #c9ead4;
+            color: #176b38;
+        }
+
+        .sponsor-confirmed .sponsor-status-icon {
+            background: #d9f2e1;
+            color: #16753b;
+        }
+
+        /* ======================================================
+           MOBILE
+        ====================================================== */
+
+        @media (max-width: 700px) {
+
+            .search-form {
+
+                flex-direction: column;
+
+            }
+
+
+            .search-button {
+
+                min-height: 48px;
+
+            }
+
+
+            .participant-details {
+
+                grid-template-columns:
+                    1fr;
+
+            }
+
+
+            .participant-event {
+
+                grid-column:
+                    auto;
+
+            }
+
+
+            .search-results-header {
+
+                align-items: flex-start;
+
+                flex-direction: column;
+
+            }
+
+        }
+
+    </style>
+
+</head>
+
+
+
+<body>
+
+
+<!-- ======================================================
+     NAVIGATION
+====================================================== -->
+
+<header class="navbar">
+
+    <div class="nav-inner">
+
+
+        <a
+            class="brand"
+            href="home.html"
+        >
+
+            <span class="logo">
+                CYF
+            </span>
+
+            <span class="brand-text">
+                CYF Registration System
+            </span>
+
+        </a>
+
+
+
+        <button
+            class="menu-toggle"
+            onclick="toggleMenu()"
+            aria-label="Open menu"
+        >
+            ☰
+        </button>
+
+
+
+        <nav class="nav-links">
+
+            <a
+                href="home.html"
+                class="active"
+            >
+                Home
+            </a>
+
+                        <a href="store.html">
+                Store
+            </a>
+
+
+            <a href="register.html">
+                Register
+            </a>
+
+
+            <a href="sponsor.html">
+                Sponsor
+            </a>
+
+
+            <a href="contact.html">
+                Contact
+            </a>
+
+
+            <a href="about.html">
+                About
+            </a>
+
+
+            <a href="login.html">
+                Login
+            </a>
+
+        </nav>
+
+    </div>
+
+</header>
+
+
+
+<!-- ======================================================
+     MAIN
+====================================================== -->
+
+<main>
+
+
+<!-- ======================================================
+     HERO
+====================================================== -->
+
+<section class="hero">
+
+    <div class="hero-inner">
+
+
+        <div>
+
+
+            <span class="eyebrow">
+                Faith • Fellowship • Growth
+            </span>
+
+
+
+            <h1>
+
+                Register. Connect.
+
+                <br>
+
+                <span>
+                    Grow Together.
+                </span>
+
+            </h1>
+
+
+
+            <p>
+
+                Welcome to the CYF Registration System —
+                your central place for upcoming youth camps,
+                conferences, registration, and event information.
+
+            </p>
+
+
+
+            <div class="actions">
+
+
+                <a
+                    id="register-event-btn"
+                    class="btn btn-primary"
+                    href="register.html"
+                >
+                    Register Now →
+                </a>
+
+
+
+                <a
+                    class="btn btn-outline"
+                    href="about.html"
+                >
+                    Learn More
+                </a>
+
+
+            </div>
+
+
+        </div>
+
+
+
+        <!-- ==================================================
+             ACTIVE EVENT
+        ================================================== -->
+
+        <div class="event-card">
+
+
+            <div class="event-top">
+
+
+                <div>
+
+                    <div class="event-label">
+                        Featured Event
+                    </div>
+
+
+                    <h2 id="event-name">
+                        Loading event...
+                    </h2>
+
+                </div>
+
+
+                <div class="event-icon">
+                    ✦
+                </div>
+
+
+            </div>
+
+
+
+            <div class="event-count">
+
+
+                <div>
+
+                    <div
+                        class="count-number"
+                        id="participant-count"
+                    >
+                        —
+                    </div>
+
+
+                    <div class="count-label">
+                        Registered Participants
+                    </div>
+
+                </div>
+
+
+                <div style="font-size:26px;">
+                    👥
+                </div>
+
+
+            </div>
+
+
+
+            <div
+                id="event-status"
+                style="
+                    color:#ffe8e8;
+                    font-size:13px;
+                    font-weight:700;
+                    margin-bottom:12px;
+                "
+            >
+                Loading live event information...
+            </div>
+
+
+
+            <a
+                id="register-event-btn-2"
+                class="btn btn-gold"
+                href="register.html"
+            >
+                View Registration →
+            </a>
+
+
+        </div>
+
+
+    </div>
+
+</section>
+
+
+
+<!-- ======================================================
+     FEATURES
+====================================================== -->
+
+<section class="section">
+
+    <div class="container">
+
+
+        <div class="section-head">
+
+
+            <div class="kicker">
+                CYF Registration
+            </div>
+
+
+            <h2>
+                Everything you need in one place.
+            </h2>
+
+
+            <p>
+
+                Register for events, find your registration,
+                manage your payment, and stay connected with
+                CYF activities.
+
+            </p>
+
+
+        </div>
+
+
+
+        <div class="cards">
+
+
+            <article class="info-card">
+
+
+                <div class="info-icon">
+                    📝
+                </div>
+
+
+                <h3>
+                    Easy Registration
+                </h3>
+
+
+                <p>
+
+                    Start your event registration through a
+                    clean, mobile-friendly form.
+
+                </p>
+
+
+            </article>
+
+
+
+            <article class="info-card">
+
+
+                <div class="info-icon">
+                    💳
+                </div>
+
+
+                <h3>
+                    Easy Payment
+                </h3>
+
+
+                <p>
+
+                    Find your registration and continue to
+                    payment for your event merchandise.
+
+                </p>
+
+
+            </article>
+
+
+
+            <article class="info-card">
+
+
+                <div class="info-icon">
+                    📣
+                </div>
+
+
+                <h3>
+                    Event Updates
+                </h3>
+
+
+                <p>
+
+                    Use the website as a central place for
+                    event announcements and information.
+
+                </p>
+
+
+            </article>
+
+
+        </div>
+
+
+    </div>
+
+</section>
+
+
+
+<!-- ======================================================
+     PARTICIPANT SEARCH
+====================================================== -->
+
+<section class="section alt">
+
+    <div class="container">
+
+
+        <div class="section-head">
+
+
+            <div class="kicker">
+                Participant Portal
+            </div>
+
+
+            <h2>
+                Find Your Registration
+            </h2>
+
+
+            <p>
+
+                Search using your name, registration number,
+                event, or other registration information.
+                You can also continue to payment from your
+                participant record.
+
+            </p>
+
+
+        </div>
+
+
+
+        <div class="participant-search-box">
+
+
+            <form
+                class="search-form"
+                id="participant-search-form"
+            >
+
+
+                <div class="search-input-wrap">
+
+
+                    <span>
+                        🔎
+                    </span>
+
+
+                    <input
+                        id="participant-search-input"
+                        class="participant-search-input"
+                        type="search"
+                        autocomplete="off"
+                        placeholder="Search name, registration number, event..."
+                        aria-label="Search participant"
+                    >
+
+
+                </div>
+
+
+
+                <button
+                    id="participant-search-button"
+                    class="search-button"
+                    type="submit"
+                >
+                    Search
+                </button>
+
+
+            </form>
+
+
+
+            <div class="search-help">
+
+                Example:
+                <strong>
+                    Juan Dela Cruz
+                </strong>,
+
+                <strong>
+                    YBC-2026-0008
+                </strong>,
+
+                <strong>
+                    Youth Bible Conference
+                </strong>,
+
+                or
+
+                <strong>
+                    Paid
+                </strong>.
+
+            </div>
+
+
+
+            <div
+                id="participant-search-results"
+                aria-live="polite"
+            ></div>
+
+
+        </div>
+
+
+    </div>
+
+</section>
+
+
+
+</main>
+
+
+
+<!-- ======================================================
+     FOOTER
+====================================================== -->
+
+<footer class="footer">
+
+
+    <div class="container footer-grid">
+
+
+        <div>
+
+
+            <h3>
+                CYF Registration System
+            </h3>
+
+
+            <p>
+
+                A simple and organized online registration
+                experience for CYF events, participants,
+                sponsors, and the community.
+
+            </p>
+
+
+        </div>
+
+
+
+        <div>
+
+
+            <h3>
+                Quick Links
+            </h3>
+
+
+            <p>
+
+
+                <a href="register.html">
+                    Register
+                </a>
+
+
+                <br>
+
+
+                <a href="sponsor.html">
+                    Sponsor
+                </a>
+
+
+                <br>
+
+
+                <a href="contact.html">
+                    Contact
+                </a>
+
+
+            </p>
+
+
+        </div>
+
+
+
+        <div>
+
+
+            <h3>
+                Information
+            </h3>
+
+
+            <p>
+
+
+                <a href="about.html">
+                    About CYF
+                </a>
+
+
+                <br>
+
+
+                <a href="login.html">
+                    Staff Login
+                </a>
+
+
+            </p>
+
+
+        </div>
+
+
+    </div>
+
+
+
+    <div class="container copyright">
+
+        © 2026 CYF Registration System.
+        All rights reserved.
+
+    </div>
+
+
+</footer>
+
+
+
+<script>
+
+
+/* ======================================================
+   LOAD ACTIVE EVENT
+====================================================== */
+
+async function loadActiveEvent() {
+
+    const eventName =
+        document.getElementById(
+            "event-name"
+        );
+
+
+    const participantCount =
+        document.getElementById(
+            "participant-count"
+        );
+
+
+    const eventStatus =
+        document.getElementById(
+            "event-status"
+        );
+
+
+    const registerButton =
+        document.getElementById(
+            "register-event-btn"
+        );
+
+
+    const registerButton2 =
+        document.getElementById(
+            "register-event-btn-2"
+        );
+
+
+    try {
+
+
+        const response =
+            await fetch(
+                "http://127.0.0.1:8000/event_participant_count",
+                {
+                    method: "GET",
+
+                    headers: {
+                        "Accept":
+                            "application/json"
+                    },
+
+                    cache: "no-store"
+                }
+            );
+
+
+        if (!response.ok) {
+
+            throw new Error(
+                "FastAPI returned HTTP "
+                + response.status
+            );
+
+        }
+
+
+        const data =
+            await response.json();
+
+
+        if (
+            !data.events
+            ||
+            data.events.length === 0
+        ) {
+
+
+            eventName.textContent =
+                "No Active Event";
+
+
+            participantCount.textContent =
+                "0";
+
+
+            eventStatus.textContent =
+                "There is currently no active event.";
+
+
+            registerButton.style.display =
+                "none";
+
+
+            registerButton2.style.display =
+                "none";
+
+
+            return;
+
+        }
+
+
+        const event =
+            data.events[0];
+
+
+        eventName.textContent =
+            event.event_name;
+
+
+        participantCount.textContent =
+            Number(
+                event.participant_count || 0
+            ).toLocaleString();
+
+
+        eventStatus.textContent =
+            "Registration is currently available.";
+
+
+        const registerURL =
+            "register.html?event_id="
+            +
+            encodeURIComponent(
+                event.event_id
+            );
+
+
+        registerButton.href =
+            registerURL;
+
+
+        registerButton2.href =
+            registerURL;
+
+
+    }
+
+
+    catch (error) {
+
+
+        console.error(
+            "FastAPI event error:",
+            error
+        );
+
+
+        eventName.textContent =
+            "Unable to Load Event";
+
+
+        participantCount.textContent =
+            "—";
+
+
+        eventStatus.textContent =
+            "Could not connect to the registration server.";
+
+
+        registerButton.href =
+            "register.html";
+
+
+        registerButton2.href =
+            "register.html";
+
+    }
+
+}
+
+
+
+/* ======================================================
+   ESCAPE HTML
+====================================================== */
+
+function escapeHTML(value) {
+
+    return String(value ?? "")
+
+        .replace(
+            /&/g,
+            "&amp;"
+        )
+
+        .replace(
+            /</g,
+            "&lt;"
+        )
+
+        .replace(
+            />/g,
+            "&gt;"
+        )
+
+        .replace(
+            /"/g,
+            "&quot;"
+        )
+
+        .replace(
+            /'/g,
+            "&#039;"
+        );
+
+}
+
+
+
+/* ======================================================
+   GET PARTICIPANT INITIALS
+====================================================== */
+
+function getInitials(name) {
+
+    const parts =
+        String(name || "")
+            .trim()
+            .split(/\s+/)
+            .filter(Boolean);
+
+
+    if (!parts.length) {
+
+        return "P";
+
+    }
+
+
+    if (parts.length === 1) {
+
+        return parts[0]
+            .substring(0, 2)
+            .toUpperCase();
+
+    }
+
+
+    return (
+        parts[0][0]
+        +
+        parts[parts.length - 1][0]
+    ).toUpperCase();
+
+}
+
+
+
+/* ======================================================
+   STATUS CLASS
+====================================================== */
+
+function getStatusClass(status) {
+
+    const value =
+        String(status || "")
+            .toLowerCase()
+            .trim();
+
+
+    if (value === "paid") {
+
+        return "status-paid";
+
+    }
+
+
+    if (value === "partial") {
+
+        return "status-partial";
+
+    }
+
+
+    if (
+        value === "confirmed"
+        ||
+        value === "completed"
+    ) {
+
+        return "status-confirmed";
+
+    }
+
+
+    if (value === "pending") {
+
+        return "status-pending";
+
+    }
+
+
+    return "status-unpaid";
+
+}
+
+
+
+/* ======================================================
+   DISPLAY PARTICIPANT RESULTS
+====================================================== */
+
+function displayParticipantResults(
+    participants
+) {
+
+    const container =
+        document.getElementById(
+            "participant-search-results"
+        );
+
+    if (
+        !Array.isArray(participants) ||
+        participants.length === 0
+    ) {
+        container.innerHTML = `
+            <div class="search-message">
+                <div
+                    style="font-size:32px;margin-bottom:8px;"
+                >
+                    🔎
+                </div>
+
+                <strong>
+                    No participant found
+                </strong>
+
+                <div
+                    style="margin-top:6px;font-size:13px;"
+                >
+                    Try searching using the full name
+                    or registration number.
+                </div>
+            </div>
+        `;
+
+        return;
+    }
+
+    let html = `
+        <div class="search-results-header">
+            <div class="search-results-title">
+                Participant Results
+            </div>
+
+            <div class="search-results-count">
+                ${participants.length}
+                result${participants.length !== 1 ? "s" : ""}
+            </div>
+        </div>
+
+        <div class="participant-results">
+    `;
+
+    participants.forEach(
+        function(participant) {
+
+            const fullname =
+                participant.fullname ||
+                "Participant";
+
+            const registrationNumber =
+                participant.registration_number ||
+                "N/A";
+
+            const eventName =
+                participant.event_name ||
+                "N/A";
+
+            const registrationPhase =
+                participant.registration_phase ||
+                "N/A";
+
+            const registrationStatus =
+                participant.registration_status ||
+                "Pending";
+
+            const participantType =
+                participant.participant_type ||
+                "Regular Participants";
+
+            const paymentStatus =
+                participant.payment_status ||
+                "Unpaid";
+
+            const tshirtStatus =
+                participant.tshirt_status ||
+                "Unpaid";
+
+            const lanyardStatus =
+                participant.lanyard_status ||
+                "Unpaid";
+
+            const participantId =
+                participant.participant_id;
+
+            const normalizedType =
+                String(participantType)
+                    .toLowerCase()
+                    .trim();
+
+            const isFindingSponsor =
+                normalizedType === "finding sponsor";
+
+            const tshirtPaid =
+                String(tshirtStatus)
+                    .toLowerCase()
+                    .trim() === "paid";
+
+            const lanyardPaid =
+                String(lanyardStatus)
+                    .toLowerCase()
+                    .trim() === "paid";
+
+            const bothMerchandisePaid =
+                tshirtPaid && lanyardPaid;
+
+            const paymentURL =
+                "payment.html?participant_id=" +
+                encodeURIComponent(
+                    participantId
+                );
+
+            let payButtonHTML = "";
+
+            /* ==================================================
+               FINDING SPONSOR
+            ================================================== */
+
+            if (isFindingSponsor) {
+
+                if (bothMerchandisePaid) {
+
+                    payButtonHTML = `
+                        <div class="sponsor-status-box sponsor-confirmed">
+                            <div class="sponsor-status-icon">
+                                ✓
+                            </div>
+
+                            <div>
+                                <strong>
+                                    Sponsorship Confirmed
+                                </strong>
+
+                                <span>
+                                    Your sponsorship and registration items
+                                    have been confirmed.
+                                </span>
+                            </div>
+                        </div>
+                    `;
+
+                } else {
+
+                    payButtonHTML = `
+                        <div class="sponsor-status-box sponsor-review">
+                            <div class="sponsor-status-icon">
+                                ⏳
+                            </div>
+
+                            <div>
+                                <strong>
+                                    Sponsorship Under Review
+                                </strong>
+
+                                <span>
+                                    Your data has been received and your
+                                    sponsorship request is currently in the queue.
+                                </span>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+
+            /* ==================================================
+               REGULAR PARTICIPANT
+            ================================================== */
+
+            else {
+
+                if (bothMerchandisePaid) {
+
+                    payButtonHTML = `
+                        <a
+                            class="pay-now-button disabled"
+                            href="#"
+                            onclick="return false;"
+                        >
+                            ✓ Payment Complete
+                        </a>
+                    `;
+
+                } else if (lanyardPaid) {
+
+                    payButtonHTML = `
+                        <a
+                            class="pay-now-button"
+                            href="${paymentURL}"
+                        >
+                            👕 Buy T-shirt →
+                        </a>
+                    `;
+
+                } else {
+
+                    payButtonHTML = `
+                        <a
+                            class="pay-now-button"
+                            href="${paymentURL}"
+                        >
+                            💳 Proceed to Payment →
+                        </a>
+                    `;
+                }
+            }
+
+            html += `
+                <article
+                    class="participant-result-card"
+                >
+
+                    <div
+                        class="participant-result-top"
+                    >
+
+                        <div
+                            class="participant-avatar"
+                        >
+                            ${escapeHTML(
+                                getInitials(
+                                    fullname
+                                )
+                            )}
+                        </div>
+
+                        <div
+                            class="participant-main-info"
+                        >
+
+                            <h3
+                                class="participant-name"
+                            >
+                                ${escapeHTML(
+                                    fullname
+                                )}
+                            </h3>
+
+                            <div
+                                class="participant-registration"
+                            >
+                                ${escapeHTML(
+                                    registrationNumber
+                                )}
+                            </div>
+
+                        </div>
+
+                        <span
+                            class="status-badge ${getStatusClass(
+                                registrationStatus
+                            )}"
+                        >
+                            ${escapeHTML(
+                                registrationStatus
+                            )}
+                        </span>
+
+                    </div>
+
+                    <div
+                        class="participant-details"
+                    >
+
+                        <div
+                            class="participant-detail participant-event"
+                        >
+                            <span
+                                class="participant-detail-label"
+                            >
+                                Event
+                            </span>
+
+                            <span
+                                class="participant-detail-value"
+                            >
+                                ${escapeHTML(
+                                    eventName
+                                )}
+                            </span>
+                        </div>
+
+                        <div
+                            class="participant-detail"
+                        >
+                            <span
+                                class="participant-detail-label"
+                            >
+                                Participant Type
+                            </span>
+
+                            <span
+                                class="participant-detail-value"
+                            >
+                                ${escapeHTML(
+                                    participantType
+                                )}
+                            </span>
+                        </div>
+
+                        <div
+                            class="participant-detail"
+                        >
+                            <span
+                                class="participant-detail-label"
+                            >
+                                Registration Phase
+                            </span>
+
+                            <span
+                                class="participant-detail-value"
+                            >
+                                ${escapeHTML(
+                                    registrationPhase
+                                )}
+                            </span>
+                        </div>
+
+                        <div
+                            class="participant-detail"
+                        >
+                            <span
+                                class="participant-detail-label"
+                            >
+                                Payment Status
+                            </span>
+
+                            <span
+                                class="participant-detail-value"
+                            >
+                                <span
+                                    class="status-badge ${getStatusClass(
+                                        isFindingSponsor
+                                            ? (
+                                                bothMerchandisePaid
+                                                    ? "Confirmed"
+                                                    : "Pending"
+                                            )
+                                            : paymentStatus
+                                    )}"
+                                >
+                                    ${escapeHTML(
+                                        isFindingSponsor
+                                            ? (
+                                                bothMerchandisePaid
+                                                    ? "Sponsored — Confirmed"
+                                                    : "Sponsorship Under Review"
+                                            )
+                                            : paymentStatus
+                                    )}
+                                </span>
+                            </span>
+                        </div>
+
+                        <div
+                            class="participant-detail"
+                        >
+                            <span
+                                class="participant-detail-label"
+                            >
+                                T-Shirt
+                            </span>
+
+                            <span
+                                class="participant-detail-value"
+                            >
+                                ${escapeHTML(
+                                    tshirtStatus
+                                )}
+                            </span>
+                        </div>
+
+                        <div
+                            class="participant-detail"
+                        >
+                            <span
+                                class="participant-detail-label"
+                            >
+                                Lanyard
+                            </span>
+
+                            <span
+                                class="participant-detail-value"
+                            >
+                                ${escapeHTML(
+                                    lanyardStatus
+                                )}
+                            </span>
+                        </div>
+
+                    </div>
+
+                    <div
+                        class="participant-payment"
+                    >
+
+                        <div
+                            class="payment-status-row"
+                        >
+                            <span
+                                class="payment-status-label"
+                            >
+                                ${
+                                    isFindingSponsor
+                                        ? "Sponsorship Status"
+                                        : "Payment"
+                                }
+                            </span>
+
+                            <span
+                                class="status-badge ${getStatusClass(
+                                    isFindingSponsor
+                                        ? (
+                                            bothMerchandisePaid
+                                                ? "Confirmed"
+                                                : "Pending"
+                                        )
+                                        : paymentStatus
+                                )}"
+                            >
+                                ${escapeHTML(
+                                    isFindingSponsor
+                                        ? (
+                                            bothMerchandisePaid
+                                                ? "Confirmed"
+                                                : "In Review"
+                                        )
+                                        : paymentStatus
+                                )}
+                            </span>
+                        </div>
+
+                        <div
+                            class="merchandise-status"
+                        >
+
+                            <span
+                                class="merchandise-item"
+                            >
+                                👕 T-shirt:
+                                <strong>
+                                    ${escapeHTML(
+                                        tshirtStatus
+                                    )}
+                                </strong>
+                            </span>
+
+                            <span
+                                class="merchandise-item"
+                            >
+                                🪪 Lanyard:
+                                <strong>
+                                    ${escapeHTML(
+                                        lanyardStatus
+                                    )}
+                                </strong>
+                            </span>
+
+                        </div>
+
+                        ${payButtonHTML}
+
+                    </div>
+
+                </article>
+            `;
+        }
+    );
+
+    html += `
+        </div>
+    `;
+
+    container.innerHTML =
+        html;
+}
+
+/* ======================================================
+   SEARCH PARTICIPANT
+====================================================== */
+
+async function searchParticipant() {
+
+
+    const input =
+        document.getElementById(
+            "participant-search-input"
+        );
+
+
+    const button =
+        document.getElementById(
+            "participant-search-button"
+        );
+
+
+    const results =
+        document.getElementById(
+            "participant-search-results"
+        );
+
+
+    const keyword =
+        input.value.trim();
+
+
+
+    if (!keyword) {
+
+
+        results.innerHTML = `
+
+            <div class="search-message">
+
+                Please enter a name,
+                registration number,
+                event, or other
+                participant information.
+
+            </div>
+
+        `;
+
+
+        input.focus();
+
+
+        return;
+
+    }
+
+
+
+    results.innerHTML = `
+
+        <div
+            class="
+                search-message
+                loading
+            "
+        >
+
+            🔄 Searching participant
+            records...
+
+        </div>
+
+    `;
+
+
+
+    button.disabled =
+        true;
+
+
+    button.textContent =
+        "Searching...";
+
+
+
+    try {
+
+
+        const url =
+            "http://127.0.0.1:8000/registration_search_participant"
+            +
+            "?keyword="
+            +
+            encodeURIComponent(
+                keyword
+            );
+
+
+
+        const response =
+            await fetch(
+                url,
+                {
+                    method: "GET",
+
+                    headers: {
+                        "Accept":
+                            "application/json"
+                    },
+
+                    cache: "no-store"
+                }
+            );
+
+
+
+        let data;
+
+
+
+        try {
+
+            data =
+                await response.json();
+
+        }
+
+
+        catch {
+
+            data =
+                null;
+
+        }
+
+
+
+        if (!response.ok) {
+
+
+            let message =
+                "Unable to search participants.";
+
+
+
+            if (
+                data
+                &&
+                data.detail
+            ) {
+
+
+                if (
+                    typeof data.detail
+                    ===
+                    "string"
+                ) {
+
+
+                    message =
+                        data.detail;
+
+                }
+
+
+                else {
+
+
+                    message =
+                        JSON.stringify(
+                            data.detail
+                        );
+
+                }
+
+            }
+
+
+
+            throw new Error(
+                message
+            );
+
+        }
+
+
+
+        displayParticipantResults(
+            data
+        );
+
+
+    }
+
+
+    catch (error) {
+
+
+        console.error(
+            "Participant search error:",
+            error
+        );
+
+
+
+        results.innerHTML = `
+
+            <div
+                class="
+                    search-message
+                    error
+                "
+            >
+
+
+                <strong>
+                    Unable to search participants.
+                </strong>
+
+
+
+                <div
+                    style="
+                        margin-top:7px;
+                    "
+                >
+
+                    ${escapeHTML(
+                        error.message
+                        ||
+                        "Please try again."
+                    )}
+
+                </div>
+
+
+            </div>
+
+        `;
+
+    }
+
+
+    finally {
+
+
+        button.disabled =
+            false;
+
+
+        button.textContent =
+            "Search";
+
+    }
+
+}
+
+
+
+/* ======================================================
+   MOBILE MENU
+====================================================== */
+
+function toggleMenu() {
+
+
+    const menu =
+        document.querySelector(
+            ".nav-links"
+        );
+
+
+    if (menu) {
+
+
+        menu.classList.toggle(
+            "open"
+        );
+
+    }
+
+}
+
+
+
+/* ======================================================
+   INITIALIZATION
+====================================================== */
+
+document.addEventListener(
+    "DOMContentLoaded",
+    function () {
+
+
+        /* ==============================================
+           LOAD ACTIVE EVENT
+        ============================================== */
+
+        loadActiveEvent();
+
+
+
+        /* ==============================================
+           SEARCH FORM
+        ============================================== */
+
+        const searchForm =
+            document.getElementById(
+                "participant-search-form"
+            );
+
+
+        if (searchForm) {
+
+
+            searchForm.addEventListener(
+                "submit",
+                function (event) {
+
+
+                    event.preventDefault();
+
+
+                    searchParticipant();
+
+                }
+            );
+
+        }
+
+
+
+        /* ==============================================
+           ENTER KEY
+        ============================================== */
+
+        const searchInput =
+            document.getElementById(
+                "participant-search-input"
+            );
+
+
+        if (searchInput) {
+
+
+            searchInput.addEventListener(
+                "keydown",
+                function (event) {
+
+
+                    if (
+                        event.key ===
+                        "Enter"
+                    ) {
+
+
+                        event.preventDefault();
+
+
+                        searchParticipant();
+
+                    }
+
+                }
+            );
+
+        }
+
+
+
+        /* ==============================================
+           CLOSE MOBILE MENU
+        ============================================== */
+
+        document
+            .querySelectorAll(
+                ".nav-links a"
+            )
+            .forEach(
+                function (link) {
+
+
+                    link.addEventListener(
+                        "click",
+                        function () {
+
+
+                            const menu =
+                                document.querySelector(
+                                    ".nav-links"
+                                );
+
+
+                            if (menu) {
+
+
+                                menu.classList.remove(
+                                    "open"
+                                );
+
+                            }
+
+                        }
+                    );
+
+                }
+            );
+
+    }
+);
+
+</script>
+
+
+</body>
+
+</html>
