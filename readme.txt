@@ -5,10 +5,14 @@ uvicorn main:app --reload  (to start server)
 
 Ctrl + C (to stop server)
 
-python -m venv myenv
+py -m venv myenv
 
 myenv\Scripts\activate
 
 deactivate
 
 ngrok http 8000
+
+py -m pip install --upgrade pip
+
+python -m pip install -r requirements.txt

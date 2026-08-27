@@ -1930,7 +1930,7 @@ def migrate_store_item_columns():
         # CATEGORY
         # ----------------------------------------------------
 
-        if "category" not in columns:
+        if "category" not in columns: 
 
             connection.execute(
                 text("""
@@ -5389,7 +5389,7 @@ CYF Registration System
         # ----------------------------------------------------
 
         with smtplib.SMTP(
-            "smtp.gmail.com",
+            "smtp.gmail.com", 
             587
         ) as server:
 
@@ -13344,7 +13344,7 @@ async def paymongo_webhook(
                 "seconds"
             )
 
-            if difference > 300:
+            if difference > 900:
 
                 raise HTTPException(
                     status_code=401,
