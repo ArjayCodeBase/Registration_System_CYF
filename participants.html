@@ -48,7 +48,7 @@
 <div class="modal-backdrop" id="archivedModal"><div class="modal"><div class="modal-header"><h2>Archived Participants</h2><button class="close" onclick="closeModal('archivedModal')">×</button></div><div class="modal-body"><div class="table-wrap"><table style="min-width:700px"><thead><tr><th>Participant</th><th>Registration No.</th><th>Event</th><th>Action</th></tr></thead><tbody id="archivedBody"></tbody></table></div></div></div></div>
 <div class="toast" id="toast"></div>
 <script>
-const API_BASE=window.API_BASE||'http://127.0.0.1:8000';
+const API_BASE=window.API_BASE||'';
 let participants=[];let currentParticipant=null;let archiveId=null;let searchTimer=null;
 function toggleSidebar(){document.getElementById('sidebar').classList.toggle('open')}
 function toggleEventMenu(){document.querySelector('.nav-group').classList.toggle('open')}

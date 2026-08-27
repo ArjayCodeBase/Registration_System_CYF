@@ -1502,7 +1502,7 @@ async function loadActiveEvent() {
 
         const response =
             await fetch(
-                "http://127.0.0.1:8000/event_participant_count",
+                "/event_participant_count",
                 {
                     method: "GET",
 
@@ -2335,7 +2335,7 @@ async function searchParticipant() {
 
 
         const url =
-            "http://127.0.0.1:8000/registration_search_participant"
+            "/registration_search_participant"
             +
             "?keyword="
             +

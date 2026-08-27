@@ -2870,7 +2870,7 @@ CYF Registration System
 
 const API_BASE =
     window.location.protocol === "file:"
-        ? "http://127.0.0.1:8000"
+        ? ""
         : "";
 
 
@@ -3030,7 +3030,7 @@ async function apiRequest(
         throw new Error(
             "Cannot connect to FastAPI. " +
             "Make sure uvicorn is running on " +
-            "http://127.0.0.1:8000."
+            "."
         );
 
     }
