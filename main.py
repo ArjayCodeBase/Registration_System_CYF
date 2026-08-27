@@ -16387,36 +16387,247 @@ def get_sponsorship_items(
 
 
 
+# ============================================================
+# SPONSORSHIP PAYMENT STATUS
+# ============================================================
+#
+# Used by the cash sponsorship payment page to continuously
+# check whether the sponsorship payment has been completed.
+#
+# The frontend sends the PayMongo Link ID:
+#
+#     /sponsorship/payment/status/{payment_id}
+#
+# The endpoint first finds the CashSponsorship by the stored
+# PayMongo Link ID.
+#
+# After the webhook receives payment.paid, the webhook updates:
+#
+#     payment_status = "Paid"
+#
+# Therefore this endpoint will automatically return:
+#
+#     paid = True
+#
+# ============================================================
+
 @app.get("/sponsorship/payment/status/{payment_id}")
 def sponsorship_payment_status(
     payment_id: str,
     db: Session = Depends(get_db)
 ):
 
-    payment_id = payment_id.strip()
+    print("\n")
+    print("=" * 70)
+    print("CHECKING SPONSORSHIP PAYMENT STATUS")
+    print("=" * 70)
+
+    # ========================================================
+    # CLEAN PAYMENT ID
+    # ========================================================
+
+    payment_id = (
+        str(payment_id)
+        .strip()
+    )
+
+    print(
+        "Requested Payment / Link ID:",
+        payment_id
+    )
+
+    if not payment_id:
+
+        raise HTTPException(
+            status_code=400,
+            detail="Payment ID is required."
+        )
+
+    # ========================================================
+    # FIND CASH SPONSORSHIP
+    # ========================================================
 
     sponsorship = (
         db.query(CashSponsorship)
         .filter(
-            CashSponsorship.paymongo_link_id == payment_id
+            CashSponsorship.paymongo_link_id ==
+            payment_id
         )
         .first()
     )
 
+    # ========================================================
+    # NOT FOUND
+    # ========================================================
+
     if not sponsorship:
+
+        print(
+            "ERROR: Sponsorship payment not found."
+        )
+
+        print(
+            "PayMongo Link ID:",
+            payment_id
+        )
+
+        print("=" * 70)
 
         raise HTTPException(
             status_code=404,
             detail="Sponsorship payment not found."
         )
 
+    # ========================================================
+    # GET STATUS
+    # ========================================================
+
     status = (
-        sponsorship.payment_status or "Pending"
-    ).strip()
+        getattr(
+            sponsorship,
+            "payment_status",
+            None
+        )
+        or
+        "Pending"
+    )
+
+    status = (
+        str(status)
+        .strip()
+    )
+
+    # ========================================================
+    # NORMALIZE STATUS
+    # ========================================================
+
+    status_lower = (
+        status.lower()
+    )
+
+    paid = (
+        status_lower == "paid"
+    )
+
+    # ========================================================
+    # GET CASH TOTAL ADDED
+    # ========================================================
+
+    try:
+
+        cash_total_added = int(
+            getattr(
+                sponsorship,
+                "cash_total_added",
+                0
+            )
+            or
+            0
+        )
+
+    except (
+        ValueError,
+        TypeError
+    ):
+
+        cash_total_added = 0
+
+    # ========================================================
+    # GET DONATION AMOUNT
+    # ========================================================
+
+    try:
+
+        donation_amount = int(
+            getattr(
+                sponsorship,
+                "donation_amount",
+                0
+            )
+            or
+            0
+        )
+
+    except (
+        ValueError,
+        TypeError
+    ):
+
+        donation_amount = 0
+
+    # ========================================================
+    # CONVERT CENTAVOS TO PESOS
+    # ========================================================
+
+    donation_amount_pesos = (
+        donation_amount / 100
+    )
+
+    # ========================================================
+    # DEBUG
+    # ========================================================
+
+    print("=" * 70)
+    print(
+        "SPONSORSHIP FOUND"
+    )
+
+    print(
+        "Sponsorship ID:",
+        sponsorship.id
+    )
+
+    print(
+        "PayMongo Link ID:",
+        getattr(
+            sponsorship,
+            "paymongo_link_id",
+            None
+        )
+    )
+
+    print(
+        "PayMongo Reference:",
+        getattr(
+            sponsorship,
+            "paymongo_reference",
+            None
+        )
+    )
+
+    print(
+        "Payment Status:",
+        status
+    )
+
+    print(
+        "Paid:",
+        paid
+    )
+
+    print(
+        "Donation Amount:",
+        f"₱{donation_amount_pesos:,.2f}"
+    )
+
+    print(
+        "Cash Total Added:",
+        cash_total_added
+    )
+
+    print("=" * 70)
+
+    # ========================================================
+    # RETURN STATUS
+    # ========================================================
 
     return {
-        "success": True,
-        "found": True,
+
+        "success":
+            True,
+
+        "found":
+            True,
 
         "sponsorship_id":
             sponsorship.id,
@@ -16425,15 +16636,41 @@ def sponsorship_payment_status(
             status,
 
         "paid":
-            status.lower() == "paid",
+            paid,
+
+        "cash_total_added":
+            cash_total_added,
+
+        "cash_total_added_display":
+            f"₱{cash_total_added:,.2f}",
+
+        "donation_amount":
+            donation_amount,
+
+        "donation_amount_display":
+            f"₱{donation_amount_pesos:,.2f}",
 
         "paymongo_link_id":
-            sponsorship.paymongo_link_id,
+            getattr(
+                sponsorship,
+                "paymongo_link_id",
+                None
+            ),
+
+        "paymongo_reference":
+            getattr(
+                sponsorship,
+                "paymongo_reference",
+                None
+            ),
 
         "payment_url":
-            sponsorship.payment_url
+            getattr(
+                sponsorship,
+                "payment_url",
+                None
+            )
     }
-
 
 
 
