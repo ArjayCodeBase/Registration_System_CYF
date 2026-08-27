@@ -16162,13 +16162,13 @@ def sponsorship_payment_status(
     print("=" * 70)
 
     # ======================================================
-    # FIND SPONSORSHIP
+    # FIND LOCAL SPONSORSHIP
     # ======================================================
 
     sponsorship = None
 
     # ------------------------------------------------------
-    # 1. SEARCH BY PAYMONGO LINK ID
+    # 1. PAYMONGO LINK ID
     # ------------------------------------------------------
 
     if hasattr(
@@ -16186,7 +16186,7 @@ def sponsorship_payment_status(
         )
 
     # ------------------------------------------------------
-    # 2. SEARCH BY PAYMONGO PAYMENT ID
+    # 2. PAYMONGO PAYMENT ID
     # ------------------------------------------------------
 
     if (
@@ -16208,7 +16208,7 @@ def sponsorship_payment_status(
         )
 
     # ------------------------------------------------------
-    # 3. SEARCH BY PAYMONGO REFERENCE
+    # 3. PAYMONGO REFERENCE
     # ------------------------------------------------------
 
     if (
@@ -16240,15 +16240,25 @@ def sponsorship_payment_status(
         )
 
         return {
-            "success": True,
-            "found": False,
-            "paid": False,
-            "payment_status": "Pending",
-            "message": "Sponsorship payment not found."
+
+            "success":
+                True,
+
+            "found":
+                False,
+
+            "paid":
+                False,
+
+            "payment_status":
+                "Pending",
+
+            "message":
+                "Sponsorship payment not found."
         }
 
     # ======================================================
-    # STATUS
+    # LOCAL STATUS
     # ======================================================
 
     status = str(
@@ -16292,7 +16302,7 @@ def sponsorship_payment_status(
 
     try:
 
-        cash_total_added = int(
+        cash_total_added = float(
             getattr(
                 sponsorship,
                 "cash_total_added",
@@ -16306,19 +16316,11 @@ def sponsorship_payment_status(
         TypeError
     ):
 
-        cash_total_added = 0
+        cash_total_added = 0.0
 
     # ======================================================
-    # DISPLAY
+    # DISPLAY CURRENT DATABASE STATUS
     # ======================================================
-
-    donation_amount_pesos = (
-        donation_amount / 100
-    )
-
-    cash_total_added_pesos = (
-        cash_total_added
-    )
 
     print("=" * 70)
     print("SPONSORSHIP FOUND")
@@ -16326,6 +16328,7 @@ def sponsorship_payment_status(
         "Sponsorship ID:",
         sponsorship.id
     )
+
     print(
         "PayMongo Link ID:",
         getattr(
@@ -16334,6 +16337,7 @@ def sponsorship_payment_status(
             None
         )
     )
+
     print(
         "PayMongo Payment ID:",
         getattr(
@@ -16342,6 +16346,7 @@ def sponsorship_payment_status(
             None
         )
     )
+
     print(
         "PayMongo Reference:",
         getattr(
@@ -16350,21 +16355,922 @@ def sponsorship_payment_status(
             None
         )
     )
+
     print(
         "Payment Status:",
         status
     )
+
     print(
         "Paid:",
         paid
     )
+
     print(
         "Donation Amount:",
         donation_amount
     )
+
     print(
         "Cash Total Added:",
         cash_total_added
+    )
+
+    print("=" * 70)
+
+    # ======================================================
+    # ALREADY PAID
+    # ======================================================
+    #
+    # If webhook already processed the payment,
+    # immediately return Paid.
+    #
+    # ======================================================
+
+    if paid:
+
+        donation_amount_pesos = (
+            donation_amount / 100
+        )
+
+        return {
+
+            "success":
+                True,
+
+            "found":
+                True,
+
+            "sponsorship_id":
+                sponsorship.id,
+
+            "payment_status":
+                "Paid",
+
+            "paid":
+                True,
+
+            "paymongo_link_id":
+                getattr(
+                    sponsorship,
+                    "paymongo_link_id",
+                    None
+                ),
+
+            "paymongo_payment_id":
+                getattr(
+                    sponsorship,
+                    "paymongo_payment_id",
+                    None
+                ),
+
+            "paymongo_reference":
+                getattr(
+                    sponsorship,
+                    "paymongo_reference",
+                    None
+                ),
+
+            "payment_url":
+                getattr(
+                    sponsorship,
+                    "payment_url",
+                    None
+                ),
+
+            "donation_amount":
+                donation_amount_pesos,
+
+            "donation_amount_display":
+                f"₱{donation_amount_pesos:,.2f}",
+
+            "cash_total_added":
+                cash_total_added,
+
+            "cash_total_added_display":
+                f"₱{cash_total_added:,.2f}"
+        }
+
+    # ======================================================
+    # GET PAYMONGO SECRET KEY
+    # ======================================================
+
+    secret_key = os.getenv(
+        "PAYMONGO_SECRET_KEY"
+    )
+
+    if not secret_key:
+
+        print(
+            "PAYMONGO_SECRET_KEY is not configured."
+        )
+
+        # Do not fail the frontend polling.
+        return {
+
+            "success":
+                True,
+
+            "found":
+                True,
+
+            "sponsorship_id":
+                sponsorship.id,
+
+            "payment_status":
+                status,
+
+            "paid":
+                False,
+
+            "paymongo_link_id":
+                getattr(
+                    sponsorship,
+                    "paymongo_link_id",
+                    None
+                ),
+
+            "paymongo_payment_id":
+                getattr(
+                    sponsorship,
+                    "paymongo_payment_id",
+                    None
+                ),
+
+            "paymongo_reference":
+                getattr(
+                    sponsorship,
+                    "paymongo_reference",
+                    None
+                ),
+
+            "payment_url":
+                getattr(
+                    sponsorship,
+                    "payment_url",
+                    None
+                ),
+
+            "donation_amount":
+                donation_amount / 100,
+
+            "donation_amount_display":
+                f"₱{donation_amount / 100:,.2f}",
+
+            "cash_total_added":
+                cash_total_added,
+
+            "cash_total_added_display":
+                f"₱{cash_total_added:,.2f}",
+
+            "message":
+                "Payment is still pending."
+        }
+
+    # ======================================================
+    # GET PAYMONGO LINK ID
+    # ======================================================
+
+    paymongo_link_id = getattr(
+        sponsorship,
+        "paymongo_link_id",
+        None
+    )
+
+    if not paymongo_link_id:
+
+        print(
+            "No PayMongo Link ID available."
+        )
+
+        return {
+
+            "success":
+                True,
+
+            "found":
+                True,
+
+            "sponsorship_id":
+                sponsorship.id,
+
+            "payment_status":
+                status,
+
+            "paid":
+                False,
+
+            "paymongo_link_id":
+                None,
+
+            "paymongo_payment_id":
+                getattr(
+                    sponsorship,
+                    "paymongo_payment_id",
+                    None
+                ),
+
+            "paymongo_reference":
+                getattr(
+                    sponsorship,
+                    "paymongo_reference",
+                    None
+                ),
+
+            "payment_url":
+                getattr(
+                    sponsorship,
+                    "payment_url",
+                    None
+                ),
+
+            "donation_amount":
+                donation_amount / 100,
+
+            "donation_amount_display":
+                f"₱{donation_amount / 100:,.2f}",
+
+            "cash_total_added":
+                cash_total_added,
+
+            "cash_total_added_display":
+                f"₱{cash_total_added:,.2f}",
+
+            "message":
+                "Waiting for PayMongo payment."
+        }
+
+    # ======================================================
+    # QUERY PAYMONGO DIRECTLY
+    # ======================================================
+    #
+    # IMPORTANT:
+    #
+    # The webhook may arrive late.
+    #
+    # This endpoint directly asks PayMongo whether the
+    # payment link has a successful payment.
+    #
+    # ======================================================
+
+    print("=" * 70)
+    print(
+        "CHECKING PAYMONGO DIRECTLY"
+    )
+    print(
+        "Payment Link:",
+        paymongo_link_id
+    )
+    print("=" * 70)
+
+    paymongo_url = (
+        "https://api.paymongo.com/v1/"
+        f"payment_links/{paymongo_link_id}/payments"
+    )
+
+    try:
+
+        response = httpx.get(
+
+            paymongo_url,
+
+            auth=(
+                secret_key,
+                ""
+            ),
+
+            headers={
+
+                "Accept":
+                    "application/json"
+
+            },
+
+            timeout=10
+
+        )
+
+    except Exception as e:
+
+        print(
+            "PayMongo API connection error:",
+            repr(e)
+        )
+
+        return {
+
+            "success":
+                True,
+
+            "found":
+                True,
+
+            "sponsorship_id":
+                sponsorship.id,
+
+            "payment_status":
+                status,
+
+            "paid":
+                False,
+
+            "paymongo_link_id":
+                paymongo_link_id,
+
+            "paymongo_payment_id":
+                getattr(
+                    sponsorship,
+                    "paymongo_payment_id",
+                    None
+                ),
+
+            "paymongo_reference":
+                getattr(
+                    sponsorship,
+                    "paymongo_reference",
+                    None
+                ),
+
+            "donation_amount":
+                donation_amount / 100,
+
+            "donation_amount_display":
+                f"₱{donation_amount / 100:,.2f}",
+
+            "cash_total_added":
+                cash_total_added,
+
+            "cash_total_added_display":
+                f"₱{cash_total_added:,.2f}",
+
+            "message":
+                "Unable to check PayMongo. Waiting for webhook."
+        }
+
+    # ======================================================
+    # PAYMONGO API ERROR
+    # ======================================================
+
+    if response.status_code != 200:
+
+        print(
+            "PayMongo status check failed."
+        )
+
+        print(
+            "HTTP Status:",
+            response.status_code
+        )
+
+        print(
+            "Response:",
+            response.text
+        )
+
+        return {
+
+            "success":
+                True,
+
+            "found":
+                True,
+
+            "sponsorship_id":
+                sponsorship.id,
+
+            "payment_status":
+                status,
+
+            "paid":
+                False,
+
+            "paymongo_link_id":
+                paymongo_link_id,
+
+            "paymongo_payment_id":
+                getattr(
+                    sponsorship,
+                    "paymongo_payment_id",
+                    None
+                ),
+
+            "paymongo_reference":
+                getattr(
+                    sponsorship,
+                    "paymongo_reference",
+                    None
+                ),
+
+            "donation_amount":
+                donation_amount / 100,
+
+            "donation_amount_display":
+                f"₱{donation_amount / 100:,.2f}",
+
+            "cash_total_added":
+                cash_total_added,
+
+            "cash_total_added_display":
+                f"₱{cash_total_added:,.2f}",
+
+            "message":
+                "Waiting for PayMongo confirmation."
+        }
+
+    # ======================================================
+    # PARSE PAYMONGO RESPONSE
+    # ======================================================
+
+    try:
+
+        paymongo_result = response.json()
+
+    except Exception as e:
+
+        print(
+            "Unable to parse PayMongo response:",
+            repr(e)
+        )
+
+        return {
+
+            "success":
+                True,
+
+            "found":
+                True,
+
+            "sponsorship_id":
+                sponsorship.id,
+
+            "payment_status":
+                status,
+
+            "paid":
+                False,
+
+            "paymongo_link_id":
+                paymongo_link_id,
+
+            "donation_amount":
+                donation_amount / 100,
+
+            "donation_amount_display":
+                f"₱{donation_amount / 100:,.2f}",
+
+            "cash_total_added":
+                cash_total_added,
+
+            "cash_total_added_display":
+                f"₱{cash_total_added:,.2f}",
+
+            "message":
+                "Waiting for PayMongo confirmation."
+        }
+
+    # ======================================================
+    # GET PAYMENT RECORDS
+    # ======================================================
+
+    payments = paymongo_result.get(
+        "data",
+        []
+    )
+
+    if not isinstance(
+        payments,
+        list
+    ):
+
+        payments = []
+
+    print(
+        "PayMongo payment records:",
+        len(payments)
+    )
+
+    # ======================================================
+    # FIND SUCCESSFUL PAYMENT
+    # ======================================================
+
+    successful_payment = None
+
+    for paymongo_payment in payments:
+
+        if not isinstance(
+            paymongo_payment,
+            dict
+        ):
+            continue
+
+        payment_attributes = (
+            paymongo_payment.get(
+                "attributes",
+                {}
+            )
+        )
+
+        if not isinstance(
+            payment_attributes,
+            dict
+        ):
+
+            payment_attributes = {}
+
+        payment_status = str(
+            payment_attributes.get(
+                "status",
+                ""
+            )
+            or ""
+        ).strip().lower()
+
+        print(
+            "PayMongo Payment:",
+            paymongo_payment.get("id"),
+            "Status:",
+            payment_status
+        )
+
+        if payment_status == "paid":
+
+            successful_payment = (
+                paymongo_payment
+            )
+
+            break
+
+    # ======================================================
+    # PAYMENT NOT YET PAID
+    # ======================================================
+
+    if not successful_payment:
+
+        print("=" * 70)
+        print(
+            "PAYMONGO PAYMENT NOT YET PAID"
+        )
+        print("=" * 70)
+
+        return {
+
+            "success":
+                True,
+
+            "found":
+                True,
+
+            "sponsorship_id":
+                sponsorship.id,
+
+            "payment_status":
+                status,
+
+            "paid":
+                False,
+
+            "paymongo_link_id":
+                paymongo_link_id,
+
+            "paymongo_payment_id":
+                getattr(
+                    sponsorship,
+                    "paymongo_payment_id",
+                    None
+                ),
+
+            "paymongo_reference":
+                getattr(
+                    sponsorship,
+                    "paymongo_reference",
+                    None
+                ),
+
+            "payment_url":
+                getattr(
+                    sponsorship,
+                    "payment_url",
+                    None
+                ),
+
+            "donation_amount":
+                donation_amount / 100,
+
+            "donation_amount_display":
+                f"₱{donation_amount / 100:,.2f}",
+
+            "cash_total_added":
+                cash_total_added,
+
+            "cash_total_added_display":
+                f"₱{cash_total_added:,.2f}",
+
+            "message":
+                "Payment is still pending."
+        }
+
+    # ======================================================
+    # SUCCESSFUL PAYMENT FOUND
+    # ======================================================
+
+    paymongo_payment_id = (
+        successful_payment.get(
+            "id"
+        )
+    )
+
+    payment_attributes = (
+        successful_payment.get(
+            "attributes",
+            {}
+        )
+    )
+
+    if not isinstance(
+        payment_attributes,
+        dict
+    ):
+
+        payment_attributes = {}
+
+    paymongo_reference = (
+
+        payment_attributes.get(
+            "external_reference_number"
+        )
+
+        or
+
+        payment_attributes.get(
+            "reference_number"
+        )
+    )
+
+    paymongo_amount = (
+        payment_attributes.get(
+            "amount"
+        )
+    )
+
+    try:
+
+        paymongo_amount = int(
+            paymongo_amount or 0
+        )
+
+    except (
+        ValueError,
+        TypeError
+    ):
+
+        paymongo_amount = 0
+
+    print("=" * 70)
+    print(
+        "PAYMENT FOUND DIRECTLY FROM PAYMONGO"
+    )
+    print(
+        "PayMongo Payment ID:",
+        paymongo_payment_id
+    )
+    print(
+        "PayMongo Reference:",
+        paymongo_reference
+    )
+    print(
+        "PayMongo Amount:",
+        paymongo_amount
+    )
+    print("=" * 70)
+
+    # ======================================================
+    # AMOUNT VALIDATION
+    # ======================================================
+
+    if (
+        paymongo_amount > 0
+        and
+        donation_amount > 0
+        and
+        paymongo_amount != donation_amount
+    ):
+
+        print("=" * 70)
+        print(
+            "PAYMONGO AMOUNT DOES NOT MATCH"
+        )
+        print(
+            "Expected:",
+            donation_amount
+        )
+        print(
+            "PayMongo:",
+            paymongo_amount
+        )
+        print("=" * 70)
+
+        return {
+
+            "success":
+                True,
+
+            "found":
+                True,
+
+            "sponsorship_id":
+                sponsorship.id,
+
+            "payment_status":
+                "Pending",
+
+            "paid":
+                False,
+
+            "paymongo_link_id":
+                paymongo_link_id,
+
+            "paymongo_payment_id":
+                paymongo_payment_id,
+
+            "paymongo_reference":
+                paymongo_reference,
+
+            "donation_amount":
+                donation_amount / 100,
+
+            "donation_amount_display":
+                f"₱{donation_amount / 100:,.2f}",
+
+            "cash_total_added":
+                cash_total_added,
+
+            "cash_total_added_display":
+                f"₱{cash_total_added:,.2f}",
+
+            "message":
+                "Payment amount does not match sponsorship amount."
+        }
+
+    # ======================================================
+    # SAVE PAYMONGO IDENTIFIERS
+    # ======================================================
+
+    if hasattr(
+        sponsorship,
+        "paymongo_payment_id"
+    ):
+
+        sponsorship.paymongo_payment_id = (
+            paymongo_payment_id
+        )
+
+    if (
+        paymongo_reference
+        and
+        hasattr(
+            sponsorship,
+            "paymongo_reference"
+        )
+    ):
+
+        sponsorship.paymongo_reference = (
+            paymongo_reference
+        )
+
+    # ======================================================
+    # IMPORTANT
+    # ======================================================
+    #
+    # We do NOT manually add the donation to
+    # CashDonationTotal here.
+    #
+    # The webhook remains responsible for the actual
+    # financial processing.
+    #
+    # We only save the PayMongo identifiers so the next
+    # polling request can immediately see the payment.
+    #
+    # ======================================================
+
+    db.commit()
+
+    db.refresh(
+        sponsorship
+    )
+
+    # ======================================================
+    # CHECK WHETHER WEBHOOK ALREADY PROCESSED IT
+    # ======================================================
+
+    current_status = str(
+        getattr(
+            sponsorship,
+            "payment_status",
+            "Pending"
+        )
+        or "Pending"
+    ).strip()
+
+    current_cash_total_added = float(
+        getattr(
+            sponsorship,
+            "cash_total_added",
+            0
+        )
+        or 0
+    )
+
+    # ======================================================
+    # IF WEBHOOK ALREADY PROCESSED
+    # ======================================================
+
+    if current_status.lower() == "paid":
+
+        print(
+            "Webhook already processed payment."
+        )
+
+        return {
+
+            "success":
+                True,
+
+            "found":
+                True,
+
+            "sponsorship_id":
+                sponsorship.id,
+
+            "payment_status":
+                "Paid",
+
+            "paid":
+                True,
+
+            "paymongo_link_id":
+                getattr(
+                    sponsorship,
+                    "paymongo_link_id",
+                    paymongo_link_id
+                ),
+
+            "paymongo_payment_id":
+                getattr(
+                    sponsorship,
+                    "paymongo_payment_id",
+                    paymongo_payment_id
+                ),
+
+            "paymongo_reference":
+                getattr(
+                    sponsorship,
+                    "paymongo_reference",
+                    paymongo_reference
+                ),
+
+            "payment_url":
+                getattr(
+                    sponsorship,
+                    "payment_url",
+                    None
+                ),
+
+            "donation_amount":
+                donation_amount / 100,
+
+            "donation_amount_display":
+                f"₱{donation_amount / 100:,.2f}",
+
+            "cash_total_added":
+                current_cash_total_added,
+
+            "cash_total_added_display":
+                f"₱{current_cash_total_added:,.2f}",
+
+            "message":
+                "Payment successfully processed."
+        }
+
+    # ======================================================
+    # PAYMENT CONFIRMED BY PAYMONGO
+    # ======================================================
+    #
+    # PayMongo has confirmed the payment even though the
+    # webhook has not updated the local payment_status yet.
+    #
+    # Return paid=True to frontend immediately.
+    #
+    # ======================================================
+
+    print("=" * 70)
+    print(
+        "PAYMONGO CONFIRMED PAYMENT"
+    )
+    print(
+        "Webhook has not updated local status yet."
+    )
+    print(
+        "Frontend can immediately show SUCCESS."
     )
     print("=" * 70)
 
@@ -16380,30 +17286,36 @@ def sponsorship_payment_status(
             sponsorship.id,
 
         "payment_status":
-            status,
+            "Paid",
 
         "paid":
-            paid,
+            True,
+
+        "paymongo_confirmed":
+            True,
+
+        "webhook_processed":
+            False,
 
         "paymongo_link_id":
             getattr(
                 sponsorship,
                 "paymongo_link_id",
-                None
+                paymongo_link_id
             ),
 
         "paymongo_payment_id":
             getattr(
                 sponsorship,
                 "paymongo_payment_id",
-                None
+                paymongo_payment_id
             ),
 
         "paymongo_reference":
             getattr(
                 sponsorship,
                 "paymongo_reference",
-                None
+                paymongo_reference
             ),
 
         "payment_url":
@@ -16414,18 +17326,20 @@ def sponsorship_payment_status(
             ),
 
         "donation_amount":
-            donation_amount_pesos,
+            donation_amount / 100,
 
         "donation_amount_display":
-            f"₱{donation_amount_pesos:,.2f}",
+            f"₱{donation_amount / 100:,.2f}",
 
         "cash_total_added":
-            cash_total_added_pesos,
+            current_cash_total_added,
 
         "cash_total_added_display":
-            f"₱{cash_total_added_pesos:,.2f}"
-    }
+            f"₱{current_cash_total_added:,.2f}",
 
+        "message":
+            "Payment successfully confirmed by PayMongo."
+    }
 
 
 
