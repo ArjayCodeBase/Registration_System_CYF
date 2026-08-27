@@ -16563,23 +16563,81 @@ def sponsorship_payment_status(
     payment_id = payment_id.strip()
 
     print("=" * 70)
-    print(
-        "CHECKING SPONSORSHIP PAYMENT STATUS"
-    )
-    print(
-        "Requested Payment / Link ID:",
-        payment_id
-    )
+    print("CHECKING SPONSORSHIP PAYMENT STATUS")
+    print("Requested Payment / Link ID:", payment_id)
     print("=" * 70)
 
-    sponsorship = (
-        db.query(CashSponsorship)
-        .filter(
-            CashSponsorship.paymongo_link_id ==
-            payment_id
+    # ======================================================
+    # FIND SPONSORSHIP
+    # ======================================================
+
+    sponsorship = None
+
+    # ------------------------------------------------------
+    # 1. SEARCH BY PAYMONGO LINK ID
+    # ------------------------------------------------------
+
+    if hasattr(
+        CashSponsorship,
+        "paymongo_link_id"
+    ):
+
+        sponsorship = (
+            db.query(CashSponsorship)
+            .filter(
+                CashSponsorship.paymongo_link_id ==
+                payment_id
+            )
+            .first()
         )
-        .first()
-    )
+
+    # ------------------------------------------------------
+    # 2. SEARCH BY PAYMONGO PAYMENT ID
+    # ------------------------------------------------------
+
+    if (
+        not sponsorship
+        and
+        hasattr(
+            CashSponsorship,
+            "paymongo_payment_id"
+        )
+    ):
+
+        sponsorship = (
+            db.query(CashSponsorship)
+            .filter(
+                CashSponsorship.paymongo_payment_id ==
+                payment_id
+            )
+            .first()
+        )
+
+    # ------------------------------------------------------
+    # 3. SEARCH BY PAYMONGO REFERENCE
+    # ------------------------------------------------------
+
+    if (
+        not sponsorship
+        and
+        hasattr(
+            CashSponsorship,
+            "paymongo_reference"
+        )
+    ):
+
+        sponsorship = (
+            db.query(CashSponsorship)
+            .filter(
+                CashSponsorship.paymongo_reference ==
+                payment_id
+            )
+            .first()
+        )
+
+    # ======================================================
+    # NOT FOUND
+    # ======================================================
 
     if not sponsorship:
 
@@ -16587,45 +16645,101 @@ def sponsorship_payment_status(
             "SPONSORSHIP NOT FOUND"
         )
 
-        raise HTTPException(
-            status_code=404,
-            detail="Sponsorship payment not found."
-        )
+        return {
+            "success": True,
+            "found": False,
+            "paid": False,
+            "payment_status": "Pending",
+            "message": "Sponsorship payment not found."
+        }
+
+    # ======================================================
+    # STATUS
+    # ======================================================
 
     status = str(
-        sponsorship.payment_status
+        getattr(
+            sponsorship,
+            "payment_status",
+            "Pending"
+        )
         or "Pending"
     ).strip()
 
-    cash_total_added = getattr(
-        sponsorship,
-        "cash_total_added",
-        0
+    paid = (
+        status.lower() == "paid"
     )
 
-    print(
-        "SPONSORSHIP FOUND"
+    # ======================================================
+    # DONATION AMOUNT
+    # ======================================================
+
+    try:
+
+        donation_amount = int(
+            getattr(
+                sponsorship,
+                "donation_amount",
+                0
+            )
+            or 0
+        )
+
+    except (
+        ValueError,
+        TypeError
+    ):
+
+        donation_amount = 0
+
+    # ======================================================
+    # CASH TOTAL ADDED
+    # ======================================================
+
+    try:
+
+        cash_total_added = int(
+            getattr(
+                sponsorship,
+                "cash_total_added",
+                0
+            )
+            or 0
+        )
+
+    except (
+        ValueError,
+        TypeError
+    ):
+
+        cash_total_added = 0
+
+    # ======================================================
+    # DISPLAY
+    # ======================================================
+
+    donation_amount_pesos = (
+        donation_amount / 100
     )
 
+    cash_total_added_pesos = (
+        cash_total_added
+    )
+
+    print("=" * 70)
+    print("SPONSORSHIP FOUND")
     print(
         "Sponsorship ID:",
         sponsorship.id
     )
-
     print(
         "PayMongo Link ID:",
-        sponsorship.paymongo_link_id
-    )
-
-    print(
-        "PayMongo Reference:",
         getattr(
             sponsorship,
-            "paymongo_reference",
+            "paymongo_link_id",
             None
         )
     )
-
     print(
         "PayMongo Payment ID:",
         getattr(
@@ -16634,31 +16748,30 @@ def sponsorship_payment_status(
             None
         )
     )
-
+    print(
+        "PayMongo Reference:",
+        getattr(
+            sponsorship,
+            "paymongo_reference",
+            None
+        )
+    )
     print(
         "Payment Status:",
         status
     )
-
     print(
         "Paid:",
-        status.lower() == "paid"
+        paid
     )
-
     print(
         "Donation Amount:",
-        getattr(
-            sponsorship,
-            "donation_amount",
-            0
-        )
+        donation_amount
     )
-
     print(
         "Cash Total Added:",
         cash_total_added
     )
-
     print("=" * 70)
 
     return {
@@ -16676,7 +16789,7 @@ def sponsorship_payment_status(
             status,
 
         "paid":
-            status.lower() == "paid",
+            paid,
 
         "paymongo_link_id":
             getattr(
@@ -16707,14 +16820,16 @@ def sponsorship_payment_status(
             ),
 
         "donation_amount":
-            getattr(
-                sponsorship,
-                "donation_amount",
-                0
-            ),
+            donation_amount_pesos,
+
+        "donation_amount_display":
+            f"₱{donation_amount_pesos:,.2f}",
 
         "cash_total_added":
-            cash_total_added
+            cash_total_added_pesos,
+
+        "cash_total_added_display":
+            f"₱{cash_total_added_pesos:,.2f}"
     }
 
 
