@@ -13597,13 +13597,17 @@ async def paymongo_webhook(
 
         return {
 
-            "received": True,
+            "received":
+                True,
 
-            "processed": False,
+            "processed":
+                False,
 
-            "event_id": event_id,
+            "event_id":
+                event_id,
 
-            "event_type": event_type,
+            "event_type":
+                event_type,
 
             "message":
                 "Event ignored."
@@ -13680,10 +13684,8 @@ async def paymongo_webhook(
     # INTERNAL PAYMENT ID
     # ======================================================
 
-    internal_payment_id = (
-        metadata.get(
-            "payment_id"
-        )
+    internal_payment_id = metadata.get(
+        "payment_id"
     )
 
     if internal_payment_id:
@@ -13701,10 +13703,8 @@ async def paymongo_webhook(
     # SPONSORSHIP ID
     # ======================================================
 
-    sponsorship_id = (
-        metadata.get(
-            "sponsorship_id"
-        )
+    sponsorship_id = metadata.get(
+        "sponsorship_id"
     )
 
     if sponsorship_id:
@@ -13775,10 +13775,8 @@ async def paymongo_webhook(
 
     if not paymongo_payment_id:
 
-        paymongo_payment_id = (
-            metadata.get(
-                "paymongo_payment_id"
-            )
+        paymongo_payment_id = metadata.get(
+            "paymongo_payment_id"
         )
 
     if paymongo_payment_id:
@@ -13804,18 +13802,14 @@ async def paymongo_webhook(
 
     if not paymongo_link_id:
 
-        paymongo_link_id = (
-            metadata.get(
-                "paymongo_link_id"
-            )
+        paymongo_link_id = metadata.get(
+            "paymongo_link_id"
         )
 
     if not paymongo_link_id:
 
-        paymongo_link_id = (
-            resource_attributes.get(
-                "link_id"
-            )
+        paymongo_link_id = resource_attributes.get(
+            "link_id"
         )
 
     if paymongo_link_id:
@@ -14202,10 +14196,6 @@ async def paymongo_webhook(
                 "MATCH FOUND CASH SPONSORSHIP "
                 "BY PAYMONGO LINK ID"
             )
-            print(
-                "Sponsorship ID:",
-                cash_sponsorship.id
-            )
             print("=" * 70)
 
     # ======================================================
@@ -14237,7 +14227,7 @@ async def paymongo_webhook(
         print("=" * 70)
 
         # ==================================================
-        # SAVE PAYMONGO IDENTIFIERS FIRST
+        # SAVE PAYMONGO IDENTIFIERS
         # ==================================================
 
         if (
@@ -14308,7 +14298,7 @@ async def paymongo_webhook(
 
         try:
 
-            cash_total_added = int(
+            cash_total_added = float(
                 getattr(
                     cash_sponsorship,
                     "cash_total_added",
@@ -14331,11 +14321,6 @@ async def paymongo_webhook(
 
         # ==================================================
         # IDEMPOTENCY
-        # ==================================================
-        #
-        # If the sponsorship was already successfully
-        # processed, do NOT add the donation again.
-        #
         # ==================================================
 
         if (
@@ -14380,6 +14365,9 @@ async def paymongo_webhook(
 
                 "cash_total_added":
                     cash_total_added,
+
+                "cash_total_added_display":
+                    f"₱{cash_total_added:,.2f}",
 
                 "paymongo_link_id":
                     getattr(
@@ -14471,14 +14459,7 @@ async def paymongo_webhook(
         )
 
         # ==================================================
-        # OPTIONAL AMOUNT VALIDATION
-        # ==================================================
-        #
-        # PayMongo sends amount in centavos.
-        #
-        # This protects the system from accidentally adding
-        # a different amount than the sponsorship requested.
-        #
+        # AMOUNT VALIDATION
         # ==================================================
 
         if (
@@ -14610,7 +14591,7 @@ async def paymongo_webhook(
 
         # ==================================================
         # MARK SPONSORSHIP PAID
-        # ======================================================
+        # ==================================================
 
         print(
             "Marking CashSponsorship as Paid..."
@@ -14709,17 +14690,7 @@ async def paymongo_webhook(
             )
 
         # ==================================================
-        # COMMIT IMMEDIATELY
-        # ==================================================
-        #
-        # VERY IMPORTANT:
-        #
-        # The sponsorship is marked Paid and the donation
-        # total is committed BEFORE email/queue processing.
-        #
-        # Therefore an email or queue error cannot leave the
-        # sponsorship stuck as Pending.
-        #
+        # COMMIT
         # ==================================================
 
         print("=" * 70)
@@ -14909,6 +14880,49 @@ async def paymongo_webhook(
             }
 
         # ==================================================
+        # PREPARE FINAL CASH TOTAL ADDED
+        # ==================================================
+
+        try:
+
+            final_cash_total_added = float(
+                getattr(
+                    cash_sponsorship,
+                    "cash_total_added",
+                    donation_amount_pesos
+                )
+                or 0
+            )
+
+        except (
+            ValueError,
+            TypeError
+        ):
+
+            final_cash_total_added = (
+                donation_amount_pesos
+            )
+
+        # ==================================================
+        # PREPARE FINAL TOTAL
+        # ==================================================
+
+        try:
+
+            final_cash_donation_total = float(
+                donation_total.total_amount or 0
+            )
+
+        except (
+            ValueError,
+            TypeError
+        ):
+
+            final_cash_donation_total = (
+                current_cash_total
+            )
+
+        # ==================================================
         # FINAL RESPONSE
         # ==================================================
 
@@ -14939,20 +14953,10 @@ async def paymongo_webhook(
                 f"₱{donation_amount_pesos:,.2f}",
 
             "cash_total_added":
-                getattr(
-                    cash_sponsorship,
-                    "cash_total_added",
-                    donation_amount_pesos
-                ),
+                final_cash_total_added,
 
             "cash_total_added_display":
-                (
-                    f"₱{float(getattr("
-                    f"cash_sponsorship,"
-                    f" 'cash_total_added',"
-                    f" donation_amount_pesos"
-                    f")):,.2f}"
-                ),
+                f"₱{final_cash_total_added:,.2f}",
 
             "previous_cash_donation_total":
                 current_cash_total,
@@ -14961,16 +14965,10 @@ async def paymongo_webhook(
                 f"₱{current_cash_total:,.2f}",
 
             "cash_donation_total":
-                float(
-                    donation_total.total_amount
-                ),
+                final_cash_donation_total,
 
             "cash_donation_total_display":
-                (
-                    f"₱{float("
-                    f"donation_total.total_amount"
-                    f"):,.2f}"
-                ),
+                f"₱{final_cash_donation_total:,.2f}",
 
             "paymongo_link_id":
                 getattr(
