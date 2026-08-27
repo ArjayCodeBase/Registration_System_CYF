@@ -16553,14 +16553,10 @@ def sponsorship_payment_status(
     print("Requested Payment / Link ID:", payment_id)
     print("=" * 70)
 
-    # ======================================================
-    # FIND CASH SPONSORSHIP
-    # ======================================================
-
     sponsorship = None
 
     # ======================================================
-    # 1. PAYMONGO LINK ID
+    # 1. SEARCH BY PAYMONGO LINK ID
     # ======================================================
 
     if hasattr(
@@ -16578,7 +16574,7 @@ def sponsorship_payment_status(
         )
 
     # ======================================================
-    # 2. PAYMONGO PAYMENT ID
+    # 2. SEARCH BY PAYMONGO PAYMENT ID
     # ======================================================
 
     if (
@@ -16600,7 +16596,7 @@ def sponsorship_payment_status(
         )
 
     # ======================================================
-    # 3. PAYMONGO REFERENCE
+    # 3. SEARCH BY PAYMONGO REFERENCE
     # ======================================================
 
     if (
@@ -16637,24 +16633,22 @@ def sponsorship_payment_status(
 
         return {
 
-            "success":
-                True,
+            "success": True,
 
-            "found":
-                False,
+            "found": False,
 
-            "paid":
-                False,
+            "paid": False,
 
             "payment_status":
                 "Pending",
 
             "message":
                 "Sponsorship payment not found."
+
         }
 
     # ======================================================
-    # GET DATABASE PAYMENT STATUS
+    # CURRENT DATABASE STATUS
     # ======================================================
 
     status = str(
@@ -16666,15 +16660,17 @@ def sponsorship_payment_status(
         or "Pending"
     ).strip()
 
-    status_lower = status.lower()
+    paid = (
+        status.lower() == "paid"
+    )
 
     # ======================================================
-    # GET DONATION AMOUNT
+    # DONATION AMOUNT
     # ======================================================
 
     try:
 
-        donation_amount = int(
+        donation_amount_centavos = int(
             getattr(
                 sponsorship,
                 "donation_amount",
@@ -16688,14 +16684,14 @@ def sponsorship_payment_status(
         TypeError
     ):
 
-        donation_amount = 0
+        donation_amount_centavos = 0
 
     donation_amount_pesos = (
-        donation_amount / 100
+        donation_amount_centavos / 100
     )
 
     # ======================================================
-    # GET CASH TOTAL ADDED
+    # CASH TOTAL ADDED
     # ======================================================
 
     try:
@@ -16717,24 +16713,103 @@ def sponsorship_payment_status(
         cash_total_added = 0.0
 
     # ======================================================
+    # DISPLAY
     # ======================================================
-    # PAYMENT ALREADY PAID
+
+    print("=" * 70)
+    print("SPONSORSHIP FOUND")
+
+    print(
+        "Sponsorship ID:",
+        sponsorship.id
+    )
+
+    print(
+        "Requested ID:",
+        payment_id
+    )
+
+    print(
+        "PayMongo Link ID:",
+        getattr(
+            sponsorship,
+            "paymongo_link_id",
+            None
+        )
+    )
+
+    print(
+        "PayMongo Payment ID:",
+        getattr(
+            sponsorship,
+            "paymongo_payment_id",
+            None
+        )
+    )
+
+    print(
+        "PayMongo Reference:",
+        getattr(
+            sponsorship,
+            "paymongo_reference",
+            None
+        )
+    )
+
+    print(
+        "Payment Status:",
+        status
+    )
+
+    print(
+        "Paid:",
+        paid
+    )
+
+    print(
+        "Donation Amount:",
+        f"₱{donation_amount_pesos:,.2f}"
+    )
+
+    print(
+        "Cash Total Added:",
+        f"₱{cash_total_added:,.2f}"
+    )
+
+    print("=" * 70)
+
     # ======================================================
+    # IMPORTANT
     # ======================================================
     #
-    # IMPORTANT:
+    # DO NOT call PayMongo here to determine whether
+    # the sponsorship is paid.
     #
-    # DO NOT CALL PAYMONGO HERE.
+    # The webhook has already verified payment.paid
+    # and updated the database.
     #
-    # The webhook already confirmed payment.
+    # Database status is the source of truth.
     #
     # ======================================================
 
-    if status_lower == "paid":
+    if paid:
 
         print("=" * 70)
-        print("PAYMENT CONFIRMED")
-        print("Payment confirmed by webhook/database.")
+        print("PAYMENT CONFIRMED AS PAID")
+        print(
+            "Sponsorship ID:",
+            sponsorship.id
+        )
+        print(
+            "Cash Total Added:",
+            cash_total_added
+        )
+        print("=" * 70)
+
+    else:
+
+        print("=" * 70)
+        print("PAYMENT STILL PENDING")
         print(
             "Sponsorship ID:",
             sponsorship.id
@@ -16742,10 +16817,6 @@ def sponsorship_payment_status(
         print(
             "Payment Status:",
             status
-        )
-        print(
-            "Paid:",
-            True
         )
         print(
             "Donation Amount:",
@@ -16757,99 +16828,9 @@ def sponsorship_payment_status(
         )
         print("=" * 70)
 
-        return {
-
-            "success":
-                True,
-
-            "found":
-                True,
-
-            "paid":
-                True,
-
-            "payment_status":
-                "Paid",
-
-            "sponsorship_id":
-                sponsorship.id,
-
-            "paymongo_link_id":
-                getattr(
-                    sponsorship,
-                    "paymongo_link_id",
-                    None
-                ),
-
-            "paymongo_payment_id":
-                getattr(
-                    sponsorship,
-                    "paymongo_payment_id",
-                    None
-                ),
-
-            "paymongo_reference":
-                getattr(
-                    sponsorship,
-                    "paymongo_reference",
-                    None
-                ),
-
-            "payment_url":
-                getattr(
-                    sponsorship,
-                    "payment_url",
-                    None
-                ),
-
-            "donation_amount":
-                donation_amount_pesos,
-
-            "donation_amount_display":
-                f"₱{donation_amount_pesos:,.2f}",
-
-            "cash_total_added":
-                cash_total_added,
-
-            "cash_total_added_display":
-                f"₱{cash_total_added:,.2f}",
-
-            "cash_donation_total_updated":
-                cash_total_added > 0,
-
-            "message":
-                "Payment successfully confirmed."
-        }
-
     # ======================================================
+    # FINAL RESPONSE
     # ======================================================
-    # STILL PENDING
-    # ======================================================
-    # ======================================================
-
-    print("=" * 70)
-    print("PAYMENT STILL PENDING")
-    print(
-        "Sponsorship ID:",
-        sponsorship.id
-    )
-    print(
-        "Payment Status:",
-        status
-    )
-    print(
-        "Paid:",
-        False
-    )
-    print(
-        "Donation Amount:",
-        donation_amount_pesos
-    )
-    print(
-        "Cash Total Added:",
-        cash_total_added
-    )
-    print("=" * 70)
 
     return {
 
@@ -16859,14 +16840,14 @@ def sponsorship_payment_status(
         "found":
             True,
 
-        "paid":
-            False,
+        "sponsorship_id":
+            sponsorship.id,
 
         "payment_status":
             status,
 
-        "sponsorship_id":
-            sponsorship.id,
+        "paid":
+            paid,
 
         "paymongo_link_id":
             getattr(
@@ -16909,10 +16890,8 @@ def sponsorship_payment_status(
             f"₱{cash_total_added:,.2f}",
 
         "cash_donation_total_updated":
-            False,
+            paid and cash_total_added > 0
 
-        "message":
-            "Payment is still pending."
     }
 
 
