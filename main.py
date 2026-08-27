@@ -13240,6 +13240,26 @@ async def process_finding_sponsor_queue_logic(
 # ======================================================
 
 
+# ============================================================
+# PAYMONGO WEBHOOK
+# ============================================================
+#
+# Handles:
+#
+# 1. Participant payments
+# 2. Store payments
+# 3. Cash sponsorship payments
+# 4. Cash donation total
+# 5. Finding Sponsor queue
+#
+# Supported PayMongo events:
+#
+#     link.payment.paid
+#     payment.paid
+#
+# ============================================================
+
+
 @app.post("/webhooks/paymongo")
 async def paymongo_webhook(
     request: Request,
@@ -13251,18 +13271,24 @@ async def paymongo_webhook(
     print("PAYMONGO WEBHOOK RECEIVED")
     print("=" * 70)
 
-    # ==================================================
+    # ========================================================
     # GET RAW BODY
-    # ==================================================
+    # ========================================================
 
     raw_body = await request.body()
 
-    print("Raw webhook received.")
-    print("Body length:", len(raw_body))
+    print(
+        "Raw webhook received."
+    )
 
-    # ==================================================
+    print(
+        "Body length:",
+        len(raw_body)
+    )
+
+    # ========================================================
     # GET SIGNATURE
-    # ==================================================
+    # ========================================================
 
     signature_header = request.headers.get(
         "Paymongo-Signature"
@@ -13270,7 +13296,9 @@ async def paymongo_webhook(
 
     if not signature_header:
 
-        print("ERROR: Missing Paymongo-Signature.")
+        print(
+            "ERROR: Missing Paymongo-Signature."
+        )
 
         raise HTTPException(
             status_code=401,
@@ -13282,9 +13310,9 @@ async def paymongo_webhook(
         signature_header
     )
 
-    # ==================================================
+    # ========================================================
     # VERIFY SIGNATURE
-    # ==================================================
+    # ========================================================
 
     try:
 
@@ -13300,9 +13328,13 @@ async def paymongo_webhook(
                 1
             )
 
-            parts[key.strip()] = value.strip()
+            parts[
+                key.strip()
+            ] = value.strip()
 
-        timestamp = parts.get("t")
+        timestamp = parts.get(
+            "t"
+        )
 
         test_signature = parts.get(
             "te",
@@ -13321,13 +13353,15 @@ async def paymongo_webhook(
                 detail="Missing webhook timestamp."
             )
 
-        # ==================================================
+        # ----------------------------------------------------
         # CHECK TIMESTAMP
-        # ==================================================
+        # ----------------------------------------------------
 
         try:
 
-            timestamp_int = int(timestamp)
+            timestamp_int = int(
+                timestamp
+            )
 
             current_timestamp = int(
                 time.time()
@@ -13344,7 +13378,7 @@ async def paymongo_webhook(
                 "seconds"
             )
 
-            if difference > 900:
+            if difference > 300:
 
                 raise HTTPException(
                     status_code=401,
@@ -13358,23 +13392,27 @@ async def paymongo_webhook(
                 detail="Invalid webhook timestamp."
             )
 
-        # ==================================================
+        # ----------------------------------------------------
         # CREATE SIGNED PAYLOAD
-        # ==================================================
+        # ----------------------------------------------------
 
         signed_payload = (
             f"{timestamp}."
-        ).encode("utf-8") + raw_body
+        ).encode(
+            "utf-8"
+        ) + raw_body
 
         expected_signature = hmac.new(
-            PAYMONGO_WEBHOOK_SECRET.encode("utf-8"),
+            PAYMONGO_WEBHOOK_SECRET.encode(
+                "utf-8"
+            ),
             signed_payload,
             hashlib.sha256
         ).hexdigest()
 
-        # ==================================================
+        # ----------------------------------------------------
         # SELECT SIGNATURE
-        # ==================================================
+        # ----------------------------------------------------
 
         provided_signature = (
             live_signature
@@ -13386,7 +13424,10 @@ async def paymongo_webhook(
 
             raise HTTPException(
                 status_code=401,
-                detail="Missing PayMongo signature value."
+                detail=(
+                    "Missing PayMongo "
+                    "signature value."
+                )
             )
 
         if not hmac.compare_digest(
@@ -13400,7 +13441,10 @@ async def paymongo_webhook(
 
             raise HTTPException(
                 status_code=401,
-                detail="Invalid PayMongo webhook signature."
+                detail=(
+                    "Invalid PayMongo "
+                    "webhook signature."
+                )
             )
 
         print(
@@ -13419,17 +13463,22 @@ async def paymongo_webhook(
 
         raise HTTPException(
             status_code=401,
-            detail="Invalid PayMongo webhook signature."
+            detail=(
+                "Invalid PayMongo "
+                "webhook signature."
+            )
         )
 
-    # ==================================================
+    # ========================================================
     # PARSE JSON
-    # ==================================================
+    # ========================================================
 
     try:
 
         payload = json.loads(
-            raw_body.decode("utf-8")
+            raw_body.decode(
+                "utf-8"
+            )
         )
 
     except Exception as e:
@@ -13444,16 +13493,20 @@ async def paymongo_webhook(
             detail="Invalid JSON payload."
         )
 
-    # ==================================================
+    # ========================================================
     # EVENT INFORMATION
-    # ==================================================
+    # ========================================================
 
     event_data = payload.get(
         "data",
         {}
     )
 
-    if not isinstance(event_data, dict):
+    if not isinstance(
+        event_data,
+        dict
+    ):
+
         event_data = {}
 
     event_attributes = event_data.get(
@@ -13461,7 +13514,11 @@ async def paymongo_webhook(
         {}
     )
 
-    if not isinstance(event_attributes, dict):
+    if not isinstance(
+        event_attributes,
+        dict
+    ):
+
         event_attributes = {}
 
     event_type = event_attributes.get(
@@ -13478,14 +13535,23 @@ async def paymongo_webhook(
 
     print("=" * 70)
     print("PAYMONGO EVENT")
-    print("Event ID:", event_id)
-    print("Event Type:", event_type)
-    print("Live Mode:", livemode)
+    print(
+        "Event ID:",
+        event_id
+    )
+    print(
+        "Event Type:",
+        event_type
+    )
+    print(
+        "Live Mode:",
+        livemode
+    )
     print("=" * 70)
 
-    # ==================================================
-    # DEBUG
-    # ==================================================
+    # ========================================================
+    # PRINT FULL PAYLOAD
+    # ========================================================
 
     try:
 
@@ -13498,11 +13564,13 @@ async def paymongo_webhook(
 
     except Exception:
 
-        print(payload)
+        print(
+            payload
+        )
 
-    # ==================================================
+    # ========================================================
     # SUPPORTED EVENTS
-    # ==================================================
+    # ========================================================
 
     supported_events = [
         "link.payment.paid",
@@ -13523,16 +13591,20 @@ async def paymongo_webhook(
             "message": "Event ignored."
         }
 
-    # ==================================================
+    # ========================================================
     # GET PAYMONGO RESOURCE
-    # ==================================================
+    # ========================================================
 
     resource = event_attributes.get(
         "data",
         {}
     )
 
-    if not isinstance(resource, dict):
+    if not isinstance(
+        resource,
+        dict
+    ):
+
         resource = {}
 
     resource_id = resource.get(
@@ -13552,6 +13624,7 @@ async def paymongo_webhook(
         resource_attributes,
         dict
     ):
+
         resource_attributes = {}
 
     print(
@@ -13564,9 +13637,9 @@ async def paymongo_webhook(
         resource_type
     )
 
-    # ==================================================
+    # ========================================================
     # GET METADATA
-    # ==================================================
+    # ========================================================
 
     metadata = resource_attributes.get(
         "metadata",
@@ -13577,6 +13650,7 @@ async def paymongo_webhook(
         metadata,
         dict
     ):
+
         metadata = {}
 
     print(
@@ -13584,15 +13658,121 @@ async def paymongo_webhook(
         metadata
     )
 
-    # ==================================================
-    # PAYMONGO LINK ID
-    # ==================================================
+    # ========================================================
+    # ALSO CHECK EVENT-LEVEL METADATA
+    # ========================================================
+
+    event_metadata = event_attributes.get(
+        "metadata",
+        {}
+    )
+
+    if not isinstance(
+        event_metadata,
+        dict
+    ):
+
+        event_metadata = {}
+
+    # --------------------------------------------------------
+    # MERGE METADATA
+    # --------------------------------------------------------
+
+    if event_metadata:
+
+        for key, value in event_metadata.items():
+
+            if key not in metadata:
+
+                metadata[key] = value
+
+    print(
+        "Final Metadata:",
+        metadata
+    )
+
+    # ========================================================
+    # GET INTERNAL PAYMENT ID
+    # ========================================================
+
+    internal_payment_id = metadata.get(
+        "payment_id"
+    )
+
+    if internal_payment_id:
+
+        internal_payment_id = str(
+            internal_payment_id
+        ).strip()
+
+    print(
+        "Internal Payment ID:",
+        internal_payment_id
+    )
+
+    # ========================================================
+    # GET PAYMONGO REFERENCE
+    # ========================================================
+    #
+    # Possible locations:
+    #
+    # metadata.pm_reference_number
+    # metadata.reference_number
+    # resource.reference_number
+    # resource.external_reference_number
+    #
+    # ========================================================
+
+    paymongo_reference = (
+        metadata.get(
+            "pm_reference_number"
+        )
+        or
+        metadata.get(
+            "reference_number"
+        )
+        or
+        resource_attributes.get(
+            "reference_number"
+        )
+        or
+        resource_attributes.get(
+            "external_reference_number"
+        )
+    )
+
+    if paymongo_reference:
+
+        paymongo_reference = str(
+            paymongo_reference
+        ).strip()
+
+    else:
+
+        paymongo_reference = None
+
+    print(
+        "PayMongo Reference:",
+        paymongo_reference
+    )
+
+    # ========================================================
+    # GET PAYMONGO LINK ID
+    # ========================================================
 
     paymongo_link_id = None
+
+    # --------------------------------------------------------
+    # LINK PAYMENT EVENT
+    # --------------------------------------------------------
 
     if event_type == "link.payment.paid":
 
         paymongo_link_id = resource_id
+
+    # --------------------------------------------------------
+    # FALLBACK
+    # --------------------------------------------------------
 
     if not paymongo_link_id:
 
@@ -13601,25 +13781,43 @@ async def paymongo_webhook(
                 "link_id"
             )
             or
+            resource_attributes.get(
+                "payment_link_id"
+            )
+            or
             metadata.get(
                 "paymongo_link_id"
             )
         )
+
+    if paymongo_link_id:
+
+        paymongo_link_id = str(
+            paymongo_link_id
+        ).strip()
 
     print(
         "PayMongo Link ID:",
         paymongo_link_id
     )
 
-    # ==================================================
-    # PAYMONGO PAYMENT ID
-    # ==================================================
+    # ========================================================
+    # GET PAYMONGO PAYMENT ID
+    # ========================================================
 
     paymongo_payment_id = None
+
+    # --------------------------------------------------------
+    # PAYMENT PAID EVENT
+    # --------------------------------------------------------
 
     if event_type == "payment.paid":
 
         paymongo_payment_id = resource_id
+
+    # --------------------------------------------------------
+    # METADATA FALLBACK
+    # --------------------------------------------------------
 
     if not paymongo_payment_id:
 
@@ -13629,15 +13827,23 @@ async def paymongo_webhook(
             )
         )
 
-    # ==================================================
-    # GET NESTED PAYMENT
-    # ==================================================
+    if paymongo_payment_id:
+
+        paymongo_payment_id = str(
+            paymongo_payment_id
+        ).strip()
+
+    # ========================================================
+    # NESTED PAYMENT FALLBACK
+    # ========================================================
 
     if not paymongo_payment_id:
 
-        payments_data = resource_attributes.get(
-            "payments",
-            []
+        payments_data = (
+            resource_attributes.get(
+                "payments",
+                []
+            )
         )
 
         if isinstance(
@@ -13651,50 +13857,144 @@ async def paymongo_webhook(
                     payment_entry,
                     dict
                 ):
+
                     continue
 
-                nested_data = payment_entry.get(
-                    "data",
-                    {}
+                nested_data = (
+                    payment_entry.get(
+                        "data",
+                        {}
+                    )
                 )
 
                 if not isinstance(
                     nested_data,
                     dict
                 ):
+
                     continue
 
-                nested_payment_id = nested_data.get(
-                    "id"
+                nested_payment_id = (
+                    nested_data.get(
+                        "id"
+                    )
                 )
 
                 if nested_payment_id:
 
-                    paymongo_payment_id = (
+                    paymongo_payment_id = str(
                         nested_payment_id
-                    )
+                    ).strip()
 
                     break
 
     print(
-        "PayMongo Payment ID:",
+        "Final PayMongo Payment ID:",
         paymongo_payment_id
     )
 
-    # ==================================================
+    # ========================================================
     # FIND LOCAL PAYMENT
-    # ==================================================
+    # ========================================================
 
     payment = None
 
-    # ==================================================
-    # 1. FIND BY PAYMONGO LINK ID
-    # ==================================================
+    # ========================================================
+    # 1. FIND BY INTERNAL PAYMENT ID
+    # ========================================================
 
-    if paymongo_link_id:
+    if internal_payment_id:
 
         print(
-            "Searching local Payment by PayMongo Link ID..."
+            "Searching local Payment "
+            "by internal Payment ID..."
+        )
+
+        try:
+
+            payment = (
+                db.query(Payment)
+                .filter(
+                    Payment.id ==
+                    int(
+                        internal_payment_id
+                    )
+                )
+                .first()
+            )
+
+        except (
+            ValueError,
+            TypeError
+        ):
+
+            payment = None
+
+        if payment:
+
+            print("=" * 70)
+            print(
+                "MATCH FOUND BY INTERNAL PAYMENT ID"
+            )
+            print(
+                "Local Payment ID:",
+                payment.id
+            )
+            print("=" * 70)
+
+    # ========================================================
+    # 2. FIND BY PAYMONGO REFERENCE
+    # ========================================================
+
+    if (
+        not payment
+        and
+        paymongo_reference
+    ):
+
+        print(
+            "Searching local Payment "
+            "by PayMongo Reference..."
+        )
+
+        payment = (
+            db.query(Payment)
+            .filter(
+                Payment.paymongo_reference ==
+                paymongo_reference
+            )
+            .first()
+        )
+
+        if payment:
+
+            print("=" * 70)
+            print(
+                "MATCH FOUND BY PAYMONGO REFERENCE"
+            )
+            print(
+                "Local Payment ID:",
+                payment.id
+            )
+            print(
+                "Reference:",
+                paymongo_reference
+            )
+            print("=" * 70)
+
+    # ========================================================
+    # 3. FIND BY PAYMONGO LINK ID
+    # ========================================================
+
+    if (
+        not payment
+        and
+        paymongo_link_id
+    ):
+
+        print(
+            "Searching local Payment "
+            "by PayMongo Link ID..."
         )
 
         payment = (
@@ -13706,55 +14006,31 @@ async def paymongo_webhook(
             .first()
         )
 
-    # ==================================================
-    # 2. FIND BY INTERNAL PAYMENT ID
-    # ==================================================
+        if payment:
 
-    if not payment:
+            print("=" * 70)
+            print(
+                "MATCH FOUND BY PAYMONGO LINK ID"
+            )
+            print(
+                "Local Payment ID:",
+                payment.id
+            )
+            print("=" * 70)
 
-        internal_payment_id = metadata.get(
-            "payment_id"
-        )
-
-        if internal_payment_id:
-
-            try:
-
-                payment = (
-                    db.query(Payment)
-                    .filter(
-                        Payment.id ==
-                        int(
-                            internal_payment_id
-                        )
-                    )
-                    .first()
-                )
-
-            except (
-                ValueError,
-                TypeError
-            ):
-
-                payment = None
-
-    # ==================================================
-    # 3. FIND BY PAYMONGO PAYMENT ID
-    # ==================================================
+    # ========================================================
+    # 4. FIND BY PAYMONGO PAYMENT ID
+    # ========================================================
 
     if (
         not payment
         and
         paymongo_payment_id
-        and
-        hasattr(
-            Payment,
-            "paymongo_payment_id"
-        )
     ):
 
         print(
-            "Searching local Payment by PayMongo Payment ID..."
+            "Searching local Payment "
+            "by PayMongo Payment ID..."
         )
 
         payment = (
@@ -13766,26 +14042,53 @@ async def paymongo_webhook(
             .first()
         )
 
-    # ==================================================
+        if payment:
+
+            print("=" * 70)
+            print(
+                "MATCH FOUND BY PAYMONGO PAYMENT ID"
+            )
+            print(
+                "Local Payment ID:",
+                payment.id
+            )
+            print("=" * 70)
+
+    # ========================================================
     # FIND CASH SPONSORSHIP
-    # ==================================================
+    # ========================================================
 
     cash_sponsorship = None
 
+    # --------------------------------------------------------
+    # FIND BY PAYMONGO LINK ID
+    # --------------------------------------------------------
+
     if paymongo_link_id:
 
-        cash_sponsorship = (
-            db.query(CashSponsorship)
-            .filter(
-                CashSponsorship.paymongo_link_id ==
-                paymongo_link_id
-            )
-            .first()
-        )
+        try:
 
-    # ==================================================
+            cash_sponsorship = (
+                db.query(CashSponsorship)
+                .filter(
+                    CashSponsorship.paymongo_link_id ==
+                    paymongo_link_id
+                )
+                .first()
+            )
+
+        except Exception as e:
+
+            print(
+                "Cash sponsorship link lookup failed:",
+                repr(e)
+            )
+
+            cash_sponsorship = None
+
+    # ========================================================
     # FIND CASH SPONSORSHIP BY METADATA
-    # ==================================================
+    # ========================================================
 
     if not cash_sponsorship:
 
@@ -13815,14 +14118,16 @@ async def paymongo_webhook(
 
                 cash_sponsorship = None
 
-    # ==================================================
+    # ========================================================
     # PROCESS CASH SPONSORSHIP
-    # ==================================================
+    # ========================================================
 
     if cash_sponsorship:
 
         print("=" * 70)
-        print("CASH SPONSORSHIP FOUND")
+        print(
+            "CASH SPONSORSHIP FOUND"
+        )
         print(
             "Cash Sponsorship ID:",
             cash_sponsorship.id
@@ -13838,12 +14143,9 @@ async def paymongo_webhook(
             or ""
         ).strip().lower()
 
-        # ==================================================
-        # cash_total_added IS INTEGER
-        #
-        # 0 = donation not added yet
-        # >0 = amount already added in PESOS
-        # ==================================================
+        # ====================================================
+        # GET EXISTING CASH TOTAL
+        # ====================================================
 
         try:
 
@@ -13873,9 +14175,9 @@ async def paymongo_webhook(
             cash_total_added
         )
 
-        # ==================================================
+        # ====================================================
         # IDEMPOTENCY
-        # ==================================================
+        # ====================================================
 
         if (
             current_status == "paid"
@@ -13884,31 +14186,53 @@ async def paymongo_webhook(
         ):
 
             print(
-                "Cash sponsorship already processed."
+                "Cash sponsorship "
+                "already processed."
             )
 
             return {
-                "received": True,
-                "processed": True,
-                "already_processed": True,
-                "payment_type": "sponsor_package",
+
+                "received":
+                    True,
+
+                "processed":
+                    True,
+
+                "already_processed":
+                    True,
+
+                "payment_type":
+                    "sponsor_package",
+
                 "sponsorship_id":
                     cash_sponsorship.id,
+
                 "payment_status":
                     getattr(
                         cash_sponsorship,
                         "payment_status",
                         "Paid"
                     ),
+
                 "cash_total_added":
                     cash_total_added,
+
                 "cash_total_added_display":
-                    f"₱{cash_total_added:,.2f}"
+                    f"₱{cash_total_added:,.2f}",
+
+                "paymongo_link_id":
+                    paymongo_link_id,
+
+                "paymongo_payment_id":
+                    paymongo_payment_id,
+
+                "paymongo_reference":
+                    paymongo_reference
             }
 
-        # ==================================================
+        # ====================================================
         # GET DONATION AMOUNT
-        # ==================================================
+        # ====================================================
 
         try:
 
@@ -13930,26 +14254,29 @@ async def paymongo_webhook(
 
         if donation_amount <= 0:
 
-            print(
-                "ERROR: Invalid donation amount:",
-                donation_amount
-            )
-
             db.rollback()
 
             return {
-                "received": True,
-                "processed": False,
-                "payment_type": "sponsor_package",
+
+                "received":
+                    True,
+
+                "processed":
+                    False,
+
+                "payment_type":
+                    "sponsor_package",
+
                 "sponsorship_id":
                     cash_sponsorship.id,
+
                 "message":
                     "Invalid cash sponsorship donation amount."
             }
 
-        # ==================================================
+        # ====================================================
         # CONVERT CENTAVOS TO PESOS
-        # ==================================================
+        # ====================================================
 
         donation_amount_pesos = (
             donation_amount // 100
@@ -13969,19 +14296,29 @@ async def paymongo_webhook(
 
         if donation_amount_pesos <= 0:
 
+            db.rollback()
+
             return {
-                "received": True,
-                "processed": False,
-                "payment_type": "sponsor_package",
+
+                "received":
+                    True,
+
+                "processed":
+                    False,
+
+                "payment_type":
+                    "sponsor_package",
+
                 "sponsorship_id":
                     cash_sponsorship.id,
+
                 "message":
                     "Donation amount is less than ₱1.00."
             }
 
-        # ==================================================
+        # ====================================================
         # GET CASH DONATION TOTAL
-        # ==================================================
+        # ====================================================
 
         donation_total = (
             db.query(
@@ -13993,9 +14330,9 @@ async def paymongo_webhook(
             .first()
         )
 
-        # ==================================================
-        # CREATE TOTAL IF NONE EXISTS
-        # ==================================================
+        # ====================================================
+        # CREATE CASH DONATION TOTAL
+        # ====================================================
 
         if not donation_total:
 
@@ -14009,21 +14346,17 @@ async def paymongo_webhook(
 
             db.flush()
 
-            print(
-                "Created CashDonationTotal record."
-            )
-
-        # ==================================================
-        # CURRENT BALANCE
-        # ==================================================
+        # ====================================================
+        # CURRENT TOTAL
+        # ====================================================
 
         current_cash_total = int(
             donation_total.total_amount or 0
         )
 
-        # ==================================================
+        # ====================================================
         # ADD DONATION
-        # ==================================================
+        # ====================================================
 
         new_cash_total = (
             current_cash_total +
@@ -14043,9 +14376,9 @@ async def paymongo_webhook(
                 datetime.datetime.now()
             )
 
-        # ==================================================
-        # MARK SPONSORSHIP PAID
-        # ==================================================
+        # ====================================================
+        # MARK CASH SPONSORSHIP PAID
+        # ====================================================
 
         if hasattr(
             cash_sponsorship,
@@ -14083,9 +14416,9 @@ async def paymongo_webhook(
                 datetime.datetime.now()
             )
 
-        # ==================================================
-        # SAVE INTEGER IDEMPOTENCY AMOUNT
-        # ==================================================
+        # ====================================================
+        # IDEMPOTENCY AMOUNT
+        # ====================================================
 
         if hasattr(
             cash_sponsorship,
@@ -14096,9 +14429,9 @@ async def paymongo_webhook(
                 donation_amount_pesos
             )
 
-        # ==================================================
+        # ====================================================
         # SAVE PAYMONGO LINK ID
-        # ==================================================
+        # ====================================================
 
         if (
             paymongo_link_id
@@ -14113,18 +14446,12 @@ async def paymongo_webhook(
                 paymongo_link_id
             )
 
-        # ==================================================
+        # ====================================================
         # SAVE PAYMONGO REFERENCE
-        # ==================================================
-
-        webhook_reference = (
-            resource_attributes.get(
-                "reference_number"
-            )
-        )
+        # ====================================================
 
         if (
-            webhook_reference
+            paymongo_reference
             and
             hasattr(
                 cash_sponsorship,
@@ -14133,12 +14460,12 @@ async def paymongo_webhook(
         ):
 
             cash_sponsorship.paymongo_reference = (
-                webhook_reference
+                paymongo_reference
             )
 
-        # ==================================================
-        # COMMIT DONATION FIRST
-        # ==================================================
+        # ====================================================
+        # COMMIT
+        # ====================================================
 
         db.commit()
 
@@ -14151,28 +14478,35 @@ async def paymongo_webhook(
         )
 
         print("=" * 70)
-        print("CASH DONATION SUCCESSFULLY ADDED")
+        print(
+            "CASH DONATION SUCCESSFULLY ADDED"
+        )
+
         print(
             "Sponsorship ID:",
             cash_sponsorship.id
         )
+
         print(
             "Donation:",
             f"₱{donation_amount_pesos:,.2f}"
         )
+
         print(
             "Previous Total:",
             f"₱{current_cash_total:,.2f}"
         )
+
         print(
             "New Total:",
             f"₱{new_cash_total:,.2f}"
         )
+
         print("=" * 70)
 
-        # ==================================================
-        # SEND SPONSOR CONFIRMATION EMAIL
-        # ==================================================
+        # ====================================================
+        # SEND SPONSOR EMAIL
+        # ====================================================
 
         sponsor_email_sent = False
 
@@ -14200,7 +14534,8 @@ async def paymongo_webhook(
                     sponsor_email_sent = True
 
                     print(
-                        "Cash sponsorship confirmation email sent."
+                        "Cash sponsorship "
+                        "confirmation email sent."
                     )
 
             except Exception as e:
@@ -14210,33 +14545,9 @@ async def paymongo_webhook(
                     repr(e)
                 )
 
-        # ==================================================
-        # AUTOMATICALLY PROCESS FINDING SPONSORS
-        # ==================================================
-        #
-        # IMPORTANT:
-        #
-        # Do not call the FastAPI endpoint itself.
-        #
-        # This expects that the actual sponsorship logic
-        # exists in:
-        #
-        #     process_finding_sponsor_queue_logic(db)
-        #
-        # The function should:
-        #
-        # 1. Get T-shirt price
-        # 2. Get Lanyard price
-        # 3. Get CashDonationTotal
-        # 4. Find Finding Sponsor participants
-        # 5. FIFO oldest first
-        # 6. Sponsor participants while balance allows
-        # 7. Mark T-shirt Paid
-        # 8. Mark Lanyard Paid
-        # 9. Deduct balance
-        # 10. Commit changes
-        #
-        # ==================================================
+        # ====================================================
+        # PROCESS FINDING SPONSOR QUEUE
+        # ====================================================
 
         queue_result = None
         queue_processed = False
@@ -14247,22 +14558,7 @@ async def paymongo_webhook(
                 "process_finding_sponsor_queue_logic"
             )
 
-            if not queue_function:
-
-                print(
-                    "ERROR: "
-                    "process_finding_sponsor_queue_logic "
-                    "is not defined."
-                )
-
-                queue_result = {
-                    "success": False,
-                    "message":
-                        "Sponsorship processing function "
-                        "is not defined."
-                }
-
-            else:
+            if queue_function:
 
                 queue_result = await queue_function(
                     db
@@ -14275,42 +14571,74 @@ async def paymongo_webhook(
                     "FINDING SPONSOR QUEUE "
                     "AUTOMATICALLY PROCESSED"
                 )
+
                 print(
                     "Queue Result:",
                     queue_result
                 )
+
                 print("=" * 70)
+
+            else:
+
+                print(
+                    "process_finding_sponsor_queue_logic "
+                    "is not defined."
+                )
+
+                queue_result = {
+
+                    "success":
+                        False,
+
+                    "message":
+                        (
+                            "Sponsorship processing "
+                            "function is not defined."
+                        )
+                }
 
         except Exception as e:
 
             print("=" * 70)
             print(
-                "AUTOMATIC SPONSORSHIP PROCESSING FAILED"
+                "AUTOMATIC SPONSORSHIP "
+                "PROCESSING FAILED"
             )
+
             print(
                 "Error:",
                 repr(e)
             )
+
             print("=" * 70)
 
             queue_result = {
-                "success": False,
+
+                "success":
+                    False,
+
                 "message":
-                    "Donation was successful, "
-                    "but sponsorship processing failed.",
+                    (
+                        "Donation was successful, "
+                        "but sponsorship processing failed."
+                    ),
+
                 "error":
                     str(e)
             }
 
-        # ==================================================
+        # ====================================================
         # RETURN CASH SPONSORSHIP RESULT
-        # ==================================================
+        # ====================================================
 
         return {
 
-            "received": True,
+            "received":
+                True,
 
-            "processed": True,
+            "processed":
+                True,
 
             "payment_type":
                 "sponsor_package",
@@ -14319,7 +14647,11 @@ async def paymongo_webhook(
                 cash_sponsorship.id,
 
             "payment_status":
-                cash_sponsorship.payment_status,
+                getattr(
+                    cash_sponsorship,
+                    "payment_status",
+                    "Paid"
+                ),
 
             "donation_amount":
                 donation_amount_pesos,
@@ -14328,10 +14660,14 @@ async def paymongo_webhook(
                 f"₱{donation_amount_pesos:,.2f}",
 
             "cash_total_added":
-                cash_sponsorship.cash_total_added,
+                getattr(
+                    cash_sponsorship,
+                    "cash_total_added",
+                    donation_amount_pesos
+                ),
 
             "cash_total_added_display":
-                f"₱{cash_sponsorship.cash_total_added:,.2f}",
+                f"₱{getattr(cash_sponsorship, 'cash_total_added', donation_amount_pesos):,.2f}",
 
             "previous_cash_donation_total":
                 current_cash_total,
@@ -14351,6 +14687,9 @@ async def paymongo_webhook(
             "paymongo_payment_id":
                 paymongo_payment_id,
 
+            "paymongo_reference":
+                paymongo_reference,
+
             "sponsor_email_sent":
                 sponsor_email_sent,
 
@@ -14361,33 +14700,54 @@ async def paymongo_webhook(
                 queue_result
         }
 
-    # ==================================================
-    # NO PAYMENT FOUND
-    # ==================================================
+    # ========================================================
+    # NO LOCAL PAYMENT FOUND
+    # ========================================================
 
     if not payment:
 
         print("=" * 70)
-        print("NO MATCHING PAYMENT FOUND")
+        print(
+            "NO MATCHING LOCAL PAYMENT FOUND"
+        )
+
+        print(
+            "Internal Payment ID:",
+            internal_payment_id
+        )
+
         print(
             "PayMongo Link ID:",
             paymongo_link_id
         )
+
         print(
             "PayMongo Payment ID:",
             paymongo_payment_id
         )
+
+        print(
+            "PayMongo Reference:",
+            paymongo_reference
+        )
+
         print(
             "Metadata:",
             metadata
         )
+
         print("=" * 70)
 
         return {
 
-            "received": True,
+            "received":
+                True,
 
-            "processed": False,
+            "processed":
+                False,
+
+            "internal_payment_id":
+                internal_payment_id,
 
             "paymongo_link_id":
                 paymongo_link_id,
@@ -14395,16 +14755,22 @@ async def paymongo_webhook(
             "paymongo_payment_id":
                 paymongo_payment_id,
 
+            "paymongo_reference":
+                paymongo_reference,
+
             "message":
                 "No matching local payment found."
         }
 
-    # ==================================================
-    # PAYMENT FOUND
-    # ==================================================
+    # ========================================================
+    # LOCAL PAYMENT FOUND
+    # ========================================================
 
     print("=" * 70)
-    print("LOCAL PAYMENT FOUND")
+
+    print(
+        "LOCAL PAYMENT FOUND"
+    )
 
     print(
         "Local Payment ID:",
@@ -14422,9 +14788,9 @@ async def paymongo_webhook(
 
     print("=" * 70)
 
-    # ==================================================
+    # ========================================================
     # NORMALIZE PAYMENT TYPE
-    # ==================================================
+    # ========================================================
 
     payment_type = str(
         getattr(
@@ -14440,67 +14806,44 @@ async def paymongo_webhook(
         repr(payment_type)
     )
 
-    # ==================================================
-    # SAVE PAYMONGO IDs
-    # ==================================================
+    # ========================================================
+    # SAVE PAYMONGO INFORMATION
+    # ========================================================
 
-    if (
-        paymongo_link_id
-        and
-        hasattr(
-            payment,
-            "paymongo_link_id"
-        )
-    ):
+    if paymongo_link_id:
 
         payment.paymongo_link_id = (
             paymongo_link_id
         )
 
-    if (
-        paymongo_payment_id
-        and
-        hasattr(
-            payment,
-            "paymongo_payment_id"
-        )
-    ):
+    if paymongo_payment_id:
 
         payment.paymongo_payment_id = (
             paymongo_payment_id
         )
 
-    reference_number = (
-        resource_attributes.get(
-            "reference_number"
-        )
-    )
-
-    if (
-        reference_number
-        and
-        hasattr(
-            payment,
-            "paymongo_reference"
-        )
-    ):
+    if paymongo_reference:
 
         payment.paymongo_reference = (
-            reference_number
+            paymongo_reference
         )
 
-    # ==================================================
+    # ========================================================
     # PARTICIPANT PAYMENT
-    # ==================================================
+    # ========================================================
 
     if payment_type == "participant":
 
         print("=" * 70)
-        print("PROCESSING PARTICIPANT PAYMENT")
+        print(
+            "PROCESSING PARTICIPANT PAYMENT"
+        )
+
         print(
             "Payment ID:",
             payment.id
         )
+
         print("=" * 70)
 
         participant_id = getattr(
@@ -14515,9 +14858,11 @@ async def paymongo_webhook(
 
             return {
 
-                "received": True,
+                "received":
+                    True,
 
-                "processed": False,
+                "processed":
+                    False,
 
                 "payment_type":
                     "participant",
@@ -14528,6 +14873,10 @@ async def paymongo_webhook(
                 "message":
                     "Participant ID is missing."
             }
+
+        # ----------------------------------------------------
+        # FIND PARTICIPANT
+        # ----------------------------------------------------
 
         participant = (
             db.query(Participant)
@@ -14544,9 +14893,11 @@ async def paymongo_webhook(
 
             return {
 
-                "received": True,
+                "received":
+                    True,
 
-                "processed": False,
+                "processed":
+                    False,
 
                 "payment_type":
                     "participant",
@@ -14561,9 +14912,9 @@ async def paymongo_webhook(
                     "Participant not found."
             }
 
-        # ==================================================
+        # ====================================================
         # IDEMPOTENCY
-        # ==================================================
+        # ====================================================
 
         current_payment_status = str(
             getattr(
@@ -14577,18 +14928,22 @@ async def paymongo_webhook(
         if current_payment_status == "paid":
 
             print(
-                "Participant payment already processed."
+                "Participant payment "
+                "already processed."
             )
 
             db.commit()
 
             return {
 
-                "received": True,
+                "received":
+                    True,
 
-                "processed": True,
+                "processed":
+                    True,
 
-                "already_processed": True,
+                "already_processed":
+                    True,
 
                 "payment_type":
                     "participant",
@@ -14600,12 +14955,21 @@ async def paymongo_webhook(
                     participant.id,
 
                 "payment_status":
-                    payment.status
+                    payment.status,
+
+                "paymongo_link_id":
+                    payment.paymongo_link_id,
+
+                "paymongo_payment_id":
+                    payment.paymongo_payment_id,
+
+                "paymongo_reference":
+                    payment.paymongo_reference
             }
 
-        # ==================================================
+        # ====================================================
         # MARK PAYMENT PAID
-        # ==================================================
+        # ====================================================
 
         payment.status = "Paid"
 
@@ -14618,9 +14982,9 @@ async def paymongo_webhook(
                 datetime.datetime.now()
             )
 
-        # ==================================================
+        # ====================================================
         # T-SHIRT
-        # ==================================================
+        # ====================================================
 
         tshirt_selected = getattr(
             payment,
@@ -14635,7 +14999,9 @@ async def paymongo_webhook(
                 "tshirt_status"
             ):
 
-                participant.tshirt_status = "Paid"
+                participant.tshirt_status = (
+                    "Paid"
+                )
 
             tshirt_size = getattr(
                 payment,
@@ -14656,9 +15022,9 @@ async def paymongo_webhook(
                     tshirt_size
                 )
 
-        # ==================================================
+        # ====================================================
         # LANYARD
-        # ==================================================
+        # ====================================================
 
         lanyard_selected = getattr(
             payment,
@@ -14673,16 +15039,26 @@ async def paymongo_webhook(
                 "lanyard_status"
             ):
 
-                participant.lanyard_status = "Paid"
-
-            if hasattr(
-                participant,
-                "registration_status"
-            ):
-
-                participant.registration_status = (
-                    "Confirmed"
+                participant.lanyard_status = (
+                    "Paid"
                 )
+
+        # ====================================================
+        # REGISTRATION STATUS
+        # ====================================================
+
+        if hasattr(
+            participant,
+            "registration_status"
+        ):
+
+            participant.registration_status = (
+                "Confirmed"
+            )
+
+        # ====================================================
+        # UPDATED AT
+        # ====================================================
 
         if hasattr(
             participant,
@@ -14693,9 +15069,9 @@ async def paymongo_webhook(
                 datetime.datetime.now()
             )
 
-        # ==================================================
+        # ====================================================
         # COMMIT
-        # ==================================================
+        # ====================================================
 
         db.commit()
 
@@ -14708,12 +15084,13 @@ async def paymongo_webhook(
         )
 
         print(
-            "Participant payment successfully processed."
+            "Participant payment "
+            "successfully processed."
         )
 
-        # ==================================================
+        # ====================================================
         # EMAIL
-        # ==================================================
+        # ====================================================
 
         email_sent = False
 
@@ -14740,6 +15117,11 @@ async def paymongo_webhook(
 
                     email_sent = True
 
+                    print(
+                        "Participant payment "
+                        "confirmation email sent."
+                    )
+
             except Exception as e:
 
                 print(
@@ -14747,11 +15129,17 @@ async def paymongo_webhook(
                     repr(e)
                 )
 
+        # ====================================================
+        # RETURN PARTICIPANT RESULT
+        # ====================================================
+
         return {
 
-            "received": True,
+            "received":
+                True,
 
-            "processed": True,
+            "processed":
+                True,
 
             "payment_type":
                 "participant",
@@ -14773,28 +15161,40 @@ async def paymongo_webhook(
                 ),
 
             "paymongo_link_id":
-                paymongo_link_id,
+                payment.paymongo_link_id,
 
             "paymongo_payment_id":
-                paymongo_payment_id,
+                payment.paymongo_payment_id,
+
+            "paymongo_reference":
+                payment.paymongo_reference,
 
             "email_sent":
                 email_sent
         }
 
-    # ==================================================
+    # ========================================================
     # STORE PAYMENT
-    # ==================================================
+    # ========================================================
 
     elif payment_type == "store":
 
         print("=" * 70)
-        print("STORE PAYMENT FOUND")
+
+        print(
+            "PROCESSING STORE PAYMENT"
+        )
+
         print(
             "Store Payment ID:",
             payment.id
         )
+
         print("=" * 70)
+
+        # ====================================================
+        # IDEMPOTENCY
+        # ====================================================
 
         current_status = str(
             getattr(
@@ -14807,15 +15207,22 @@ async def paymongo_webhook(
 
         if current_status == "paid":
 
+            print(
+                "Store payment already processed."
+            )
+
             db.commit()
 
             return {
 
-                "received": True,
+                "received":
+                    True,
 
-                "processed": True,
+                "processed":
+                    True,
 
-                "already_processed": True,
+                "already_processed":
+                    True,
 
                 "payment_type":
                     "store",
@@ -14824,8 +15231,21 @@ async def paymongo_webhook(
                     payment.id,
 
                 "payment_status":
-                    payment.status
+                    payment.status,
+
+                "paymongo_link_id":
+                    payment.paymongo_link_id,
+
+                "paymongo_payment_id":
+                    payment.paymongo_payment_id,
+
+                "paymongo_reference":
+                    payment.paymongo_reference
             }
+
+        # ====================================================
+        # STORE ITEM ID
+        # ====================================================
 
         store_item_id = getattr(
             payment,
@@ -14839,9 +15259,11 @@ async def paymongo_webhook(
 
             return {
 
-                "received": True,
+                "received":
+                    True,
 
-                "processed": False,
+                "processed":
+                    False,
 
                 "payment_type":
                     "store",
@@ -14852,6 +15274,10 @@ async def paymongo_webhook(
                 "message":
                     "Store item ID is missing."
             }
+
+        # ====================================================
+        # STORE QUANTITY
+        # ====================================================
 
         try:
 
@@ -14877,9 +15303,11 @@ async def paymongo_webhook(
 
             return {
 
-                "received": True,
+                "received":
+                    True,
 
-                "processed": False,
+                "processed":
+                    False,
 
                 "payment_type":
                     "store",
@@ -14890,6 +15318,10 @@ async def paymongo_webhook(
                 "message":
                     "Invalid store quantity."
             }
+
+        # ====================================================
+        # FIND STORE ITEM
+        # ====================================================
 
         store_item = (
             db.query(StoreItem)
@@ -14906,9 +15338,11 @@ async def paymongo_webhook(
 
             return {
 
-                "received": True,
+                "received":
+                    True,
 
-                "processed": False,
+                "processed":
+                    False,
 
                 "payment_type":
                     "store",
@@ -14923,15 +15357,21 @@ async def paymongo_webhook(
                     "Store item not found."
             }
 
+        # ====================================================
+        # INVENTORY CHECK
+        # ====================================================
+
         if store_item.quantity < store_quantity:
 
             db.rollback()
 
             return {
 
-                "received": True,
+                "received":
+                    True,
 
-                "processed": False,
+                "processed":
+                    False,
 
                 "payment_type":
                     "store",
@@ -14939,9 +15379,22 @@ async def paymongo_webhook(
                 "payment_id":
                     payment.id,
 
+                "store_item_id":
+                    store_item.id,
+
+                "requested_quantity":
+                    store_quantity,
+
+                "available_quantity":
+                    store_item.quantity,
+
                 "message":
                     "Insufficient inventory."
             }
+
+        # ====================================================
+        # MARK PAYMENT PAID
+        # ====================================================
 
         payment.status = "Paid"
 
@@ -14953,6 +15406,16 @@ async def paymongo_webhook(
             payment.paid_at = (
                 datetime.datetime.now()
             )
+
+        # ====================================================
+        # REDUCE INVENTORY
+        #
+        # IMPORTANT:
+        #
+        # Inventory is reduced ONLY after PayMongo
+        # confirms that the payment was successful.
+        #
+        # ====================================================
 
         store_item.quantity = (
             store_item.quantity -
@@ -14968,6 +15431,10 @@ async def paymongo_webhook(
                 datetime.datetime.now()
             )
 
+        # ====================================================
+        # COMMIT
+        # ====================================================
+
         db.commit()
 
         db.refresh(
@@ -14978,11 +15445,69 @@ async def paymongo_webhook(
             store_item
         )
 
+        print("=" * 70)
+
+        print(
+            "STORE PAYMENT SUCCESSFULLY PROCESSED"
+        )
+
+        print(
+            "Payment ID:",
+            payment.id
+        )
+
+        print(
+            "Item:",
+            store_item.item_name
+        )
+
+        print(
+            "Quantity:",
+            store_quantity
+        )
+
+        print(
+            "Size:",
+            getattr(
+                payment,
+                "store_size",
+                None
+            )
+        )
+
+        print(
+            "Remaining Inventory:",
+            store_item.quantity
+        )
+
+        print(
+            "PayMongo Link ID:",
+            payment.paymongo_link_id
+        )
+
+        print(
+            "PayMongo Payment ID:",
+            payment.paymongo_payment_id
+        )
+
+        print(
+            "PayMongo Reference:",
+            payment.paymongo_reference
+        )
+
+        print("=" * 70)
+
+        # ====================================================
+        # RETURN STORE RESULT
+        # ====================================================
+
         return {
 
-            "received": True,
+            "received":
+                True,
 
-            "processed": True,
+            "processed":
+                True,
 
             "payment_type":
                 "store",
@@ -15013,40 +15538,48 @@ async def paymongo_webhook(
                 payment.status,
 
             "paymongo_link_id":
-                paymongo_link_id,
+                payment.paymongo_link_id,
 
             "paymongo_payment_id":
-                paymongo_payment_id,
+                payment.paymongo_payment_id,
 
             "paymongo_reference":
-                reference_number
+                payment.paymongo_reference
         }
 
-    # ==================================================
+    # ========================================================
     # UNKNOWN PAYMENT TYPE
-    # ==================================================
+    # ========================================================
 
     else:
 
         print("=" * 70)
-        print("UNKNOWN PAYMENT TYPE")
+
+        print(
+            "UNKNOWN PAYMENT TYPE"
+        )
+
         print(
             "Payment Type:",
             payment_type
         )
+
         print(
             "Payment ID:",
             payment.id
         )
+
         print("=" * 70)
 
         db.rollback()
 
         return {
 
-            "received": True,
+            "received":
+                True,
 
-            "processed": False,
+            "processed":
+                False,
 
             "payment_id":
                 payment.id,
@@ -15057,7 +15590,6 @@ async def paymongo_webhook(
             "message":
                 "Payment type is not supported."
         }
-
 
 
 
