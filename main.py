@@ -16554,14 +16554,14 @@ def sponsorship_payment_status(
     print("=" * 70)
 
     # ======================================================
-    # FIND SPONSORSHIP
+    # FIND CASH SPONSORSHIP
     # ======================================================
 
     sponsorship = None
 
-    # ------------------------------------------------------
-    # 1. SEARCH BY PAYMONGO LINK ID
-    # ------------------------------------------------------
+    # ======================================================
+    # 1. PAYMONGO LINK ID
+    # ======================================================
 
     if hasattr(
         CashSponsorship,
@@ -16577,9 +16577,9 @@ def sponsorship_payment_status(
             .first()
         )
 
-    # ------------------------------------------------------
-    # 2. SEARCH BY PAYMONGO PAYMENT ID
-    # ------------------------------------------------------
+    # ======================================================
+    # 2. PAYMONGO PAYMENT ID
+    # ======================================================
 
     if (
         not sponsorship
@@ -16599,9 +16599,9 @@ def sponsorship_payment_status(
             .first()
         )
 
-    # ------------------------------------------------------
-    # 3. SEARCH BY REFERENCE
-    # ------------------------------------------------------
+    # ======================================================
+    # 3. PAYMONGO REFERENCE
+    # ======================================================
 
     if (
         not sponsorship
@@ -16629,6 +16629,10 @@ def sponsorship_payment_status(
 
         print("=" * 70)
         print("SPONSORSHIP NOT FOUND")
+        print(
+            "Requested ID:",
+            payment_id
+        )
         print("=" * 70)
 
         return {
@@ -16650,7 +16654,7 @@ def sponsorship_payment_status(
         }
 
     # ======================================================
-    # CURRENT DATABASE STATUS
+    # GET DATABASE PAYMENT STATUS
     # ======================================================
 
     status = str(
@@ -16662,591 +16666,10 @@ def sponsorship_payment_status(
         or "Pending"
     ).strip()
 
-    paid = (
-        status.lower() == "paid"
-    )
+    status_lower = status.lower()
 
     # ======================================================
-    # IF ALREADY PAID
-    # ======================================================
-
-    if paid:
-
-        print("=" * 70)
-        print("PAYMENT ALREADY CONFIRMED")
-        print(
-            "Sponsorship ID:",
-            sponsorship.id
-        )
-        print("=" * 70)
-
-    # ======================================================
-    # CHECK PAYMONGO DIRECTLY
-    # ======================================================
-    #
-    # Only check PayMongo while the local record is pending.
-    #
-    # This allows the frontend to detect payment immediately
-    # instead of waiting for the webhook.
-    #
-    # ======================================================
-
-    if (
-        not paid
-        and
-        getattr(
-            sponsorship,
-            "paymongo_link_id",
-            None
-        )
-    ):
-
-        secret_key = os.getenv(
-            "PAYMONGO_SECRET_KEY"
-        )
-
-        if secret_key:
-
-            paymongo_link_id = (
-                sponsorship.paymongo_link_id
-            )
-
-            print("=" * 70)
-            print(
-                "CHECKING PAYMONGO PAYMENT LINK"
-            )
-            print(
-                "PayMongo Link ID:",
-                paymongo_link_id
-            )
-            print("=" * 70)
-
-            try:
-
-                response = httpx.get(
-
-                    (
-                        "https://api.paymongo.com/v1/"
-                        f"payment_links/{paymongo_link_id}"
-                    ),
-
-                    auth=(
-                        secret_key,
-                        ""
-                    ),
-
-                    headers={
-
-                        "Accept":
-                            "application/json"
-                    },
-
-                    timeout=10
-                )
-
-                print(
-                    "PayMongo Status Code:",
-                    response.status_code
-                )
-
-                if response.status_code == 200:
-
-                    paymongo_data = (
-                        response.json()
-                    )
-
-                    link_data = (
-                        paymongo_data.get(
-                            "data",
-                            {}
-                        )
-                    )
-
-                    link_attributes = (
-                        link_data.get(
-                            "attributes",
-                            {}
-                        )
-                    )
-
-                    if not isinstance(
-                        link_attributes,
-                        dict
-                    ):
-
-                        link_attributes = {}
-
-                    # ==================================================
-                    # PAYMONGO LINK STATUS
-                    # ==================================================
-
-                    paymongo_status = str(
-                        link_attributes.get(
-                            "status",
-                            ""
-                        )
-                        or ""
-                    ).strip().lower()
-
-                    print(
-                        "PayMongo Link Status:",
-                        paymongo_status
-                    )
-
-                    # ==================================================
-                    # FIND PAYMENTS
-                    # ==================================================
-
-                    payments = (
-                        link_attributes.get(
-                            "payments",
-                            []
-                        )
-                    )
-
-                    if not isinstance(
-                        payments,
-                        list
-                    ):
-
-                        payments = []
-
-                    paid_payment = None
-
-                    for payment_item in payments:
-
-                        if not isinstance(
-                            payment_item,
-                            dict
-                        ):
-                            continue
-
-                        payment_attributes = (
-                            payment_item.get(
-                                "attributes",
-                                {}
-                            )
-                        )
-
-                        if not isinstance(
-                            payment_attributes,
-                            dict
-                        ):
-                            payment_attributes = {}
-
-                        payment_status = str(
-                            payment_attributes.get(
-                                "status",
-                                ""
-                            )
-                            or ""
-                        ).strip().lower()
-
-                        if payment_status == "paid":
-
-                            paid_payment = (
-                                payment_item
-                            )
-
-                            break
-
-                    # ==================================================
-                    # DETECT PAYMENT
-                    # ==================================================
-
-                    if (
-                        paymongo_status == "paid"
-                        or
-                        paid_payment
-                    ):
-
-                        print("=" * 70)
-                        print(
-                            "PAYMONGO DIRECT CHECK: PAYMENT PAID"
-                        )
-                        print(
-                            "Sponsorship ID:",
-                            sponsorship.id
-                        )
-                        print("=" * 70)
-
-                        # ==================================================
-                        # GET PAYMENT ID
-                        # ==================================================
-
-                        if paid_payment:
-
-                            detected_payment_id = (
-                                paid_payment.get(
-                                    "id"
-                                )
-                            )
-
-                        else:
-
-                            detected_payment_id = None
-
-                        if (
-                            detected_payment_id
-                            and
-                            hasattr(
-                                sponsorship,
-                                "paymongo_payment_id"
-                            )
-                        ):
-
-                            sponsorship.paymongo_payment_id = (
-                                detected_payment_id
-                            )
-
-                            print(
-                                "PayMongo Payment ID saved:",
-                                detected_payment_id
-                            )
-
-                        # ==================================================
-                        # GET REFERENCE
-                        # ==================================================
-
-                        detected_reference = None
-
-                        if paid_payment:
-
-                            payment_attributes = (
-                                paid_payment.get(
-                                    "attributes",
-                                    {}
-                                )
-                            )
-
-                            if not isinstance(
-                                payment_attributes,
-                                dict
-                            ):
-
-                                payment_attributes = {}
-
-                            detected_reference = (
-
-                                payment_attributes.get(
-                                    "external_reference_number"
-                                )
-
-                                or
-
-                                payment_attributes.get(
-                                    "reference_number"
-                                )
-                            )
-
-                            payment_metadata = (
-                                payment_attributes.get(
-                                    "metadata",
-                                    {}
-                                )
-                            )
-
-                            if not isinstance(
-                                payment_metadata,
-                                dict
-                            ):
-
-                                payment_metadata = {}
-
-                            detected_reference = (
-
-                                detected_reference
-
-                                or
-
-                                payment_metadata.get(
-                                    "pm_reference_number"
-                                )
-                            )
-
-                        if (
-                            detected_reference
-                            and
-                            hasattr(
-                                sponsorship,
-                                "paymongo_reference"
-                            )
-                        ):
-
-                            sponsorship.paymongo_reference = (
-                                detected_reference
-                            )
-
-                            print(
-                                "PayMongo Reference saved:",
-                                detected_reference
-                            )
-
-                        # ==================================================
-                        # DONATION AMOUNT
-                        # ==================================================
-
-                        try:
-
-                            donation_amount = int(
-                                getattr(
-                                    sponsorship,
-                                    "donation_amount",
-                                    0
-                                )
-                                or 0
-                            )
-
-                        except (
-                            ValueError,
-                            TypeError
-                        ):
-
-                            donation_amount = 0
-
-                        if donation_amount <= 0:
-
-                            print(
-                                "ERROR: Invalid donation amount."
-                            )
-
-                            db.rollback()
-
-                            return {
-
-                                "success":
-                                    False,
-
-                                "found":
-                                    True,
-
-                                "paid":
-                                    False,
-
-                                "payment_status":
-                                    "Failed",
-
-                                "sponsorship_id":
-                                    sponsorship.id,
-
-                                "message":
-                                    "Invalid donation amount."
-                            }
-
-                        # ==================================================
-                        # CHECK IDEMPOTENCY
-                        # ==================================================
-
-                        try:
-
-                            cash_total_added = float(
-                                getattr(
-                                    sponsorship,
-                                    "cash_total_added",
-                                    0
-                                )
-                                or 0
-                            )
-
-                        except (
-                            ValueError,
-                            TypeError
-                        ):
-
-                            cash_total_added = 0
-
-                        # ==================================================
-                        # ADD DONATION TO TOTAL
-                        # ==================================================
-
-                        if cash_total_added <= 0:
-
-                            donation_total = (
-                                db.query(
-                                    CashDonationTotal
-                                )
-                                .order_by(
-                                    CashDonationTotal.id.asc()
-                                )
-                                .first()
-                            )
-
-                            if not donation_total:
-
-                                donation_total = (
-                                    CashDonationTotal(
-                                        total_amount=0
-                                    )
-                                )
-
-                                db.add(
-                                    donation_total
-                                )
-
-                                db.flush()
-
-                            try:
-
-                                current_total = float(
-                                    donation_total.total_amount
-                                    or 0
-                                )
-
-                            except (
-                                ValueError,
-                                TypeError
-                            ):
-
-                                current_total = 0
-
-                            donation_pesos = (
-                                donation_amount / 100
-                            )
-
-                            donation_total.total_amount = (
-                                current_total +
-                                donation_pesos
-                            )
-
-                            if hasattr(
-                                donation_total,
-                                "updated_at"
-                            ):
-
-                                donation_total.updated_at = (
-                                    datetime.datetime.now()
-                                )
-
-                            sponsorship.cash_total_added = (
-                                donation_pesos
-                            )
-
-                            print(
-                                "Donation added:",
-                                donation_pesos
-                            )
-
-                        # ==================================================
-                        # MARK PAID
-                        # ==================================================
-
-                        sponsorship.payment_status = (
-                            "Paid"
-                        )
-
-                        if hasattr(
-                            sponsorship,
-                            "donation_status"
-                        ):
-
-                            sponsorship.donation_status = (
-                                "Paid"
-                            )
-
-                        if hasattr(
-                            sponsorship,
-                            "paid_at"
-                        ):
-
-                            sponsorship.paid_at = (
-                                datetime.datetime.now()
-                            )
-
-                        if hasattr(
-                            sponsorship,
-                            "updated_at"
-                        ):
-
-                            sponsorship.updated_at = (
-                                datetime.datetime.now()
-                            )
-
-                        # ==================================================
-                        # COMMIT
-                        # ==================================================
-
-                        db.commit()
-
-                        db.refresh(
-                            sponsorship
-                        )
-
-                        print("=" * 70)
-                        print(
-                            "PAYMENT CONFIRMED DIRECTLY "
-                            "FROM PAYMONGO"
-                        )
-                        print(
-                            "Sponsorship ID:",
-                            sponsorship.id
-                        )
-                        print(
-                            "Payment Status:",
-                            sponsorship.payment_status
-                        )
-                        print("=" * 70)
-
-                        status = "Paid"
-                        paid = True
-
-                    else:
-
-                        print(
-                            "PayMongo payment is still pending."
-                        )
-
-                else:
-
-                    print(
-                        "PayMongo direct status check failed:",
-                        response.text
-                    )
-
-            except Exception as e:
-
-                print("=" * 70)
-                print(
-                    "PAYMONGO DIRECT STATUS CHECK ERROR"
-                )
-                print(
-                    "Error:",
-                    repr(e)
-                )
-                print("=" * 70)
-
-        else:
-
-            print(
-                "PAYMONGO_SECRET_KEY is not configured."
-            )
-
-    # ======================================================
-    # REFRESH DATABASE OBJECT
-    # ======================================================
-
-    db.refresh(
-        sponsorship
-    )
-
-    # ======================================================
-    # FINAL STATUS
-    # ======================================================
-
-    status = str(
-        getattr(
-            sponsorship,
-            "payment_status",
-            "Pending"
-        )
-        or "Pending"
-    ).strip()
-
-    paid = (
-        status.lower() == "paid"
-    )
-
-    # ======================================================
-    # DONATION AMOUNT
+    # GET DONATION AMOUNT
     # ======================================================
 
     try:
@@ -17272,7 +16695,7 @@ def sponsorship_payment_status(
     )
 
     # ======================================================
-    # CASH TOTAL ADDED
+    # GET CASH TOTAL ADDED
     # ======================================================
 
     try:
@@ -17291,16 +16714,121 @@ def sponsorship_payment_status(
         TypeError
     ):
 
-        cash_total_added = 0
+        cash_total_added = 0.0
 
     # ======================================================
-    # FINAL LOG
+    # ======================================================
+    # PAYMENT ALREADY PAID
+    # ======================================================
+    # ======================================================
+    #
+    # IMPORTANT:
+    #
+    # DO NOT CALL PAYMONGO HERE.
+    #
+    # The webhook already confirmed payment.
+    #
+    # ======================================================
+
+    if status_lower == "paid":
+
+        print("=" * 70)
+        print("PAYMENT CONFIRMED")
+        print("Payment confirmed by webhook/database.")
+        print(
+            "Sponsorship ID:",
+            sponsorship.id
+        )
+        print(
+            "Payment Status:",
+            status
+        )
+        print(
+            "Paid:",
+            True
+        )
+        print(
+            "Donation Amount:",
+            donation_amount_pesos
+        )
+        print(
+            "Cash Total Added:",
+            cash_total_added
+        )
+        print("=" * 70)
+
+        return {
+
+            "success":
+                True,
+
+            "found":
+                True,
+
+            "paid":
+                True,
+
+            "payment_status":
+                "Paid",
+
+            "sponsorship_id":
+                sponsorship.id,
+
+            "paymongo_link_id":
+                getattr(
+                    sponsorship,
+                    "paymongo_link_id",
+                    None
+                ),
+
+            "paymongo_payment_id":
+                getattr(
+                    sponsorship,
+                    "paymongo_payment_id",
+                    None
+                ),
+
+            "paymongo_reference":
+                getattr(
+                    sponsorship,
+                    "paymongo_reference",
+                    None
+                ),
+
+            "payment_url":
+                getattr(
+                    sponsorship,
+                    "payment_url",
+                    None
+                ),
+
+            "donation_amount":
+                donation_amount_pesos,
+
+            "donation_amount_display":
+                f"₱{donation_amount_pesos:,.2f}",
+
+            "cash_total_added":
+                cash_total_added,
+
+            "cash_total_added_display":
+                f"₱{cash_total_added:,.2f}",
+
+            "cash_donation_total_updated":
+                cash_total_added > 0,
+
+            "message":
+                "Payment successfully confirmed."
+        }
+
+    # ======================================================
+    # ======================================================
+    # STILL PENDING
+    # ======================================================
     # ======================================================
 
     print("=" * 70)
-    print(
-        "FINAL SPONSORSHIP PAYMENT STATUS"
-    )
+    print("PAYMENT STILL PENDING")
     print(
         "Sponsorship ID:",
         sponsorship.id
@@ -17311,7 +16839,7 @@ def sponsorship_payment_status(
     )
     print(
         "Paid:",
-        paid
+        False
     )
     print(
         "Donation Amount:",
@@ -17323,10 +16851,6 @@ def sponsorship_payment_status(
     )
     print("=" * 70)
 
-    # ======================================================
-    # RESPONSE
-    # ======================================================
-
     return {
 
         "success":
@@ -17335,14 +16859,14 @@ def sponsorship_payment_status(
         "found":
             True,
 
-        "sponsorship_id":
-            sponsorship.id,
+        "paid":
+            False,
 
         "payment_status":
             status,
 
-        "paid":
-            paid,
+        "sponsorship_id":
+            sponsorship.id,
 
         "paymongo_link_id":
             getattr(
@@ -17385,8 +16909,34 @@ def sponsorship_payment_status(
             f"₱{cash_total_added:,.2f}",
 
         "cash_donation_total_updated":
-            paid
+            False,
+
+        "message":
+            "Payment is still pending."
     }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 # ============================================================
