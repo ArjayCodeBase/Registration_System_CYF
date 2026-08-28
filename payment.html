@@ -954,7 +954,7 @@
                 </h3>
 
                 <p>
-                    All selected items have already been paid.
+                    Your mandatory Lanyard payment has been confirmed. The T-shirt is optional.
                 </p>
 
             </div>
@@ -1595,81 +1595,46 @@
                     "itemList"
                 );
 
-
             itemList.innerHTML = "";
 
-
-            let unpaidCount = 0;
-
-
             const hasTshirt =
-                Boolean(
-                    paymentData.tshirt
-                );
-
+                Boolean(paymentData.tshirt);
 
             const hasLanyard =
-                Boolean(
-                    paymentData.lanyard
-                );
-
+                Boolean(paymentData.lanyard);
 
             const tshirtPaid =
                 hasTshirt &&
-                isPaid(
-                    paymentData.tshirt
-                );
-
+                isPaid(paymentData.tshirt);
 
             const lanyardPaid =
                 hasLanyard &&
-                isPaid(
-                    paymentData.lanyard
-                );
-
-
-            const tshirtUnpaid =
-                hasTshirt &&
-                !tshirtPaid;
-
+                isPaid(paymentData.lanyard);
 
             const lanyardUnpaid =
                 hasLanyard &&
                 !lanyardPaid;
 
+            /*
+             * IMPORTANT BUSINESS RULE:
+             *
+             * The Lanyard is mandatory.
+             * The T-shirt is optional.
+             *
+             * Therefore payment is complete as soon as
+             * the mandatory Lanyard is Paid, even when the
+             * optional T-shirt is still Unpaid.
+             */
+            const mandatoryItemsPaid =
+                !hasLanyard ||
+                lanyardPaid;
 
             /*
-             * Count unpaid items.
+             * T-shirt remains locked while the mandatory
+             * Lanyard is unpaid.
              */
-
-            if (tshirtUnpaid) {
-                unpaidCount++;
-            }
-
-            if (lanyardUnpaid) {
-                unpaidCount++;
-            }
-
-
-            /*
-             * =================================================
-             * SPECIAL RULE
-             *
-             * If LANYARD is UNPAID:
-             *
-             * T-shirt cannot be selected.
-             *
-             * The Lanyard becomes the only selectable item.
-             * =================================================
-             */
-
             const lockTshirt =
                 lanyardUnpaid;
-
-
-            /*
-             * T-SHIRT
-             */
 
             if (hasTshirt) {
 
@@ -1680,13 +1645,7 @@
                         "tshirt",
                         lockTshirt
                     );
-
             }
-
-
-            /*
-             * LANYARD
-             */
 
             if (hasLanyard) {
 
@@ -1697,106 +1656,123 @@
                         "lanyard",
                         false
                     );
-
             }
 
-
-            /*
-             * ALL ITEMS PAID
-             */
-
-            if (
-                unpaidCount === 0
-            ) {
-
-                document
-                    .getElementById(
-                        "successMessage"
-                    )
-                    .style.display =
-                    "block";
-
-
-                document
-                    .getElementById(
-                        "checkoutSection"
-                    )
-                    .style.display =
-                    "none";
-
-
-                document
-                    .getElementById(
-                        "selectionMessage"
-                    )
-                    .style.display =
-                    "none";
-
-
-                document
-                    .getElementById(
-                        "sizeSection"
-                    )
-                    .classList
-                    .remove(
-                        "visible"
-                    );
-
-
-                updateTotal();
-
-
-                stopPaymentPolling();
-
-
-                return;
-
-            }
-
-
-            document
-                .getElementById(
+            const successMessage =
+                document.getElementById(
                     "successMessage"
-                )
-                .style.display =
-                "none";
+                );
 
-
-            document
-                .getElementById(
+            const checkoutSection =
+                document.getElementById(
                     "checkoutSection"
-                )
-                .style.display =
-                "block";
+                );
 
-
-            /*
-             * If lanyard is unpaid,
-             * show the user why the T-shirt
-             * is locked.
-             */
-
-            const message =
+            const selectionMessage =
                 document.getElementById(
                     "selectionMessage"
                 );
 
+            const paymentWaiting =
+                document.getElementById(
+                    "paymentWaiting"
+                );
+
+            /*
+             * MANDATORY PAYMENT COMPLETE
+             *
+             * Do NOT require the optional T-shirt to be paid.
+             */
+            if (mandatoryItemsPaid) {
+
+                successMessage.style.display =
+                    "block";
+
+                successMessage.innerHTML = `
+                    <h3>
+                        Registration Payment Complete
+                    </h3>
+                    <p>
+                        Your mandatory Lanyard payment has been confirmed.
+                        The T-shirt is optional and may be purchased separately.
+                    </p>
+                `;
+
+                /*
+                 * The mandatory payment is already complete,
+                 * so the page must never remain in a waiting state.
+                 */
+                paymentWaiting.style.display =
+                    "none";
+
+                paymentCreated = false;
+
+                stopPaymentPolling();
+
+                /*
+                 * If the optional T-shirt is unpaid, keep checkout
+                 * available so the participant can purchase it.
+                 */
+                if (hasTshirt && !tshirtPaid) {
+
+                    checkoutSection.style.display =
+                        "block";
+
+                    selectionMessage.style.display =
+                        "block";
+
+                    selectionMessage.textContent =
+                        "Your Lanyard is paid. The T-shirt is optional and is now available for purchase.";
+
+                } else {
+
+                    checkoutSection.style.display =
+                        "none";
+
+                    selectionMessage.style.display =
+                        "none";
+                }
+
+                document
+                    .getElementById("sizeSection")
+                    .classList
+                    .remove("visible");
+
+                updateTotal();
+
+                return;
+            }
+
+            /*
+             * Mandatory Lanyard is still unpaid.
+             */
+            successMessage.style.display =
+                "none";
+
+            checkoutSection.style.display =
+                "block";
+
+            paymentWaiting.style.display =
+                paymentCreated
+                    ? "block"
+                    : "none";
 
             if (lanyardUnpaid) {
 
-                message.style.display =
+                selectionMessage.style.display =
                     "block";
 
-                message.textContent =
+                selectionMessage.textContent =
                     "The Lanyard must be paid first. The T-shirt cannot be selected until the Lanyard payment is completed.";
 
+            } else {
+
+                selectionMessage.style.display =
+                    "none";
             }
 
-
             updateSelectionUI();
-
         }
-
 
         /* =====================================================
            CREATE ITEM HTML
@@ -3001,7 +2977,6 @@
                 return;
             }
 
-
             try {
 
                 const response =
@@ -3012,85 +2987,49 @@
                         }
                     );
 
-
                 if (!response.ok) {
                     return;
                 }
 
-
                 const data =
                     await response.json();
 
-
                 /*
-                 * Determine whether any previously
-                 * unpaid selected item is now paid.
+                 * IMPORTANT:
+                 *
+                 * The Lanyard is the mandatory item.
+                 *
+                 * Do NOT require the Lanyard checkbox to still
+                 * be checked. The webhook updates the database,
+                 * and the backend status endpoint is the source
+                 * of truth.
                  */
-
-                const tshirtCheckbox =
-                    document.getElementById(
-                        "tshirtCheckbox"
-                    );
-
-
-                const lanyardCheckbox =
-                    document.getElementById(
-                        "lanyardCheckbox"
-                    );
-
-
-                const selectedTshirt =
+                const lanyardPaid =
                     Boolean(
-                        tshirtCheckbox &&
-                        tshirtCheckbox.checked
+                        data?.lanyard &&
+                        isPaid(data.lanyard)
                     );
-
-
-                const selectedLanyard =
-                    Boolean(
-                        lanyardCheckbox &&
-                        lanyardCheckbox.checked
-                    );
-
 
                 /*
-                 * If the backend says selected items
-                 * are now paid, refresh the page.
+                 * Once the mandatory Lanyard is Paid:
+                 *
+                 * - stop the waiting state
+                 * - stop polling
+                 * - close PayMongo if possible
+                 * - render the latest backend state
+                 *
+                 * The optional T-shirt must NOT keep the user
+                 * waiting.
                  */
+                if (lanyardPaid) {
 
-                const tshirtNowPaid =
-                    selectedTshirt &&
-                    data?.tshirt &&
-                    isPaid(
-                        data.tshirt
+                    console.log(
+                        "MANDATORY LANYARD PAYMENT CONFIRMED"
                     );
-
-
-                const lanyardNowPaid =
-                    selectedLanyard &&
-                    data?.lanyard &&
-                    isPaid(
-                        data.lanyard
-                    );
-
-
-                /*
-                 * Refresh when one of the selected
-                 * items has been confirmed paid.
-                 */
-
-                if (
-                    tshirtNowPaid ||
-                    lanyardNowPaid
-                ) {
 
                     stopPaymentPolling();
 
-
-                    /*
-                     * Close PayMongo tab if it is
-                     * still accessible.
-                     */
+                    paymentCreated = false;
 
                     try {
 
@@ -3098,39 +3037,29 @@
                             paymentWindow &&
                             !paymentWindow.closed
                         ) {
-
                             paymentWindow.close();
-
                         }
 
                     } catch {
-
                         // Ignore cross-origin restrictions.
-
                     }
 
+                    paymentData =
+                        data;
 
-                    /*
-                     * Reload the current page.
-                     */
-
-                    window.location.reload();
+                    renderPage();
 
                     return;
-
                 }
 
-
                 /*
-                 * Update local data while waiting.
+                 * Mandatory payment is not complete yet.
+                 * Keep polling while paymentCreated is active.
                  */
-
                 paymentData =
                     data;
 
-
                 renderPage();
-
 
             } catch (error) {
 
@@ -3138,11 +3067,8 @@
                     "Payment polling error:",
                     error
                 );
-
             }
-
         }
-
 
         /* =====================================================
            PAGE VISIBILITY
