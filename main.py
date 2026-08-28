@@ -10,6 +10,7 @@ from types import SimpleNamespace
 import uuid
 import shutil
 import urllib.error
+from fastapi.responses import JSONResponse
 import urllib.request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -23,7 +24,7 @@ from sqlalchemy import (
     Date,
     DateTime,
     text,
-    Boolean,
+    Boolean, 
     Text,
     ForeignKey,
     func,
@@ -54,7 +55,7 @@ import time
 import uuid
 import os
 from dotenv import load_dotenv
-import smtplib
+import resend
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
@@ -1937,7 +1938,7 @@ def migrate_store_item_columns():
         # CATEGORY
         # ----------------------------------------------------
 
-        if "category" not in columns: 
+        if "category" not in columns:
 
             connection.execute(
                 text("""
@@ -3101,6 +3102,24 @@ CONTACT_RECEIVER = (
 )
 
 
+
+# ==========================================================
+# RESEND EMAIL CONFIGURATION
+# ==========================================================
+
+RESEND_API_KEY = os.getenv(
+    "RESEND_API_KEY"
+)
+
+CONTACT_RECEIVER_EMAIL = os.getenv(
+    "CONTACT_RECEIVER_EMAIL"
+)
+
+
+if RESEND_API_KEY:
+    resend.api_key = RESEND_API_KEY
+
+
 # ==========================================================
 # SEND CONTACT EMAIL
 # ==========================================================
@@ -3109,14 +3128,18 @@ def send_contact_email(
     contact: ContactRequest
 ):
 
-    if not GMAIL_USERNAME:
+    # ------------------------------------------------------
+    # Check Resend configuration
+    # ------------------------------------------------------
+
+    if not RESEND_API_KEY:
         raise RuntimeError(
-            "GMAIL_USERNAME is not configured."
+            "RESEND_API_KEY is not configured."
         )
 
-    if not GMAIL_APP_PASSWORD:
+    if not CONTACT_RECEIVER_EMAIL:
         raise RuntimeError(
-            "GMAIL_APP_PASSWORD is not configured."
+            "CONTACT_RECEIVER_EMAIL is not configured."
         )
 
 
@@ -3151,101 +3174,156 @@ def send_contact_email(
 
 
     # ------------------------------------------------------
-    # Create email
+    # Create HTML email
     # ------------------------------------------------------
 
-    email_message = EmailMessage()
+    email_html = f"""
+    <html>
 
+        <body>
 
-    # IMPORTANT:
-    #
-    # Do NOT put "\n" inside Subject.
-    #
-    # This is correct:
-    #
-    # Subject: Contact Us Message - User Subject
-    #
+            <h2>Contact Us Message</h2>
 
-    email_message["Subject"] = (
-        f"Contact Us Message - {subject}"
-    )
+            <hr>
 
+            <p>
+                <strong>Name:</strong>
+                {name}
+            </p>
 
-    email_message["From"] = (
-        f"{GMAIL_FROM_NAME} <{GMAIL_USERNAME}>"
-    )
+            <p>
+                <strong>Email:</strong>
+                {sender_email}
+            </p>
 
+            <p>
+                <strong>Subject:</strong>
+                {subject}
+            </p>
 
-    email_message["To"] = (
-        CONTACT_RECEIVER
-    )
+            <p>
+                <strong>Message:</strong>
+            </p>
 
+            <p>
+                {message}
+            </p>
 
-    email_message["Reply-To"] = (
-        sender_email
-    )
+            <hr>
 
+            <p>
+                This message was submitted through the
+                CYF Registration System Contact Us form.
+            </p>
 
-    # ------------------------------------------------------
-    # Email body
-    # ------------------------------------------------------
+        </body>
 
-    email_body = f"""
-Contact Us Message
-
-Name:
-{name}
-
-Email:
-{sender_email}
-
-Subject:
-{subject}
-
-Message:
-{message}
-
---------------------------------------------------
-This message was submitted through the
-CYF Registration System Contact Us form.
-"""
-
-
-    email_message.set_content(
-        email_body.strip()
-    )
+    </html>
+    """
 
 
     # ------------------------------------------------------
-    # Send through Gmail SMTP
+    # Send email through Resend
     # ------------------------------------------------------
 
-    with smtplib.SMTP(
-        "smtp.gmail.com",
-        587,
-        timeout=30
-    ) as server:
+    response = resend.Emails.send({
 
-        server.ehlo()
+        "from": (
+            "CYF Registration System "
+            "<onboarding@resend.dev>"
+        ),
 
-        server.starttls()
+        "to": [
+            CONTACT_RECEIVER_EMAIL
+        ],
 
-        server.ehlo()
+        "subject": (
+            f"Contact Us Message - {subject}"
+        ),
 
-        server.login(
-            GMAIL_USERNAME,
-            GMAIL_APP_PASSWORD.replace(" ", "")
+        "html": email_html,
+
+        "reply_to": sender_email
+    })
+
+
+    # ------------------------------------------------------
+    # Log successful email
+    # ------------------------------------------------------
+
+    print(
+        "CONTACT EMAIL SENT SUCCESSFULLY:"
+    )
+
+    print(
+        response
+    )
+
+
+    return response
+
+
+# ==========================================================
+# CONTACT API
+# ==========================================================
+
+@app.post("/contact")
+async def contact_us(
+    contact: ContactRequest
+):
+
+    try:
+
+        send_contact_email(
+            contact
         )
 
-        server.send_message(
-            email_message
+        return {
+            "success": True,
+            "message": (
+                "Your message has been sent successfully."
+            )
+        }
+
+
+    except Exception as error:
+
+        print(
+            "CONTACT EMAIL ERROR:",
+            error
         )
+
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Unable to send your message. "
+                "Please try again later."
+            )
+        )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # ============================================================
 # ITEM SPONSORSHIP RESPONSE
 # ============================================================
 
-from typing import Optional
+
 
 class ItemSponsorshipResponse(BaseModel):
 
@@ -4437,6 +4515,207 @@ async def send_payment_confirmation_email(
     )
 
 
+
+
+
+
+
+
+
+
+
+# ============================================================
+# ITEM SPONSORSHIP CONFIRMATION EMAIL
+# ============================================================
+
+async def send_item_sponsorship_confirmation_email(
+    donation
+):
+
+    try:
+
+        # ----------------------------------------------------
+        # GET EMAIL
+        # ----------------------------------------------------
+
+        recipient_email = str(
+            donation.email
+        ).strip()
+
+        if not recipient_email:
+
+            print(
+                "Item sponsorship email failed: "
+                "Sponsor email is empty."
+            )
+
+            return False
+
+
+        # ----------------------------------------------------
+        # SPONSOR INFORMATION
+        # ----------------------------------------------------
+
+        sponsor_name = (
+            donation.sponsor_name
+            or "Sponsor"
+        )
+
+        item_name = (
+            donation.item_name
+            or "Item"
+        )
+
+        quantity = (
+            donation.quantity
+            or 0
+        )
+
+        unit = (
+            getattr(
+                donation,
+                "unit",
+                None
+            )
+            or "unit"
+        )
+
+
+        # ----------------------------------------------------
+        # EMAIL SUBJECT
+        # ----------------------------------------------------
+
+        subject = (
+            "Item Donation Sponsorship Confirmation "
+            "| CYF Registration System"
+        )
+
+
+        # ----------------------------------------------------
+        # EMAIL MESSAGE
+        # ----------------------------------------------------
+
+        body = f"""
+Dear {sponsor_name},
+
+Thank you for your generous support of the CYF ministry.
+
+We are pleased to confirm that your item donation sponsorship
+has been successfully recorded.
+
+DONATION DETAILS
+----------------------------------------
+
+Sponsor Name:
+{sponsor_name}
+
+Local Church:
+{getattr(donation, "local_church", "N/A")}
+
+Contact Number:
+{getattr(donation, "contact", "N/A")}
+
+Sector:
+{getattr(donation, "sector", "N/A")}
+
+Item Donated:
+{item_name}
+
+Quantity:
+{quantity} {unit}
+
+Donation Status:
+Confirmed
+
+----------------------------------------
+
+DELIVERY INFORMATION
+
+Please deliver your donated item to:
+
+Butuan Grace Baptist Church
+
+You may also contact:
+
+Pastor Edward Deligero
+0911 252 3584
+
+----------------------------------------
+
+Thank you again for your generosity and willingness
+to support CYF events.
+
+Your contribution will help provide the necessary
+resources and materials for our youth ministry activities.
+
+We sincerely appreciate your support.
+
+God bless you!
+
+CYF Registration System
+"""
+
+
+        # ----------------------------------------------------
+        # SEND THROUGH RESEND
+        # ----------------------------------------------------
+
+        response = resend.Emails.send({
+
+            "from": (
+                "CYF Registration System "
+                "<onboarding@resend.dev>"
+            ),
+
+            "to": [
+                recipient_email
+            ],
+
+            "subject": subject,
+
+            "text": body
+        })
+
+
+        # ----------------------------------------------------
+        # SUCCESS
+        # ----------------------------------------------------
+
+        print(
+            "Item sponsorship confirmation email sent to:",
+            recipient_email
+        )
+
+        print(
+            "Resend response:",
+            response
+        )
+
+        return True
+
+
+    except Exception as e:
+
+        print(
+            "Item sponsorship confirmation email failed:",
+            repr(e)
+        )
+
+        return False
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # ============================================================
 # INITIALIZE SPONSORSHIP TIERS
 # ============================================================
@@ -4975,6 +5254,16 @@ def determine_sponsorship_tier(
         return "4th (Diamond) Tier"
 
 
+
+
+
+
+
+
+
+
+
+
 # ======================================================
 # SEND SPONSOR CONFIRMATION EMAIL
 # ======================================================
@@ -4984,28 +5273,47 @@ async def send_sponsor_confirmation_email(
     payment
 ):
 
-    sponsor_name = (
-        sponsor.fname
-        or ""
-    )
+    try:
 
-    tier = (
-        payment.sponsorship_tier
-        or "Sponsorship"
-    )
+        sponsor_name = (
+            sponsor.fname
+            or "Sponsor"
+        )
 
-    amount = (
-        payment.amount / 100
-    )
+        sponsor_email = (
+            sponsor.email
+            or ""
+        ).strip()
 
-    subject = (
-        "CYF Sponsorship Donation Confirmation"
-    )
+        if not sponsor_email:
 
-    message = f"""
+            print(
+                "Sponsor confirmation email failed: "
+                "Sponsor email is empty."
+            )
+
+            return False
+
+        tier = (
+            payment.sponsorship_tier
+            or "Sponsorship"
+        )
+
+        amount = (
+            payment.amount / 100
+        )
+
+        subject = (
+            "CYF Sponsorship Donation Confirmation"
+        )
+
+        body = f"""
 Dear {sponsor_name},
 
 Thank you for your generous donation.
+
+SPONSORSHIP DETAILS
+----------------------------------------
 
 Sponsorship Tier:
 {tier}
@@ -5013,55 +5321,74 @@ Sponsorship Tier:
 Donation Amount:
 ₱{amount:,.2f}
 
+Payment Status:
+Successfully Received
+
+----------------------------------------
+
 Your sponsorship payment has been successfully received.
 
 We sincerely appreciate your support.
 
 Thank you,
+
 CYF Registration Team
+CYF Registration System
 """
 
-    # Use your existing email sending function here.
-    # Example:
-    #
-    # await send_email(
-    #     to=sponsor.email,
-    #     subject=subject,
-    #     body=message
-    # )
+        # --------------------------------------------------
+        # SEND THROUGH RESEND
+        # --------------------------------------------------
 
-    print(
-        "Sponsor confirmation email prepared for:",
-        sponsor.email
-    )
+        response = resend.Emails.send({
 
-# ======================================================
-# CASH SPONSORSHIP CONFIRMATION EMAIL
-# ======================================================
+            "from": (
+                "CYF Registration System "
+                "<onboarding@resend.dev>"
+            ),
 
-# ======================================================
-# CASH SPONSORSHIP CONFIRMATION EMAIL
-# ======================================================
+            "to": [
+                sponsor_email
+            ],
 
-# ======================================================
-# CASH SPONSORSHIP CONFIRMATION EMAIL
-# ======================================================
+            "subject": subject,
 
-# ======================================================
-# CASH SPONSORSHIP CONFIRMATION EMAIL
-# ======================================================
+            "text": body
+        })
 
-# ======================================================
-# CASH SPONSORSHIP CONFIRMATION EMAIL
-# ======================================================
+        print(
+            "Sponsor confirmation email sent to:",
+            sponsor_email
+        )
 
-# ==========================================================
-# GMAIL CASH SPONSORSHIP CONFIRMATION
-# ==========================================================
+        print(
+            "Resend response:",
+            response
+        )
 
-# ======================================================
-# CASH SPONSORSHIP CONFIRMATION EMAIL
-# ======================================================
+        return True
+
+    except Exception as e:
+
+        print(
+            "Sponsor confirmation email failed:",
+            repr(e)
+        )
+
+        return False
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # ======================================================
 # CASH SPONSORSHIP CONFIRMATION EMAIL
@@ -5074,23 +5401,12 @@ async def send_cash_sponsorship_confirmation_email(
     """
     Send confirmation email after a cash sponsorship
     has been successfully paid through PayMongo.
-
-    IMPORTANT:
-    This function accepts TWO arguments:
-
-        sponsorship
-        payment
     """
 
     try:
 
-        print("\n")
-        print("=" * 70)
-        print("CASH SPONSORSHIP GMAIL PROCESSING")
-        print("=" * 70)
-
         # --------------------------------------------------
-        # SPONSOR EMAIL
+        # GET SPONSOR EMAIL
         # --------------------------------------------------
 
         sponsor_email = getattr(
@@ -5102,7 +5418,7 @@ async def send_cash_sponsorship_confirmation_email(
         if not sponsor_email:
 
             print(
-                "Gmail skipped: sponsor has no email address."
+                "Cash sponsorship has no email address."
             )
 
             return False
@@ -5112,7 +5428,7 @@ async def send_cash_sponsorship_confirmation_email(
         ).strip()
 
         # --------------------------------------------------
-        # SPONSOR NAME
+        # GET INFORMATION
         # --------------------------------------------------
 
         sponsor_name = getattr(
@@ -5125,9 +5441,6 @@ async def send_cash_sponsorship_confirmation_email(
 
             sponsor_name = "Sponsor"
 
-        # --------------------------------------------------
-        # TIER
-        # --------------------------------------------------
 
         tier = getattr(
             sponsorship,
@@ -5143,15 +5456,16 @@ async def send_cash_sponsorship_confirmation_email(
                 "Sponsorship Package"
             )
 
-        # --------------------------------------------------
-        # DONATION AMOUNT
-        # --------------------------------------------------
 
         donation_amount = getattr(
             sponsorship,
             "donation_amount",
             0
         )
+
+        # --------------------------------------------------
+        # CONVERT CENTAVOS TO PHP
+        # --------------------------------------------------
 
         try:
 
@@ -5169,6 +5483,7 @@ async def send_cash_sponsorship_confirmation_email(
                 "0.00"
             )
 
+
         # --------------------------------------------------
         # PAYMENT STATUS
         # --------------------------------------------------
@@ -5179,9 +5494,6 @@ async def send_cash_sponsorship_confirmation_email(
             "Paid"
         )
 
-        if not payment_status:
-
-            payment_status = "Paid"
 
         # --------------------------------------------------
         # PAYMONGO REFERENCE
@@ -5201,42 +5513,9 @@ async def send_cash_sponsorship_confirmation_email(
                 None
             )
 
-        # --------------------------------------------------
-        # LOG
-        # --------------------------------------------------
-
-        print(
-            "Sponsor:",
-            sponsor_name
-        )
-
-        print(
-            "Email:",
-            sponsor_email
-        )
-
-        print(
-            "Tier:",
-            tier
-        )
-
-        print(
-            "Donation:",
-            f"₱{donation_amount_php:,.2f}"
-        )
-
-        print(
-            "Payment Status:",
-            payment_status
-        )
-
-        print(
-            "PayMongo Reference:",
-            reference
-        )
 
         # --------------------------------------------------
-        # SUBJECT
+        # EMAIL SUBJECT
         # --------------------------------------------------
 
         subject = (
@@ -5244,8 +5523,9 @@ async def send_cash_sponsorship_confirmation_email(
             "- CYF Registration System"
         )
 
+
         # --------------------------------------------------
-        # BODY
+        # EMAIL BODY
         # --------------------------------------------------
 
         body = f"""
@@ -5258,7 +5538,6 @@ payment has been successfully received.
 
 SPONSORSHIP DETAILS
 ----------------------------------------
-
 Name:
 {sponsor_name}
 
@@ -5292,103 +5571,53 @@ God bless you!
 CYF Registration System
 """
 
-        # --------------------------------------------------
-        # MIME MESSAGE
-        # --------------------------------------------------
-
-        message = MIMEMultipart()
-
-        message["From"] = (
-            f"{GMAIL_FROM_NAME} <{GMAIL_USERNAME}>"
-        )
-
-        message["To"] = sponsor_email
-
-        message["Subject"] = subject
-
-        message.attach(
-            MIMEText(
-                body,
-                "plain",
-                "utf-8"
-            )
-        )
 
         # --------------------------------------------------
-        # GMAIL SMTP
+        # SEND THROUGH RESEND
         # --------------------------------------------------
 
-        print("=" * 70)
-        print("CONNECTING TO GMAIL")
-        print("=" * 70)
+        response = resend.Emails.send({
 
-        with smtplib.SMTP(
-            "smtp.gmail.com",
-            587,
-            timeout=30
-        ) as server:
+            "from": (
+                "CYF Registration System "
+                "<onboarding@resend.dev>"
+            ),
 
-            server.ehlo()
+            "to": [
+                sponsor_email
+            ],
 
-            server.starttls()
+            "subject": subject,
 
-            server.ehlo()
+            "text": body
+        })
 
-            server.login(
-                GMAIL_USERNAME,
-                GMAIL_APP_PASSWORD
-            )
 
-            server.sendmail(
-                GMAIL_USERNAME,
-                [sponsor_email],
-                message.as_string()
-            )
+        # --------------------------------------------------
+        # SUCCESS
+        # --------------------------------------------------
 
-        print("=" * 70)
-        print("CASH SPONSORSHIP EMAIL SENT SUCCESSFULLY")
         print(
-            "Recipient:",
+            "Cash sponsorship confirmation email sent to:",
             sponsor_email
         )
-        print("=" * 70)
+
+        print(
+            "Resend response:",
+            response
+        )
 
         return True
 
+
     except Exception as e:
 
-        print("=" * 70)
         print(
-            "CASH SPONSORSHIP EMAIL FAILED"
-        )
-
-        print(
-            "Error Type:",
-            type(e).__name__
-        )
-
-        print(
-            "Error:",
+            "Cash sponsorship confirmation email failed:",
             repr(e)
         )
 
-        print("=" * 70)
-
         return False
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -11989,575 +12218,1080 @@ def create_payment(
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+    
+    
+
+    
 # ============================================================
-# CREATE CASH SPONSORSHIP
+# FINDING SPONSOR QUEUE PROCESSING LOGIC
 # ============================================================
+#
+# This is the REAL sponsorship-processing logic.
+#
+# It can be called from:
+#
+# 1. POST /process_finding_sponsor_queue
+# 2. PayMongo webhook
+#
+# DO NOT call the FastAPI endpoint internally.
 #
 # IMPORTANT:
 #
-# This endpoint ONLY creates the sponsorship/payment.
+# RegistrationItem.price
+#     = STORED IN CENTAVOS
 #
-# The donation is NOT added to CashDonationTotal yet because
-# the PayMongo payment is still Pending.
+# CashDonationTotal.total_amount
+#     = STORED IN PESOS
 #
-# cash_total_added:
+# Example:
 #
-#     0 = donation has NOT yet been added to CashDonationTotal
+# T-shirt:
+#     35000 = ₱350.00
 #
-#     donation_amount = donation has already been added
+# Lanyard:
+#     9000 = ₱90.00
 #
-# The payment-success/webhook endpoint is responsible for:
-#
-#     1. Marking payment as Paid
-#     2. Adding donation_amount to CashDonationTotal
-#     3. Setting cash_total_added = donation_amount
-#
-# This prevents the same PayMongo payment from being added
-# to CashDonationTotal multiple times.
+# Required:
+#     ₱350 + ₱90 = ₱440
 #
 # ============================================================
 
-@app.post("/sponsorship/create_cash")
-def create_cash_sponsorship(
-    data: CashSponsorshipCreate,
-    db: Session = Depends(get_db)
+
+async def process_finding_sponsor_queue_logic(
+    db: Session
 ):
 
-    # ========================================================
-    # CLEAN INPUT
-    # ========================================================
-
-    selected_tier = (
-        data.selected_tier.strip()
-    )
-
-    sponsor_name = (
-        data.sponsor_name.strip()
-    )
-
-    local_church = (
-        data.local_church.strip()
-    )
-
-    sector = (
-        data.sector.strip()
-    )
-
-    amount = Decimal(
-        str(data.donation_amount)
-    ).quantize(
-        Decimal("0.01")
-    )
+    print("\n")
+    print("=" * 70)
+    print("FINDING SPONSOR QUEUE PROCESSING")
+    print("=" * 70)
 
     # ========================================================
-    # VALIDATE AMOUNT
+    # GET T-SHIRT PRICE
     # ========================================================
 
-    if amount <= 0:
+    tshirt_item = (
+        db.query(
+            RegistrationItem
+        )
+        .filter(
+            RegistrationItem.item_name.ilike("T-Shirt"),
+            RegistrationItem.is_active == True
+        )
+        .first()
+    )
 
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                "Donation amount must be "
-                "greater than ₱0.00."
-            )
+    if not tshirt_item:
+
+        raise Exception(
+            "T-shirt registration item was not found."
         )
 
     # ========================================================
-    # DETERMINE CORRECT TIER
+    # GET LANYARD PRICE
     # ========================================================
 
-    correct_tier = (
-        determine_sponsorship_tier(
-            amount
+    lanyard_item = (
+        db.query(
+            RegistrationItem
         )
+        .filter(
+            RegistrationItem.item_name.ilike("Lanyard"),
+            RegistrationItem.is_active == True
+        )
+        .first()
     )
 
-    # ========================================================
-    # CHECK SELECTED TIER
-    # ========================================================
+    if not lanyard_item:
 
-    if (
-        selected_tier.lower()
-        !=
-        correct_tier.lower()
-    ):
-
-        if (
-            correct_tier
-            ==
-            "1st (Bronze) Tier"
-        ):
-
-            message = (
-                f"Your donation of "
-                f"₱{amount:,.2f} belongs to "
-                f"the 1st (Bronze) Tier, "
-                f"which is below ₱1,000. "
-                f"Please reselect the "
-                f"1st (Bronze) Tier package."
-            )
-
-        elif (
-            correct_tier
-            ==
-            "2nd (Silver) Tier"
-        ):
-
-            message = (
-                f"Your donation of "
-                f"₱{amount:,.2f} belongs to "
-                f"the 2nd (Silver) Tier, "
-                f"which is ₱1,000 to below "
-                f"₱2,000. Please reselect "
-                f"the 2nd (Silver) Tier package."
-            )
-
-        elif (
-            correct_tier
-            ==
-            "3rd (Gold) Tier"
-        ):
-
-            message = (
-                f"Your donation of "
-                f"₱{amount:,.2f} belongs to "
-                f"the 3rd (Gold) Tier, "
-                f"which is ₱2,000 to below "
-                f"₱3,000. Please reselect "
-                f"the 3rd (Gold) Tier package."
-            )
-
-        else:
-
-            message = (
-                f"Your donation of "
-                f"₱{amount:,.2f} belongs to "
-                f"the 4th (Diamond) Tier, "
-                f"which is ₱3,000 and above. "
-                f"Please reselect the "
-                f"4th (Diamond) Tier package."
-            )
-
-        raise HTTPException(
-            status_code=400,
-            detail=message
+        raise Exception(
+            "Lanyard registration item was not found."
         )
 
     # ========================================================
-    # CREATE LOCAL SPONSORSHIP RECORD
-    # ========================================================
+    # GET PRICES
     #
-    # IMPORTANT:
+    # RegistrationItem.price = CENTAVOS
     #
-    # cash_total_added = 0
+    # Example:
     #
-    # The donation is NOT yet available for Finding Sponsor
-    # participants.
+    # 35000 = ₱350.00
+    # 9000  = ₱90.00
     #
-    # It becomes available only after PayMongo confirms
-    # successful payment.
-    #
-    # ========================================================
-
-    sponsorship = CashSponsorship(
-
-        sponsor_name=sponsor_name,
-
-        local_church=local_church,
-
-        contact=(
-            data.contact.strip()
-            if data.contact
-            else None
-        ),
-
-        sector=sector,
-
-        email=(
-            str(data.email)
-            if data.email
-            else None
-        ),
-
-        selected_tier=correct_tier,
-
-        donation_amount=int(
-            amount * 100
-        ),
-
-        payment_status="Pending",
-
-        # ----------------------------------------------------
-        # IMPORTANT
-        # ----------------------------------------------------
-        # Nothing has been added to CashDonationTotal yet.
-        #
-        # This value will be updated by the payment-success
-        # / webhook logic.
-        #
-        cash_total_added=0
-
-    )
-
-    db.add(
-        sponsorship
-    )
-
-    db.commit()
-
-    db.refresh(
-        sponsorship
-    )
-
-    # ========================================================
-    # PAYMONGO AMOUNT
-    # ========================================================
-
-    paymongo_amount = int(
-        amount * 100
-    )
-
-    # ========================================================
-    # DESCRIPTION
-    # ========================================================
-
-    description = (
-        f"Sponsorship - "
-        f"{correct_tier} - "
-        f"{sponsor_name}"
-    )
-
-    # ========================================================
-    # REMARKS
-    # ========================================================
-
-    remarks = (
-        f"Sponsorship ID: "
-        f"{sponsorship.id}"
-    )
-
-    # ========================================================
-    # PAYMONGO SECRET KEY
-    # ========================================================
-
-    secret_key = os.getenv(
-        "PAYMONGO_SECRET_KEY"
-    )
-
-    if not secret_key:
-
-        sponsorship.payment_status = (
-            "Failed"
-        )
-
-        db.commit()
-
-        raise HTTPException(
-            status_code=500,
-            detail=(
-                "PAYMONGO_SECRET_KEY "
-                "is not configured."
-            )
-        )
-
-    # ========================================================
-    # PAYMONGO PAYLOAD
-    # ========================================================
-
-    payload = {
-
-        "amount":
-            paymongo_amount,
-
-        "currency":
-            "PHP",
-
-        "description":
-            description,
-
-        "remarks":
-            remarks,
-
-        "metadata": {
-
-            "type":
-                "cash_sponsorship",
-
-            "sponsorship_id":
-                str(sponsorship.id),
-
-            "sponsor_name":
-                sponsor_name,
-
-            "tier":
-                correct_tier,
-
-            "email":
-                (
-                    str(data.email)
-                    if data.email
-                    else ""
-                )
-
-        }
-
-    }
-
-    # ========================================================
-    # CREATE PAYMONGO PAYMENT LINK
     # ========================================================
 
     try:
 
-        response = httpx.post(
+        tshirt_price_centavos = int(
+            tshirt_item.price or 0
+        )
 
-            "https://api.paymongo.com/v1/payment_links",
+    except (
+        ValueError,
+        TypeError
+    ):
 
-            auth=(
-                secret_key,
-                ""
+        tshirt_price_centavos = 0
+
+    try:
+
+        lanyard_price_centavos = int(
+            lanyard_item.price or 0
+        )
+
+    except (
+        ValueError,
+        TypeError
+    ):
+
+        lanyard_price_centavos = 0
+
+    # ========================================================
+    # CONVERT CENTAVOS TO PESOS
+    # ========================================================
+
+    tshirt_price = (
+        tshirt_price_centavos / 100
+    )
+
+    lanyard_price = (
+        lanyard_price_centavos / 100
+    )
+
+    # ========================================================
+    # REQUIRED SPONSORSHIP AMOUNT
+    #
+    # Stored/compared in PESOS because
+    # CashDonationTotal.total_amount is in PESOS.
+    # ========================================================
+
+    required_amount = (
+        tshirt_price +
+        lanyard_price
+    )
+
+    if required_amount <= 0:
+
+        raise Exception(
+            "Merchandise prices must be greater than zero."
+        )
+
+    print(
+        "T-shirt Price:",
+        f"₱{tshirt_price:,.2f}"
+    )
+
+    print(
+        "Lanyard Price:",
+        f"₱{lanyard_price:,.2f}"
+    )
+
+    print(
+        "Required Per Participant:",
+        f"₱{required_amount:,.2f}"
+    )
+
+    # ========================================================
+    # GET CASH DONATION TOTAL
+    # ========================================================
+
+    donation_total = (
+        db.query(
+            CashDonationTotal
+        )
+        .order_by(
+            CashDonationTotal.id.asc()
+        )
+        .first()
+    )
+
+    if not donation_total:
+
+        print(
+            "No CashDonationTotal record exists."
+        )
+
+        return {
+
+            "success":
+                True,
+
+            "status":
+                "Queued",
+
+            "message":
+                "No cash donation total is available.",
+
+            "tshirt_price":
+                tshirt_price,
+
+            "tshirt_price_display":
+                f"₱{tshirt_price:,.2f}",
+
+            "lanyard_price":
+                lanyard_price,
+
+            "lanyard_price_display":
+                f"₱{lanyard_price:,.2f}",
+
+            "required_amount_per_participant":
+                required_amount,
+
+            "required_amount_display":
+                f"₱{required_amount:,.2f}",
+
+            "cash_donation_total":
+                0,
+
+            "cash_donation_total_display":
+                "₱0.00",
+
+            "initial_queue_count":
+                0,
+
+            "sponsored_count":
+                0,
+
+            "remaining_queue_count":
+                0,
+
+            "participant_emails_sent":
+                0,
+
+            "participant_email_errors":
+                [],
+
+            "participants":
+                []
+
+        }
+
+    # ========================================================
+    # CURRENT BALANCE
+    #
+    # CashDonationTotal.total_amount = PESOS
+    # ========================================================
+
+    try:
+
+        current_balance = float(
+            donation_total.total_amount or 0
+        )
+
+    except (
+        ValueError,
+        TypeError
+    ):
+
+        current_balance = 0.0
+
+    initial_balance = current_balance
+
+    print(
+        "Current Sponsorship Fund:",
+        f"₱{current_balance:,.2f}"
+    )
+
+    # ========================================================
+    # FIND FINDING SPONSOR PARTICIPANTS
+    #
+    # FIFO:
+    #
+    # Oldest Finding Sponsor participant
+    # gets sponsored first.
+    #
+    # IMPORTANT:
+    #
+    # Use:
+    #
+    #     func.lower()
+    #     func.coalesce()
+    #     or_()
+    #
+    # NOT:
+    #
+    #     db.func
+    #     db.or_
+    #
+    # ========================================================
+
+    finding_sponsors = (
+        db.query(
+            Participant
+        )
+        .filter(
+
+            Participant.is_archived == 0,
+
+            Participant.participant_type.ilike(
+                "Finding Sponsor"
             ),
 
-            headers={
+            or_(
 
-                "Content-Type":
-                    "application/json",
+                func.lower(
+                    func.coalesce(
+                        Participant.tshirt_status,
+                        "Unpaid"
+                    )
+                ) != "paid",
 
-                "Accept":
-                    "application/json",
+                func.lower(
+                    func.coalesce(
+                        Participant.lanyard_status,
+                        "Unpaid"
+                    )
+                ) != "paid"
 
-                "Idempotency-Key":
-                    (
-                        f"sponsorship-"
-                        f"{sponsorship.id}-"
-                        f"{uuid.uuid4()}"
+            )
+
+        )
+        .order_by(
+
+            Participant.created_at.asc(),
+
+            Participant.id.asc()
+
+        )
+        .all()
+    )
+
+    # ========================================================
+    # QUEUE COUNT
+    # ========================================================
+
+    initial_queue_count = len(
+        finding_sponsors
+    )
+
+    print(
+        "Finding Sponsor Queue:",
+        initial_queue_count
+    )
+
+    # ========================================================
+    # NOTHING TO SPONSOR
+    # ========================================================
+
+    if initial_queue_count == 0:
+
+        print(
+            "No Finding Sponsor participants waiting."
+        )
+
+        return {
+
+            "success":
+                True,
+
+            "status":
+                "Completed",
+
+            "message":
+                "No Finding Sponsor participants are waiting for sponsorship.",
+
+            "tshirt_price":
+                tshirt_price,
+
+            "tshirt_price_display":
+                f"₱{tshirt_price:,.2f}",
+
+            "lanyard_price":
+                lanyard_price,
+
+            "lanyard_price_display":
+                f"₱{lanyard_price:,.2f}",
+
+            "required_amount_per_participant":
+                required_amount,
+
+            "required_amount_display":
+                f"₱{required_amount:,.2f}",
+
+            "cash_donation_total":
+                current_balance,
+
+            "cash_donation_total_display":
+                f"₱{current_balance:,.2f}",
+
+            "initial_queue_count":
+                0,
+
+            "sponsored_count":
+                0,
+
+            "remaining_queue_count":
+                0,
+
+            "participant_emails_sent":
+                0,
+
+            "participant_email_errors":
+                [],
+
+            "participants":
+                []
+
+        }
+
+    # ========================================================
+    # PROCESS FIFO
+    # ========================================================
+
+    sponsored_participants = []
+
+    try:
+
+        for participant in finding_sponsors:
+
+            # =================================================
+            # STOP IF NOT ENOUGH MONEY
+            # =================================================
+
+            if current_balance < required_amount:
+
+                print(
+                    "Insufficient sponsorship fund."
+                )
+
+                print(
+                    "Current:",
+                    f"₱{current_balance:,.2f}"
+                )
+
+                print(
+                    "Needed:",
+                    f"₱{required_amount:,.2f}"
+                )
+
+                print(
+                    "Still Needed:",
+                    f"₱{required_amount - current_balance:,.2f}"
+                )
+
+                break
+
+            # =================================================
+            # FULL NAME
+            # =================================================
+
+            fullname = " ".join(
+
+                part
+
+                for part in [
+
+                    getattr(
+                        participant,
+                        "fname",
+                        None
+                    ),
+
+                    getattr(
+                        participant,
+                        "mname",
+                        None
+                    ),
+
+                    getattr(
+                        participant,
+                        "lname",
+                        None
                     )
 
-            },
+                ]
 
-            json=payload,
+                if part
 
-            timeout=30
+            ).strip()
 
+            # =================================================
+            # DEDUCT SPONSORSHIP COST
+            # =================================================
+
+            current_balance -= (
+                required_amount
+            )
+
+            # =================================================
+            # MARK T-SHIRT PAID
+            # =================================================
+
+            if hasattr(
+                participant,
+                "tshirt_status"
+            ):
+
+                participant.tshirt_status = (
+                    "Paid"
+                )
+
+            # =================================================
+            # MARK LANYARD PAID
+            # =================================================
+
+            if hasattr(
+                participant,
+                "lanyard_status"
+            ):
+
+                participant.lanyard_status = (
+                    "Paid"
+                )
+
+            # =================================================
+            # COMPLETE REGISTRATION
+            # =================================================
+
+            if hasattr(
+                participant,
+                "registration_status"
+            ):
+
+                participant.registration_status = (
+                    "Confirmed"
+                )
+
+            # =================================================
+            # SPONSOR REVIEW APPROVED
+            #
+            # Supports either:
+            #
+            # sponsor_review_status
+            #
+            # OR:
+            #
+            # sponsorship_review_status
+            # =================================================
+
+            sponsor_review_status = "Approved"
+
+            if hasattr(
+                participant,
+                "sponsor_review_status"
+            ):
+
+                participant.sponsor_review_status = (
+                    "Approved"
+                )
+
+            elif hasattr(
+                participant,
+                "sponsorship_review_status"
+            ):
+
+                participant.sponsorship_review_status = (
+                    "Approved"
+                )
+
+            # =================================================
+            # UPDATE TIMESTAMP
+            # =================================================
+
+            if hasattr(
+                participant,
+                "updated_at"
+            ):
+
+                participant.updated_at = (
+                    datetime.datetime.now()
+                )
+
+            # =================================================
+            # RECORD RESULT
+            # =================================================
+
+            sponsored_participants.append({
+
+                "participant_id":
+                    participant.id,
+
+                "registration_number":
+                    getattr(
+                        participant,
+                        "registration_number",
+                        None
+                    ),
+
+                "fullname":
+                    fullname,
+
+                "participant_type":
+                    getattr(
+                        participant,
+                        "participant_type",
+                        None
+                    ),
+
+                "tshirt_status":
+                    getattr(
+                        participant,
+                        "tshirt_status",
+                        "Paid"
+                    ),
+
+                "lanyard_status":
+                    getattr(
+                        participant,
+                        "lanyard_status",
+                        "Paid"
+                    ),
+
+                "registration_status":
+                    getattr(
+                        participant,
+                        "registration_status",
+                        None
+                    ),
+
+                "sponsor_review_status":
+                    getattr(
+                        participant,
+                        "sponsor_review_status",
+                        getattr(
+                            participant,
+                            "sponsorship_review_status",
+                            sponsor_review_status
+                        )
+                    ),
+
+                "sponsored_amount":
+                    required_amount,
+
+                "sponsored_amount_display":
+                    f"₱{required_amount:,.2f}"
+
+            })
+
+            # =================================================
+            # LOG
+            # =================================================
+
+            print("=" * 50)
+
+            print(
+                "PARTICIPANT SPONSORED"
+            )
+
+            print(
+                "Participant ID:",
+                participant.id
+            )
+
+            print(
+                "Registration:",
+                getattr(
+                    participant,
+                    "registration_number",
+                    None
+                )
+            )
+
+            print(
+                "Name:",
+                fullname
+            )
+
+            print(
+                "Sponsored:",
+                f"₱{required_amount:,.2f}"
+            )
+
+            print(
+                "T-shirt:",
+                getattr(
+                    participant,
+                    "tshirt_status",
+                    None
+                )
+            )
+
+            print(
+                "Lanyard:",
+                getattr(
+                    participant,
+                    "lanyard_status",
+                    None
+                )
+            )
+
+            print(
+                "Registration:",
+                getattr(
+                    participant,
+                    "registration_status",
+                    None
+                )
+            )
+
+            print(
+                "Sponsor Review:",
+                getattr(
+                    participant,
+                    "sponsor_review_status",
+                    getattr(
+                        participant,
+                        "sponsorship_review_status",
+                        "Approved"
+                    )
+                )
+            )
+
+            print(
+                "Remaining Fund:",
+                f"₱{current_balance:,.2f}"
+            )
+
+            print("=" * 50)
+
+        # ====================================================
+        # SAVE REMAINING BALANCE
+        # ====================================================
+
+        donation_total.total_amount = (
+            current_balance
+        )
+
+        if hasattr(
+            donation_total,
+            "updated_at"
+        ):
+
+            donation_total.updated_at = (
+                datetime.datetime.now()
+            )
+
+        # ====================================================
+        # COMMIT DATABASE CHANGES
+        # ====================================================
+
+        db.commit()
+
+        db.refresh(
+            donation_total
         )
 
     except Exception as e:
 
-        sponsorship.payment_status = (
-            "Failed"
+        db.rollback()
+
+        print("=" * 70)
+
+        print(
+            "FINDING SPONSOR PROCESSING ERROR"
         )
 
-        db.commit()
-
-        raise HTTPException(
-            status_code=502,
-            detail=(
-                "Unable to connect to PayMongo: "
-                f"{str(e)}"
-            )
+        print(
+            "Error:",
+            repr(e)
         )
+
+        print("=" * 70)
+
+        raise
 
     # ========================================================
-    # PAYMONGO ERROR
+    # GET REMAINING QUEUE
+    #
+    # Re-query AFTER commit so participants that were
+    # marked Paid are no longer counted.
     # ========================================================
 
-    if response.status_code not in [
-        200,
-        201
-    ]:
-
-        try:
-
-            error_data = (
-                response.json()
-            )
-
-        except Exception:
-
-            error_data = {
-                "detail":
-                    response.text
-            }
-
-        sponsorship.payment_status = (
-            "Failed"
+    remaining_queue = (
+        db.query(
+            Participant
         )
+        .filter(
 
-        db.commit()
+            Participant.is_archived == 0,
 
-        raise HTTPException(
-            status_code=502,
-            detail={
+            Participant.participant_type.ilike(
+                "Finding Sponsor"
+            ),
 
-                "message":
-                    "PayMongo rejected "
-                    "the payment link.",
+            or_(
 
-                "paymongo":
-                    error_data
+                func.lower(
+                    func.coalesce(
+                        Participant.tshirt_status,
+                        "Unpaid"
+                    )
+                ) != "paid",
 
-            }
-        )
+                func.lower(
+                    func.coalesce(
+                        Participant.lanyard_status,
+                        "Unpaid"
+                    )
+                ) != "paid"
 
-    # ========================================================
-    # PARSE PAYMONGO RESPONSE
-    # ========================================================
-
-    try:
-
-        result = (
-            response.json()
-        )
-
-        payment_data = (
-            result.get(
-                "data",
-                {}
-            )
-        )
-
-        payment_link_id = (
-            payment_data.get(
-                "id"
-            )
-        )
-
-        payment_attributes = (
-            payment_data.get(
-                "attributes",
-                {}
-            )
-        )
-
-        payment_url = (
-
-            payment_attributes.get(
-                "checkout_url"
-            )
-
-            or
-
-            payment_attributes.get(
-                "url"
-            )
-
-            or
-
-            payment_data.get(
-                "url"
             )
 
         )
+        .order_by(
 
-        reference_number = (
+            Participant.created_at.asc(),
 
-            payment_attributes.get(
-                "reference_number"
-            )
-
-            or
-
-            payment_data.get(
-                "reference_number"
-            )
+            Participant.id.asc()
 
         )
-
-    except Exception:
-
-        sponsorship.payment_status = (
-            "Failed"
-        )
-
-        db.commit()
-
-        raise HTTPException(
-            status_code=502,
-            detail=(
-                "Invalid response received "
-                "from PayMongo."
-            )
-        )
-
-    # ========================================================
-    # VALIDATE PAYMENT LINK ID
-    # ========================================================
-
-    if not payment_link_id:
-
-        sponsorship.payment_status = (
-            "Failed"
-        )
-
-        db.commit()
-
-        raise HTTPException(
-            status_code=502,
-            detail=(
-                "PayMongo did not return "
-                "a payment link ID."
-            )
-        )
-
-    # ========================================================
-    # VALIDATE PAYMENT URL
-    # ========================================================
-
-    if not payment_url:
-
-        sponsorship.payment_status = (
-            "Failed"
-        )
-
-        db.commit()
-
-        raise HTTPException(
-            status_code=502,
-            detail=(
-                "PayMongo did not return "
-                "a payment URL."
-            )
-        )
-
-    # ========================================================
-    # SAVE PAYMONGO DETAILS
-    # ========================================================
-
-    sponsorship.paymongo_link_id = (
-        payment_link_id
+        .all()
     )
 
-    sponsorship.paymongo_reference = (
-        reference_number
-    )
-
-    sponsorship.payment_url = (
-        payment_url
-    )
-
-    # --------------------------------------------------------
-    # REMAIN PENDING
-    # --------------------------------------------------------
-
-    sponsorship.payment_status = (
-        "Pending"
-    )
-
-    # --------------------------------------------------------
-    # STILL NOT ADDED TO CASH DONATION TOTAL
-    # --------------------------------------------------------
-
-    sponsorship.cash_total_added = 0
-
-    db.commit()
-
-    db.refresh(
-        sponsorship
+    remaining_queue_count = len(
+        remaining_queue
     )
 
     # ========================================================
-    # RESPONSE
+    # DETERMINE QUEUE STATUS
+    # ========================================================
+
+    if remaining_queue_count == 0:
+
+        queue_status = "Completed"
+
+    elif current_balance >= required_amount:
+
+        queue_status = "Ready"
+
+    else:
+
+        queue_status = "Queued"
+
+    # ========================================================
+    # SEND PARTICIPANT SPONSORSHIP EMAILS
+    #
+    # Email function signature:
+    #
+    # send_sponsored_participant_confirmation_email(
+    #     participant,
+    #     sponsored_amount
+    # )
+    #
+    # IMPORTANT:
+    #
+    # The function is async.
+    # Therefore we MUST use await.
+    # ========================================================
+
+    participant_emails_sent = 0
+
+    participant_email_errors = []
+
+    email_function = globals().get(
+        "send_sponsored_participant_confirmation_email"
+    )
+
+    if not email_function:
+
+        print(
+            "WARNING:"
+        )
+
+        print(
+            "send_sponsored_participant_confirmation_email "
+            "is not defined."
+        )
+
+    else:
+
+        for sponsored in sponsored_participants:
+
+            try:
+
+                sponsored_participant = (
+                    db.query(
+                        Participant
+                    )
+                    .filter(
+                        Participant.id ==
+                        sponsored[
+                            "participant_id"
+                        ]
+                    )
+                    .first()
+                )
+
+                if not sponsored_participant:
+
+                    print(
+                        "Sponsored participant not found:",
+                        sponsored[
+                            "participant_id"
+                        ]
+                    )
+
+                    continue
+
+                participant_email = getattr(
+                    sponsored_participant,
+                    "email",
+                    None
+                )
+
+                if participant_email:
+
+                    participant_email = str(
+                        participant_email
+                    ).strip()
+
+                if not participant_email:
+
+                    print(
+                        "Sponsored participant has no email:",
+                        sponsored[
+                            "participant_id"
+                        ]
+                    )
+
+                    continue
+
+                # ==========================================
+                # SEND EMAIL
+                #
+                # PASS BOTH:
+                #
+                # participant
+                # sponsored_amount
+                # ==========================================
+
+                print(
+                    "Sending sponsored participant email to:",
+                    participant_email
+                )
+
+                await email_function(
+
+                    sponsored_participant,
+
+                    sponsored[
+                        "sponsored_amount"
+                    ]
+
+                )
+
+                participant_emails_sent += 1
+
+                print(
+                    "Sponsored participant email sent:",
+                    participant_email
+                )
+
+            except Exception as e:
+
+                print(
+                    "Sponsored participant email failed:"
+                )
+
+                print(
+                    "Participant ID:",
+                    sponsored[
+                        "participant_id"
+                    ]
+                )
+
+                print(
+                    "Error:",
+                    repr(e)
+                )
+
+                participant_email_errors.append({
+
+                    "participant_id":
+                        sponsored[
+                            "participant_id"
+                        ],
+
+                    "email":
+                        getattr(
+                            sponsored_participant,
+                            "email",
+                            None
+                        ),
+
+                    "error":
+                        str(e)
+
+                })
+
+    # ========================================================
+    # TOTAL SPONSORED AMOUNT
+    # ========================================================
+
+    total_sponsored_amount = (
+        len(
+            sponsored_participants
+        ) *
+        required_amount
+    )
+
+    # ========================================================
+    # FINAL LOG
+    # ========================================================
+
+    print("=" * 70)
+
+    print(
+        "FINDING SPONSOR PROCESSING COMPLETE"
+    )
+
+    print("=" * 70)
+
+    print(
+        "Initial Fund:",
+        f"₱{initial_balance:,.2f}"
+    )
+
+    print(
+        "Total Sponsored:",
+        f"₱{total_sponsored_amount:,.2f}"
+    )
+
+    print(
+        "Remaining Fund:",
+        f"₱{current_balance:,.2f}"
+    )
+
+    print(
+        "Sponsored Participants:",
+        len(
+            sponsored_participants
+        )
+    )
+
+    print(
+        "Remaining Queue:",
+        remaining_queue_count
+    )
+
+    print(
+        "Emails Sent:",
+        participant_emails_sent
+    )
+
+    print(
+        "Email Errors:",
+        len(
+            participant_email_errors
+        )
+    )
+
+    print("=" * 70)
+
+    # ========================================================
+    # RETURN RESULT
     # ========================================================
 
     return {
@@ -12565,51 +13299,93 @@ def create_cash_sponsorship(
         "success":
             True,
 
+        "status":
+            queue_status,
+
         "message":
-            "Sponsorship created successfully. "
-            "Payment is currently pending.",
+            "Finding Sponsor queue processed successfully.",
 
-        "sponsorship_id":
-            sponsorship.id,
+        # ====================================================
+        # PRICES
+        # ====================================================
 
-        "sponsor_name":
-            sponsorship.sponsor_name,
+        "tshirt_price":
+            tshirt_price,
 
-        "tier":
-            correct_tier,
+        "tshirt_price_display":
+            f"₱{tshirt_price:,.2f}",
 
-        "donation_amount":
-            float(amount),
+        "tshirt_price_centavos":
+            tshirt_price_centavos,
 
-        "payment_status":
-            sponsorship.payment_status,
+        "lanyard_price":
+            lanyard_price,
 
-        # ----------------------------------------------------
-        # IMPORTANT
-        # ----------------------------------------------------
-        # This confirms to the frontend that the money has
-        # NOT yet entered the available sponsorship balance.
-        #
-        "cash_total_added":
-            sponsorship.cash_total_added,
+        "lanyard_price_display":
+            f"₱{lanyard_price:,.2f}",
 
-        "cash_total_added_display":
-            "₱0.00",
+        "lanyard_price_centavos":
+            lanyard_price_centavos,
 
-        "cash_donation_total_updated":
-            False,
+        "required_amount_per_participant":
+            required_amount,
 
-        "payment_id":
-            payment_link_id,
+        "required_amount_display":
+            f"₱{required_amount:,.2f}",
 
-        "paymongo_link_id":
-            payment_link_id,
+        # ====================================================
+        # FUND
+        # ====================================================
 
-        "reference_number":
-            reference_number,
+        "initial_cash_donation_total":
+            initial_balance,
 
-        "payment_url":
-            payment_url
+        "initial_cash_donation_total_display":
+            f"₱{initial_balance:,.2f}",
+
+        "total_sponsored_amount":
+            total_sponsored_amount,
+
+        "total_sponsored_amount_display":
+            f"₱{total_sponsored_amount:,.2f}",
+
+        "cash_donation_total":
+            current_balance,
+
+        "cash_donation_total_display":
+            f"₱{current_balance:,.2f}",
+
+        # ====================================================
+        # QUEUE
+        # ====================================================
+
+        "initial_queue_count":
+            initial_queue_count,
+
+        "sponsored_count":
+            len(
+                sponsored_participants
+            ),
+
+        "remaining_queue_count":
+            remaining_queue_count,
+
+        # ====================================================
+        # EMAIL
+        # ====================================================
+
+        "participant_emails_sent":
+            participant_emails_sent,
+
+        "participant_email_errors":
+            participant_email_errors,
+
+        # ====================================================
+        # PARTICIPANTS
+        # ====================================================
+
+        "participants":
+            sponsored_participants
 
     }
 
@@ -12623,10 +13399,6 @@ def create_cash_sponsorship(
 
 
 
-    
-    
-
-    
 
 
 
@@ -12642,49 +13414,28 @@ def create_cash_sponsorship(
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-# ============================================================
+## ======================================================
 # PAYMONGO WEBHOOK
-# ============================================================
+# ======================================================
 #
-# FLOW:
+# Handles:
 #
-# PayMongo
-#    ↓
-# Verify signature
-#    ↓
-# payment.paid / link.payment.paid
-#    ↓
-# Find CashSponsorship
-#    ↓
-# Update sponsorship + donation total
-#    ↓
-# COMMIT
-#    ↓
-# Return 200 immediately
-#    ↓
-# Background:
-#    ├── Gmail confirmation
-#    └── Finding Sponsor queue
+# 1. Normal participant payments
+# 2. Store payments
+# 3. Cash sponsorship payments
+# 4. Automatically adds successful cash donations
+#    to CashDonationTotal
+# 5. Automatically sponsors Finding Sponsor participants
+# 6. Automatically emails sponsored participants
 #
 # IMPORTANT:
+# cash_total_added is now INTEGER, not Boolean.
 #
-# Gmail failure DOES NOT cancel payment.
-# Finding Sponsor failure DOES NOT cancel payment.
-# Both processes use their own database/session handling.
+# cash_total_added:
+#     0   = donation has not been added
+#     > 0 = amount added to donation pool in pesos
 #
-# ============================================================
+# ======================================================
 
 
 @app.post("/webhooks/paymongo")
@@ -14731,6 +15482,645 @@ async def paymongo_webhook(
         "message":
             "Payment type is not supported."
     }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+    
+# ============================================================
+# CREATE CASH SPONSORSHIP
+# ============================================================
+#
+# IMPORTANT:
+#
+# This endpoint ONLY creates the sponsorship/payment.
+#
+# The donation is NOT added to CashDonationTotal yet because
+# the PayMongo payment is still Pending.
+#
+# cash_total_added:
+#
+#     0 = donation has NOT yet been added to CashDonationTotal
+#
+#     donation_amount = donation has already been added
+#
+# The payment-success/webhook endpoint is responsible for:
+#
+#     1. Marking payment as Paid
+#     2. Adding donation_amount to CashDonationTotal
+#     3. Setting cash_total_added = donation_amount
+#
+# This prevents the same PayMongo payment from being added
+# to CashDonationTotal multiple times.
+#
+# ============================================================
+
+@app.post("/sponsorship/create_cash")
+def create_cash_sponsorship(
+    data: CashSponsorshipCreate,
+    db: Session = Depends(get_db)
+):
+
+    # ========================================================
+    # CLEAN INPUT
+    # ========================================================
+
+    selected_tier = (
+        data.selected_tier.strip()
+    )
+
+    sponsor_name = (
+        data.sponsor_name.strip()
+    )
+
+    local_church = (
+        data.local_church.strip()
+    )
+
+    sector = (
+        data.sector.strip()
+    )
+
+    amount = Decimal(
+        str(data.donation_amount)
+    ).quantize(
+        Decimal("0.01")
+    )
+
+    # ========================================================
+    # VALIDATE AMOUNT
+    # ========================================================
+
+    if amount <= 0:
+
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Donation amount must be "
+                "greater than ₱0.00."
+            )
+        )
+
+    # ========================================================
+    # DETERMINE CORRECT TIER
+    # ========================================================
+
+    correct_tier = (
+        determine_sponsorship_tier(
+            amount
+        )
+    )
+
+    # ========================================================
+    # CHECK SELECTED TIER
+    # ========================================================
+
+    if (
+        selected_tier.lower()
+        !=
+        correct_tier.lower()
+    ):
+
+        if (
+            correct_tier
+            ==
+            "1st (Bronze) Tier"
+        ):
+
+            message = (
+                f"Your donation of "
+                f"₱{amount:,.2f} belongs to "
+                f"the 1st (Bronze) Tier, "
+                f"which is below ₱1,000. "
+                f"Please reselect the "
+                f"1st (Bronze) Tier package."
+            )
+
+        elif (
+            correct_tier
+            ==
+            "2nd (Silver) Tier"
+        ):
+
+            message = (
+                f"Your donation of "
+                f"₱{amount:,.2f} belongs to "
+                f"the 2nd (Silver) Tier, "
+                f"which is ₱1,000 to below "
+                f"₱2,000. Please reselect "
+                f"the 2nd (Silver) Tier package."
+            )
+
+        elif (
+            correct_tier
+            ==
+            "3rd (Gold) Tier"
+        ):
+
+            message = (
+                f"Your donation of "
+                f"₱{amount:,.2f} belongs to "
+                f"the 3rd (Gold) Tier, "
+                f"which is ₱2,000 to below "
+                f"₱3,000. Please reselect "
+                f"the 3rd (Gold) Tier package."
+            )
+
+        else:
+
+            message = (
+                f"Your donation of "
+                f"₱{amount:,.2f} belongs to "
+                f"the 4th (Diamond) Tier, "
+                f"which is ₱3,000 and above. "
+                f"Please reselect the "
+                f"4th (Diamond) Tier package."
+            )
+
+        raise HTTPException(
+            status_code=400,
+            detail=message
+        )
+
+    # ========================================================
+    # CREATE LOCAL SPONSORSHIP RECORD
+    # ========================================================
+    #
+    # IMPORTANT:
+    #
+    # cash_total_added = 0
+    #
+    # The donation is NOT yet available for Finding Sponsor
+    # participants.
+    #
+    # It becomes available only after PayMongo confirms
+    # successful payment.
+    #
+    # ========================================================
+
+    sponsorship = CashSponsorship(
+
+        sponsor_name=sponsor_name,
+
+        local_church=local_church,
+
+        contact=(
+            data.contact.strip()
+            if data.contact
+            else None
+        ),
+
+        sector=sector,
+
+        email=(
+            str(data.email)
+            if data.email
+            else None
+        ),
+
+        selected_tier=correct_tier,
+
+        donation_amount=int(
+            amount * 100
+        ),
+
+        payment_status="Pending",
+
+        # ----------------------------------------------------
+        # IMPORTANT
+        # ----------------------------------------------------
+        # Nothing has been added to CashDonationTotal yet.
+        #
+        # This value will be updated by the payment-success
+        # / webhook logic.
+        #
+        cash_total_added=0
+
+    )
+
+    db.add(
+        sponsorship
+    )
+
+    db.commit()
+
+    db.refresh(
+        sponsorship
+    )
+
+    # ========================================================
+    # PAYMONGO AMOUNT
+    # ========================================================
+
+    paymongo_amount = int(
+        amount * 100
+    )
+
+    # ========================================================
+    # DESCRIPTION
+    # ========================================================
+
+    description = (
+        f"Sponsorship - "
+        f"{correct_tier} - "
+        f"{sponsor_name}"
+    )
+
+    # ========================================================
+    # REMARKS
+    # ========================================================
+
+    remarks = (
+        f"Sponsorship ID: "
+        f"{sponsorship.id}"
+    )
+
+    # ========================================================
+    # PAYMONGO SECRET KEY
+    # ========================================================
+
+    secret_key = os.getenv(
+        "PAYMONGO_SECRET_KEY"
+    )
+
+    if not secret_key:
+
+        sponsorship.payment_status = (
+            "Failed"
+        )
+
+        db.commit()
+
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "PAYMONGO_SECRET_KEY "
+                "is not configured."
+            )
+        )
+
+    # ========================================================
+    # PAYMONGO PAYLOAD
+    # ========================================================
+
+    payload = {
+
+        "amount":
+            paymongo_amount,
+
+        "currency":
+            "PHP",
+
+        "description":
+            description,
+
+        "remarks":
+            remarks,
+
+        "metadata": {
+
+            "type":
+                "cash_sponsorship",
+
+            "sponsorship_id":
+                str(sponsorship.id),
+
+            "sponsor_name":
+                sponsor_name,
+
+            "tier":
+                correct_tier,
+
+            "email":
+                (
+                    str(data.email)
+                    if data.email
+                    else ""
+                )
+
+        }
+
+    }
+
+    # ========================================================
+    # CREATE PAYMONGO PAYMENT LINK
+    # ========================================================
+
+    try:
+
+        response = httpx.post(
+
+            "https://api.paymongo.com/v1/payment_links",
+
+            auth=(
+                secret_key,
+                ""
+            ),
+
+            headers={
+
+                "Content-Type":
+                    "application/json",
+
+                "Accept":
+                    "application/json",
+
+                "Idempotency-Key":
+                    (
+                        f"sponsorship-"
+                        f"{sponsorship.id}-"
+                        f"{uuid.uuid4()}"
+                    )
+
+            },
+
+            json=payload,
+
+            timeout=30
+
+        )
+
+    except Exception as e:
+
+        sponsorship.payment_status = (
+            "Failed"
+        )
+
+        db.commit()
+
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                "Unable to connect to PayMongo: "
+                f"{str(e)}"
+            )
+        )
+
+    # ========================================================
+    # PAYMONGO ERROR
+    # ========================================================
+
+    if response.status_code not in [
+        200,
+        201
+    ]:
+
+        try:
+
+            error_data = (
+                response.json()
+            )
+
+        except Exception:
+
+            error_data = {
+                "detail":
+                    response.text
+            }
+
+        sponsorship.payment_status = (
+            "Failed"
+        )
+
+        db.commit()
+
+        raise HTTPException(
+            status_code=502,
+            detail={
+
+                "message":
+                    "PayMongo rejected "
+                    "the payment link.",
+
+                "paymongo":
+                    error_data
+
+            }
+        )
+
+    # ========================================================
+    # PARSE PAYMONGO RESPONSE
+    # ========================================================
+
+    try:
+
+        result = (
+            response.json()
+        )
+
+        payment_data = (
+            result.get(
+                "data",
+                {}
+            )
+        )
+
+        payment_link_id = (
+            payment_data.get(
+                "id"
+            )
+        )
+
+        payment_attributes = (
+            payment_data.get(
+                "attributes",
+                {}
+            )
+        )
+
+        payment_url = (
+
+            payment_attributes.get(
+                "checkout_url"
+            )
+
+            or
+
+            payment_attributes.get(
+                "url"
+            )
+
+            or
+
+            payment_data.get(
+                "url"
+            )
+
+        )
+
+        reference_number = (
+
+            payment_attributes.get(
+                "reference_number"
+            )
+
+            or
+
+            payment_data.get(
+                "reference_number"
+            )
+
+        )
+
+    except Exception:
+
+        sponsorship.payment_status = (
+            "Failed"
+        )
+
+        db.commit()
+
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                "Invalid response received "
+                "from PayMongo."
+            )
+        )
+
+    # ========================================================
+    # VALIDATE PAYMENT LINK ID
+    # ========================================================
+
+    if not payment_link_id:
+
+        sponsorship.payment_status = (
+            "Failed"
+        )
+
+        db.commit()
+
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                "PayMongo did not return "
+                "a payment link ID."
+            )
+        )
+
+    # ========================================================
+    # VALIDATE PAYMENT URL
+    # ========================================================
+
+    if not payment_url:
+
+        sponsorship.payment_status = (
+            "Failed"
+        )
+
+        db.commit()
+
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                "PayMongo did not return "
+                "a payment URL."
+            )
+        )
+
+    # ========================================================
+    # SAVE PAYMONGO DETAILS
+    # ========================================================
+
+    sponsorship.paymongo_link_id = (
+        payment_link_id
+    )
+
+    sponsorship.paymongo_reference = (
+        reference_number
+    )
+
+    sponsorship.payment_url = (
+        payment_url
+    )
+
+    # --------------------------------------------------------
+    # REMAIN PENDING
+    # --------------------------------------------------------
+
+    sponsorship.payment_status = (
+        "Pending"
+    )
+
+    # --------------------------------------------------------
+    # STILL NOT ADDED TO CASH DONATION TOTAL
+    # --------------------------------------------------------
+
+    sponsorship.cash_total_added = 0
+
+    db.commit()
+
+    db.refresh(
+        sponsorship
+    )
+
+    # ========================================================
+    # RESPONSE
+    # ========================================================
+
+    return {
+
+        "success":
+            True,
+
+        "message":
+            "Sponsorship created successfully. "
+            "Payment is currently pending.",
+
+        "sponsorship_id":
+            sponsorship.id,
+
+        "sponsor_name":
+            sponsorship.sponsor_name,
+
+        "tier":
+            correct_tier,
+
+        "donation_amount":
+            float(amount),
+
+        "payment_status":
+            sponsorship.payment_status,
+
+        # ----------------------------------------------------
+        # IMPORTANT
+        # ----------------------------------------------------
+        # This confirms to the frontend that the money has
+        # NOT yet entered the available sponsorship balance.
+        #
+        "cash_total_added":
+            sponsorship.cash_total_added,
+
+        "cash_total_added_display":
+            "₱0.00",
+
+        "cash_donation_total_updated":
+            False,
+
+        "payment_id":
+            payment_link_id,
+
+        "paymongo_link_id":
+            payment_link_id,
+
+        "reference_number":
+            reference_number,
+
+        "payment_url":
+            payment_url
+
+    }
     
     
     
@@ -14958,22 +16348,6 @@ def sponsorship_payment_status(
         "paymongo_reference":
             sponsorship.paymongo_reference
     }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -16783,75 +18157,8 @@ def view_store_items(
     
 
 
-# ==========================================================
-# CONTACT API
-# ==========================================================
-
-@app.post("/contact")
-async def contact_us(
-    contact: ContactRequest
-):
-
-    try:
-
-        send_contact_email(
-            contact
-        )
-
-        return {
-            "success": True,
-            "message": (
-                "Your message has been sent successfully."
-            )
-        }
 
 
-    except smtplib.SMTPAuthenticationError:
-
-        print(
-            "CONTACT EMAIL ERROR: Gmail authentication failed."
-        )
-
-        raise HTTPException(
-            status_code=500,
-            detail=(
-                "Unable to send your message because "
-                "the email service authentication failed."
-            )
-        )
-
-
-    except smtplib.SMTPException as error:
-
-        print(
-            "CONTACT EMAIL SMTP ERROR:",
-            error
-        )
-
-        raise HTTPException(
-            status_code=500,
-            detail=(
-                "Unable to send your message. "
-                "Please try again later."
-            )
-        )
-
-
-    except Exception as error:
-
-        print(
-            "CONTACT EMAIL ERROR:",
-            error
-        )
-
-        raise HTTPException(
-            status_code=500,
-            detail=(
-                "Unable to send your message. "
-                "Please try again later."
-            )
-        )
-        
 
 
 # =========================================================
@@ -17857,6 +19164,14 @@ def get_registration_items(
 # It only uses the existing CashDonationTotal balance.
 #
 # ============================================================
+
+
+
+
+
+
+
+
 
 
 @app.post("/process_finding_sponsor_queue")
@@ -19060,6 +20375,17 @@ async def process_finding_sponsor_queue(
             sponsored_participants
 
     }
+
+
+
+
+
+
+
+
+
+
+
     
 
 
