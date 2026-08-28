@@ -9,6 +9,8 @@ import asyncio
 from types import SimpleNamespace
 import uuid
 import shutil
+import urllib.error
+import urllib.request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from email.message import EmailMessage
@@ -12899,6 +12901,177 @@ async def paymongo_webhook(
     print("=" * 70)
 
     # ========================================================
+    # HELPER:
+    # AUTOMATICALLY PROCESS FINDING SPONSOR QUEUE
+    # ========================================================
+
+    async def trigger_finding_sponsor_queue():
+
+        print("\n")
+        print("=" * 70)
+        print("AUTOMATIC FINDING SPONSOR PROCESSING")
+        print("=" * 70)
+
+        try:
+
+            # ------------------------------------------------
+            # Build URL using the same deployed application
+            # ------------------------------------------------
+
+            base_url = str(
+                request.base_url
+            ).rstrip("/")
+
+            queue_url = (
+                base_url +
+                "/process_finding_sponsor_queue"
+            )
+
+            print(
+                "Finding Sponsor Queue URL:",
+                queue_url
+            )
+
+            # ------------------------------------------------
+            # Use urllib in a background thread.
+            #
+            # This avoids requiring httpx.
+            # ------------------------------------------------
+
+            def send_queue_request():
+
+                req = urllib.request.Request(
+                    queue_url,
+                    method="POST",
+                    headers={
+                        "Content-Type":
+                            "application/json"
+                    },
+                    data=b"{}"
+                )
+
+                try:
+
+                    with urllib.request.urlopen(
+                        req,
+                        timeout=60
+                    ) as response:
+
+                        response_body = (
+                            response.read()
+                            .decode("utf-8")
+                        )
+
+                        return (
+                            response.status,
+                            response_body
+                        )
+
+                except urllib.error.HTTPError as e:
+
+                    try:
+
+                        error_body = (
+                            e.read()
+                            .decode("utf-8")
+                        )
+
+                    except Exception:
+
+                        error_body = str(e)
+
+                    return (
+                        e.code,
+                        error_body
+                    )
+
+            status_code, response_body = (
+                await asyncio.to_thread(
+                    send_queue_request
+                )
+            )
+
+            print(
+                "Finding Sponsor HTTP Status:",
+                status_code
+            )
+
+            print(
+                "Finding Sponsor Response:",
+                response_body
+            )
+
+            if (
+                status_code >= 200
+                and status_code < 300
+            ):
+
+                print(
+                    "=" * 70
+                )
+
+                print(
+                    "FINDING SPONSOR QUEUE "
+                    "PROCESSED SUCCESSFULLY"
+                )
+
+                print(
+                    "=" * 70
+                )
+
+                return {
+                    "success": True,
+                    "status_code": status_code,
+                    "response": response_body
+                }
+
+            print(
+                "=" * 70
+            )
+
+            print(
+                "FINDING SPONSOR QUEUE "
+                "RETURNED ERROR"
+            )
+
+            print(
+                "=" * 70
+            )
+
+            return {
+                "success": False,
+                "status_code": status_code,
+                "response": response_body
+            }
+
+        except Exception as e:
+
+            print("=" * 70)
+
+            print(
+                "FINDING SPONSOR "
+                "AUTOMATIC PROCESSING FAILED"
+            )
+
+            print(
+                "Error Type:",
+                type(e).__name__
+            )
+
+            print(
+                "Error:",
+                repr(e)
+            )
+
+            print("=" * 70)
+
+            return {
+                "success": False,
+                "status_code": None,
+                "response": str(e)
+            }
+
+    # ========================================================
     # 1. READ BODY
     # ========================================================
 
@@ -13455,9 +13628,7 @@ async def paymongo_webhook(
     )
 
     # ========================================================
-    # ========================================================
     # CASH SPONSORSHIP
-    # ========================================================
     # ========================================================
 
     cash_sponsorship = None
@@ -13650,7 +13821,7 @@ async def paymongo_webhook(
         )
 
         # ====================================================
-        # IDEMPOTENCY
+        # ALREADY PAID
         # ====================================================
 
         if current_status == "paid":
@@ -13666,6 +13837,17 @@ async def paymongo_webhook(
             except Exception:
 
                 db.rollback()
+
+            # ------------------------------------------------
+            # IMPORTANT:
+            #
+            # Even if PayMongo sends the webhook again,
+            # automatically make sure the queue is processed.
+            # ------------------------------------------------
+
+            finding_result = (
+                await trigger_finding_sponsor_queue()
+            )
 
             return {
 
@@ -13685,7 +13867,16 @@ async def paymongo_webhook(
                     cash_sponsorship.id,
 
                 "payment_status":
-                    cash_sponsorship.payment_status
+                    cash_sponsorship.payment_status,
+
+                "finding_sponsor_processed":
+                    finding_result.get(
+                        "success",
+                        False
+                    ),
+
+                "finding_sponsor_trigger":
+                    "webhook"
             }
 
         # ====================================================
@@ -13800,7 +13991,7 @@ async def paymongo_webhook(
 
         # ====================================================
         # CREATE TOTAL IF NEEDED
-        # ========================================================
+        # ====================================================
 
         if not donation_total:
 
@@ -13965,7 +14156,7 @@ async def paymongo_webhook(
         )
         print(
             "Payment Status:",
-            cash_sponsorship.payment_status
+            "Paid"
         )
         print(
             "Donation:",
@@ -13979,15 +14170,6 @@ async def paymongo_webhook(
 
         # ====================================================
         # GMAIL THANK-YOU MESSAGE
-        # ====================================================
-        #
-        # IMPORTANT:
-        #
-        # Gmail is the ONLY post-payment processing performed
-        # by the webhook for sponsorships.
-        #
-        # Finding Sponsor queue is NOT called here.
-        #
         # ====================================================
 
         gmail_success = False
@@ -14042,42 +14224,49 @@ async def paymongo_webhook(
                 None
             )
 
-            # ------------------------------------------------
-            # Create a plain object.
-            # ------------------------------------------------
+            # =================================================
+            # IMPORTANT:
+            #
+            # The Gmail function uses .get()
+            # Therefore this MUST be a dictionary.
+            # =================================================
 
-            sponsorship_email_data = SimpleNamespace(
+            sponsorship_email_data = {
 
-                id=saved_sponsorship_id,
+                "id":
+                    saved_sponsorship_id,
 
-                sponsor_name=sponsor_name,
+                "sponsor_name":
+                    sponsor_name,
 
-                email=sponsor_email,
+                "email":
+                    sponsor_email,
 
-                selected_tier=selected_tier,
+                "selected_tier":
+                    selected_tier,
 
-                package_tier=selected_tier,
+                "package_tier":
+                    selected_tier,
 
-                donation_amount=getattr(
-                    cash_sponsorship,
-                    "donation_amount",
-                    0
-                ),
+                "donation_amount":
+                    getattr(
+                        cash_sponsorship,
+                        "donation_amount",
+                        0
+                    ),
 
-                payment_status="Paid",
+                "payment_status":
+                    "Paid",
 
-                paymongo_reference=(
-                    paymongo_reference_saved
-                ),
+                "paymongo_reference":
+                    paymongo_reference_saved,
 
-                paymongo_payment_id=(
-                    paymongo_payment_id_saved
-                ),
+                "paymongo_payment_id":
+                    paymongo_payment_id_saved,
 
-                paymongo_link_id=(
+                "paymongo_link_id":
                     paymongo_link_id_saved
-                )
-            )
+            }
 
             if not sponsor_email:
 
@@ -14105,10 +14294,27 @@ async def paymongo_webhook(
                         "Sending sponsorship Gmail..."
                     )
 
+                    # =================================================
+                    # IMPORTANT:
+                    #
+                    # ONLY ONE ARGUMENT
+                    #
+                    # The old code was:
+                    #
+                    # email_function(
+                    #     sponsorship_email_data,
+                    #     None
+                    # )
+                    #
+                    # That caused:
+                    #
+                    # takes 1 positional argument
+                    # but 2 were given
+                    # =================================================
+
                     result = await asyncio.to_thread(
                         email_function,
-                        sponsorship_email_data,
-                        None
+                        sponsorship_email_data
                     )
 
                     gmail_success = bool(
@@ -14130,30 +14336,50 @@ async def paymongo_webhook(
         except Exception as e:
 
             print("=" * 70)
+
             print(
                 "GMAIL PROCESSING FAILED"
             )
+
             print(
                 "Error Type:",
                 type(e).__name__
             )
+
             print(
                 "Error:",
                 repr(e)
             )
+
             print("=" * 70)
 
         # ====================================================
+        # AUTOMATIC FINDING SPONSOR PROCESSING
+        # ====================================================
+        #
         # IMPORTANT:
         #
-        # NO FINDING SPONSOR PROCESSING HERE.
-        #
-        # The frontend will call:
+        # The frontend NO LONGER needs to call:
         #
         # POST /process_finding_sponsor_queue
         #
-        # after it receives payment_status = Paid.
+        # The webhook does it automatically after payment.
         #
+        # ====================================================
+
+        finding_result = (
+            await trigger_finding_sponsor_queue()
+        )
+
+        finding_sponsor_processed = (
+            finding_result.get(
+                "success",
+                False
+            )
+        )
+
+        # ====================================================
+        # FINAL LOG
         # ====================================================
 
         print("=" * 70)
@@ -14179,12 +14405,12 @@ async def paymongo_webhook(
 
         print(
             "Finding Sponsor:",
-            "NOT PROCESSED BY WEBHOOK"
-        )
-
-        print(
-            "Frontend must trigger:",
-            "POST /process_finding_sponsor_queue"
+            (
+                "PROCESSED AUTOMATICALLY"
+                if finding_sponsor_processed
+                else
+                "AUTOMATIC PROCESSING FAILED"
+            )
         )
 
         print("=" * 70)
@@ -14236,10 +14462,15 @@ async def paymongo_webhook(
                 gmail_success,
 
             "finding_sponsor_processed":
-                False,
+                finding_sponsor_processed,
 
             "finding_sponsor_trigger":
-                "frontend"
+                "webhook",
+
+            "finding_sponsor_response":
+                finding_result.get(
+                    "response"
+                )
         }
 
     # ========================================================
