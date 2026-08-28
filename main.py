@@ -5049,14 +5049,18 @@ CYF Registration Team
 # CASH SPONSORSHIP CONFIRMATION EMAIL
 # ======================================================
 
+# ======================================================
+# CASH SPONSORSHIP CONFIRMATION EMAIL
+# ======================================================
+
 def send_cash_sponsorship_confirmation_email(
     sponsorship,
     payment=None
 ):
     """
-    Synchronous Gmail email sender.
+    Synchronous Gmail SMTP sender.
 
-    This function MUST be executed through:
+    This function MUST be executed using:
 
         await asyncio.to_thread(
             send_cash_sponsorship_confirmation_email,
@@ -5075,56 +5079,98 @@ def send_cash_sponsorship_confirmation_email(
         print("=" * 70)
 
         # ==================================================
-        # 1. GET VALUES
+        # GET VALUES
         # ==================================================
 
         print(
             "[EMAIL 1] Reading sponsorship information..."
         )
 
-        sponsor_email = getattr(
-            sponsorship,
-            "email",
-            None
-        )
+        # --------------------------------------------------
+        # SUPPORT SimpleNamespace / SQLAlchemy / dict
+        # --------------------------------------------------
 
-        sponsor_name = getattr(
-            sponsorship,
-            "sponsor_name",
-            "Sponsor"
-        )
+        if isinstance(sponsorship, dict):
 
-        tier = getattr(
-            sponsorship,
-            "selected_tier",
-            None
-        )
+            sponsor_email = sponsorship.get(
+                "email"
+            )
 
-        if not tier:
+            sponsor_name = sponsorship.get(
+                "sponsor_name",
+                "Sponsor"
+            )
+
+            tier = sponsorship.get(
+                "selected_tier"
+            )
+
+            if not tier:
+
+                tier = sponsorship.get(
+                    "package_tier",
+                    "Sponsorship Package"
+                )
+
+            donation_amount = sponsorship.get(
+                "donation_amount",
+                0
+            )
+
+            payment_status = sponsorship.get(
+                "payment_status",
+                "Paid"
+            )
+
+            reference = sponsorship.get(
+                "paymongo_reference"
+            )
+
+        else:
+
+            sponsor_email = getattr(
+                sponsorship,
+                "email",
+                None
+            )
+
+            sponsor_name = getattr(
+                sponsorship,
+                "sponsor_name",
+                "Sponsor"
+            )
 
             tier = getattr(
                 sponsorship,
-                "package_tier",
-                "Sponsorship Package"
+                "selected_tier",
+                None
             )
 
-        donation_amount = getattr(
-            sponsorship,
-            "donation_amount",
-            0
-        )
+            if not tier:
 
-        payment_status = getattr(
-            sponsorship,
-            "payment_status",
-            "Paid"
-        )
+                tier = getattr(
+                    sponsorship,
+                    "package_tier",
+                    "Sponsorship Package"
+                )
 
-        reference = getattr(
-            sponsorship,
-            "paymongo_reference",
-            None
-        )
+            donation_amount = getattr(
+                sponsorship,
+                "donation_amount",
+                0
+            )
+
+            payment_status = getattr(
+                sponsorship,
+                "payment_status",
+                "Paid"
+            )
+
+            reference = getattr(
+                sponsorship,
+                "paymongo_reference",
+                None
+            )
 
         print(
             "[EMAIL 1] Sponsor:",
@@ -5147,7 +5193,7 @@ def send_cash_sponsorship_confirmation_email(
         )
 
         # ==================================================
-        # 2. VALIDATE EMAIL
+        # VALIDATE EMAIL
         # ==================================================
 
         if not sponsor_email:
@@ -5159,7 +5205,7 @@ def send_cash_sponsorship_confirmation_email(
             return False
 
         # ==================================================
-        # 3. CONVERT AMOUNT
+        # CONVERT AMOUNT
         # ==================================================
 
         print(
@@ -5188,7 +5234,7 @@ def send_cash_sponsorship_confirmation_email(
             )
 
         # ==================================================
-        # 4. CREATE EMAIL BODY
+        # CREATE EMAIL
         # ==================================================
 
         print(
@@ -5236,7 +5282,7 @@ CYF Registration System
 """
 
         # ==================================================
-        # 5. CREATE MIME MESSAGE
+        # MIME
         # ==================================================
 
         print(
@@ -5266,28 +5312,19 @@ CYF Registration System
         )
 
         # ==================================================
-        # 6. CONNECT TO GMAIL
+        # SMTP
         # ==================================================
 
         print("=" * 70)
-
         print(
             "[EMAIL 5] CONNECTING TO GMAIL SMTP..."
         )
-
         print(
             "SMTP Server: smtp.gmail.com"
         )
-
         print(
             "SMTP Port: 587"
         )
-
-        print(
-            "Username:",
-            GMAIL_USERNAME
-        )
-
         print("=" * 70)
 
         smtp_start = time.time()
@@ -5306,9 +5343,9 @@ CYF Registration System
                 "[EMAIL 5] SMTP connection established."
             )
 
-            # ==================================================
-            # 7. START TLS
-            # ==================================================
+            # --------------------------------------------------
+            # TLS
+            # --------------------------------------------------
 
             print(
                 "[EMAIL 6] Starting TLS..."
@@ -5320,9 +5357,9 @@ CYF Registration System
                 "[EMAIL 6] TLS started."
             )
 
-            # ==================================================
-            # 8. LOGIN
-            # ==================================================
+            # --------------------------------------------------
+            # LOGIN
+            # --------------------------------------------------
 
             print(
                 "[EMAIL 7] Logging into Gmail..."
@@ -5337,9 +5374,9 @@ CYF Registration System
                 "[EMAIL 7] Gmail login successful."
             )
 
-            # ==================================================
-            # 9. SEND EMAIL
-            # ==================================================
+            # --------------------------------------------------
+            # SEND
+            # --------------------------------------------------
 
             print(
                 "[EMAIL 8] Sending email..."
@@ -5347,7 +5384,7 @@ CYF Registration System
 
             result = server.sendmail(
                 GMAIL_USERNAME,
-                sponsor_email,
+                [sponsor_email],
                 message.as_string()
             )
 
@@ -5355,6 +5392,15 @@ CYF Registration System
                 "[EMAIL 8] Gmail sendmail result:",
                 result
             )
+
+            if result:
+
+                print(
+                    "[EMAIL 8] Gmail reported rejected recipients:",
+                    result
+                )
+
+                return False
 
             print(
                 "[EMAIL 8] Email accepted by Gmail."
@@ -5386,7 +5432,6 @@ CYF Registration System
         )
 
         print("=" * 70)
-
         print(
             "CASH SPONSORSHIP EMAIL SENT SUCCESSFULLY"
         )
@@ -5413,24 +5458,28 @@ CYF Registration System
 
         print("\n")
         print("=" * 70)
-
         print(
             "CASH SPONSORSHIP EMAIL FAILED"
         )
 
-        # IMPORTANT:
-        # Do NOT use sponsorship.get() here.
-        # sponsorship is a SimpleNamespace.
+        if isinstance(sponsorship, dict):
 
-        failed_email = getattr(
-            sponsorship,
-            "email",
-            "Unknown"
-        )
+            error_email = sponsorship.get(
+                "email",
+                "Unknown"
+            )
+
+        else:
+
+            error_email = getattr(
+                sponsorship,
+                "email",
+                "Unknown"
+            )
 
         print(
             "Recipient:",
-            failed_email
+            error_email
         )
 
         print(
@@ -5446,6 +5495,7 @@ CYF Registration System
         print("=" * 70)
 
         return False
+
 
 
 
@@ -15654,23 +15704,13 @@ async def paymongo_webhook(
 # BACKGROUND CASH SPONSORSHIP PROCESSING
 # ======================================================
 
+# ======================================================
+# BACKGROUND CASH SPONSORSHIP PROCESSING
+# ======================================================
+
 async def process_cash_sponsorship_background(
     sponsorship_id: int
 ):
-    """
-    Processes non-critical sponsorship tasks AFTER the
-    PayMongo payment has already been committed.
-
-    IMPORTANT:
-
-    1. This function must NOT be awaited by the webhook.
-    2. The webhook should use asyncio.create_task().
-    3. SMTP is blocking, so email is executed using
-       asyncio.to_thread().
-    4. The database session used to load the sponsorship
-       is closed before email processing starts.
-    5. The finding-sponsor queue gets its own DB session.
-    """
 
     overall_start = time.time()
 
@@ -15685,37 +15725,17 @@ async def process_cash_sponsorship_background(
     )
     print("=" * 70)
 
-    # ==================================================
-    # VARIABLES
-    # ==================================================
-
     sponsor_email = None
-
     sponsor_email_sent = False
 
     queue_result = None
-
     queue_processed = False
 
     # ==================================================
-    # 1. LOAD SPONSORSHIP DATA
+    # 1. LOAD SPONSORSHIP
     # ==================================================
-    #
-    # We only load the data we need.
-    #
-    # IMPORTANT:
-    # The SQLAlchemy object is NOT passed to the
-    # background email thread after the DB session closes.
-    #
-    # Instead, we create a SimpleNamespace containing
-    # plain Python values.
-    #
-    # ==================================================
-
-    database_start = time.time()
 
     background_db = None
-
     sponsorship_data = None
 
     try:
@@ -15744,18 +15764,16 @@ async def process_cash_sponsorship_background(
                 "BACKGROUND ERROR:"
                 " CashSponsorship not found."
             )
-
             print(
                 "Sponsorship ID:",
                 sponsorship_id
             )
-
             print("=" * 70)
 
             return
 
         # ==================================================
-        # COPY VALUES WHILE SESSION IS STILL OPEN
+        # COPY VALUES BEFORE CLOSING DATABASE
         # ==================================================
 
         sponsor_email = getattr(
@@ -15802,14 +15820,6 @@ async def process_cash_sponsorship_background(
             None
         )
 
-        # --------------------------------------------------
-        # paymongo_payment_id DOES NOT EXIST in your model
-        # --------------------------------------------------
-        #
-        # Therefore we safely retrieve it with getattr.
-        #
-        # --------------------------------------------------
-
         paymongo_payment_id = getattr(
             cash_sponsorship,
             "paymongo_payment_id",
@@ -15823,14 +15833,7 @@ async def process_cash_sponsorship_background(
         )
 
         # ==================================================
-        # CREATE PLAIN PYTHON OBJECT
-        # ==================================================
-        #
-        # This object is completely independent from
-        # SQLAlchemy.
-        #
-        # It can safely be passed to the email thread.
-        #
+        # CREATE PLAIN OBJECT
         # ==================================================
 
         sponsorship_data = SimpleNamespace(
@@ -15875,15 +15878,6 @@ async def process_cash_sponsorship_background(
             selected_tier
         )
 
-        print(
-            "[BACKGROUND 1] Database load completed in:",
-            round(
-                time.time() - database_start,
-                2
-            ),
-            "seconds"
-        )
-
     except Exception as e:
 
         print("=" * 70)
@@ -15920,7 +15914,7 @@ async def process_cash_sponsorship_background(
             except Exception as e:
 
                 print(
-                    "[BACKGROUND 1] Error closing background DB:",
+                    "[BACKGROUND 1] Database close error:",
                     repr(e)
                 )
 
@@ -15929,24 +15923,6 @@ async def process_cash_sponsorship_background(
     # ==================================================
     # 2. EMAIL
     # ==================================================
-    #
-    # IMPORTANT:
-    #
-    # DO NOT:
-    #
-    # await email_function(...)
-    #
-    # if email_function uses smtplib.
-    #
-    # smtplib is blocking.
-    #
-    # Instead:
-    #
-    # await asyncio.to_thread(...)
-    #
-    # ==================================================
-
-    email_start = time.time()
 
     print("=" * 70)
     print(
@@ -15973,63 +15949,38 @@ async def process_cash_sponsorship_background(
                 "send_cash_sponsorship_confirmation_email"
             )
 
-            if email_function:
+            if not email_function:
+
+                print(
+                    "[BACKGROUND 2] Email function not found."
+                )
+
+            else:
 
                 print(
                     "[BACKGROUND 2] Running SMTP in worker thread..."
                 )
 
-                # ==================================================
-                # IMPORTANT
-                # ==================================================
-                #
-                # This moves the blocking SMTP operations away
-                # from the FastAPI event loop.
-                #
-                # ==================================================
-
                 email_result = await asyncio.to_thread(
-
                     email_function,
-
                     sponsorship_data,
-
                     None
-
                 )
 
                 sponsor_email_sent = bool(
                     email_result
                 )
 
-                if sponsor_email_sent:
-
-                    print(
-                        "[BACKGROUND 2] Email sent successfully."
-                    )
-
-                else:
-
-                    print(
-                        "[BACKGROUND 2] Email function returned False."
-                    )
-
-            else:
-
                 print(
-                    "[BACKGROUND 2] Email function not found."
+                    "[BACKGROUND 2] Email result:",
+                    sponsor_email_sent
                 )
 
         except Exception as e:
 
             print("=" * 70)
             print(
-                "[BACKGROUND 2] CASH SPONSORSHIP EMAIL FAILED"
-            )
-
-            print(
-                "Sponsorship ID:",
-                sponsorship_id
+                "[BACKGROUND 2] EMAIL FAILED"
             )
 
             print(
@@ -16045,148 +15996,13 @@ async def process_cash_sponsorship_background(
             "[BACKGROUND 2] No sponsor email address."
         )
 
-    print(
-        "[BACKGROUND 2] Email processing time:",
-        round(
-            time.time() - email_start,
-            2
-        ),
-        "seconds"
-    )
-
     # ==================================================
     # 3. FINDING SPONSOR QUEUE
     # ==================================================
-    #
-    # The payment is already Paid.
-    #
-    # This processing happens AFTER payment confirmation.
-    #
-    # ==================================================
-
-    # ==================================================
-# 3. FINDING SPONSOR QUEUE
-# ==================================================
-
-queue_start = time.time()
-
-print("=" * 70)
-print(
-    "[BACKGROUND 3] FINDING SPONSOR QUEUE STARTED"
-)
-
-print(
-    "Sponsorship ID:",
-    sponsorship_id
-)
-
-print("=" * 70)
-
-queue_db = None
-
-try:
-
-    queue_function = globals().get(
-        "process_finding_sponsor_queue_logic"
-    )
-
-    if not queue_function:
-
-        queue_result = {
-
-            "success": False,
-
-            "message":
-                "Queue processing function "
-                "is not defined."
-        }
-
-        print(
-            "[BACKGROUND 3] Queue function not found."
-        )
-
-    else:
-
-        print(
-            "[BACKGROUND 3] Opening fresh queue DB session..."
-        )
-
-        queue_db = SessionLocal()
-
-        print(
-            "[BACKGROUND 3] Queue DB session opened."
-        )
-
-        print(
-            "[BACKGROUND 3] Calling queue function..."
-        )
-
-        # ==================================================
-        # CHECK WHETHER QUEUE FUNCTION IS ASYNC
-        # ==================================================
-
-        if inspect.iscoroutinefunction(
-            queue_function
-        ):
-
-            print(
-                "[BACKGROUND 3] Queue function is ASYNC."
-            )
-
-            queue_result = await queue_function(
-                queue_db
-            )
-
-        else:
-
-            print(
-                "[BACKGROUND 3] Queue function is SYNC."
-            )
-
-            # --------------------------------------------------
-            # Run synchronous queue processing in worker thread.
-            #
-            # The queue DB session is created here and passed
-            # into that worker operation.
-            # --------------------------------------------------
-
-            def run_sync_queue():
-
-                try:
-
-                    return queue_function(
-                        queue_db
-                    )
-
-                except Exception:
-
-                    raise
-
-            queue_result = await asyncio.to_thread(
-                run_sync_queue
-            )
-
-        queue_processed = True
-
-        print("=" * 70)
-
-        print(
-            "[BACKGROUND 3] FINDING SPONSOR QUEUE COMPLETED"
-        )
-
-        print(
-            "Queue Result:",
-            queue_result
-        )
-
-        print("=" * 70)
-
-except Exception as e:
 
     print("=" * 70)
-
     print(
-        "[BACKGROUND 3] FINDING SPONSOR QUEUE FAILED"
+        "[BACKGROUND 3] FINDING SPONSOR QUEUE STARTED"
     )
 
     print(
@@ -16194,59 +16010,191 @@ except Exception as e:
         sponsorship_id
     )
 
+    print("=" * 70)
+
+    queue_db = None
+
+    try:
+
+        queue_function = globals().get(
+            "process_finding_sponsor_queue_logic"
+        )
+
+        if not queue_function:
+
+            print(
+                "[BACKGROUND 3] Queue function not found."
+            )
+
+            queue_result = {
+                "success": False,
+                "message":
+                    "Queue processing function "
+                    "is not defined."
+            }
+
+        else:
+
+            print(
+                "[BACKGROUND 3] Opening fresh queue DB session..."
+            )
+
+            queue_db = SessionLocal()
+
+            print(
+                "[BACKGROUND 3] Queue DB session opened."
+            )
+
+            # ==================================================
+            # CHECK WHETHER QUEUE FUNCTION IS ASYNC
+            # ==================================================
+
+            if inspect.iscoroutinefunction(
+                queue_function
+            ):
+
+                print(
+                    "[BACKGROUND 3] Queue function is ASYNC."
+                )
+
+                queue_result = await queue_function(
+                    queue_db
+                )
+
+            else:
+
+                print(
+                    "[BACKGROUND 3] Queue function is SYNC."
+                )
+
+                # --------------------------------------------------
+                # Run synchronous queue function in worker thread.
+                # --------------------------------------------------
+
+                queue_result = await asyncio.to_thread(
+                    queue_function,
+                    queue_db
+                )
+
+            queue_processed = True
+
+            print("=" * 70)
+            print(
+                "[BACKGROUND 3] FINDING SPONSOR QUEUE COMPLETED"
+            )
+
+            print(
+                "Queue Result:",
+                queue_result
+            )
+
+            print("=" * 70)
+
+    except Exception as e:
+
+        print("=" * 70)
+        print(
+            "[BACKGROUND 3] FINDING SPONSOR QUEUE FAILED"
+        )
+
+        print(
+            "Sponsorship ID:",
+            sponsorship_id
+        )
+
+        print(
+            "Error Type:",
+            type(e).__name__
+        )
+
+        print(
+            "Error:",
+            repr(e)
+        )
+
+        print("=" * 70)
+
+        queue_result = {
+
+            "success": False,
+
+            "message":
+                "Donation was successful, "
+                "but sponsorship processing failed.",
+
+            "error":
+                str(e)
+        }
+
+    finally:
+
+        if queue_db:
+
+            try:
+
+                queue_db.close()
+
+                print(
+                    "[BACKGROUND 3] Queue database session closed."
+                )
+
+            except Exception as e:
+
+                print(
+                    "[BACKGROUND 3] Queue DB close error:",
+                    repr(e)
+                )
+
+            queue_db = None
+
+    # ==================================================
+    # 4. COMPLETE
+    # ==================================================
+
+    total_time = (
+        time.time()
+        -
+        overall_start
+    )
+
+    print("\n")
+    print("=" * 70)
     print(
-        "Error Type:",
-        type(e).__name__
+        "BACKGROUND CASH SPONSORSHIP PROCESSING COMPLETE"
+    )
+    print("=" * 70)
+
+    print(
+        "Sponsorship ID:",
+        sponsorship_id
     )
 
     print(
-        "Error:",
-        repr(e)
+        "Email Sent:",
+        sponsor_email_sent
+    )
+
+    print(
+        "Queue Processed:",
+        queue_processed
+    )
+
+    print(
+        "Queue Result:",
+        queue_result
+    )
+
+    print(
+        "TOTAL BACKGROUND PROCESSING TIME:",
+        round(
+            total_time,
+            2
+        ),
+        "seconds"
     )
 
     print("=" * 70)
 
-    queue_result = {
-
-        "success": False,
-
-        "message":
-            "Donation was successful, "
-            "but sponsorship processing failed.",
-
-        "error":
-            str(e)
-    }
-
-finally:
-
-    if queue_db:
-
-        try:
-
-            queue_db.close()
-
-            print(
-                "[BACKGROUND 3] Queue database session closed."
-            )
-
-        except Exception as e:
-
-            print(
-                "[BACKGROUND 3] Error closing queue DB:",
-                repr(e)
-            )
-
-        queue_db = None
-
-print(
-    "[BACKGROUND 3] Queue processing time:",
-    round(
-        time.time() - queue_start,
-        2
-    ),
-    "seconds"
-)
 
 
 
