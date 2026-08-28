@@ -5063,6 +5063,10 @@ CYF Registration Team
 # CASH SPONSORSHIP CONFIRMATION EMAIL
 # ======================================================
 
+# ======================================================
+# CASH SPONSORSHIP CONFIRMATION EMAIL
+# ======================================================
+
 async def send_cash_sponsorship_confirmation_email(
     sponsorship,
     payment
@@ -5070,12 +5074,23 @@ async def send_cash_sponsorship_confirmation_email(
     """
     Send confirmation email after a cash sponsorship
     has been successfully paid through PayMongo.
+
+    IMPORTANT:
+    This function accepts TWO arguments:
+
+        sponsorship
+        payment
     """
 
     try:
 
+        print("\n")
+        print("=" * 70)
+        print("CASH SPONSORSHIP GMAIL PROCESSING")
+        print("=" * 70)
+
         # --------------------------------------------------
-        # GET SPONSOR EMAIL
+        # SPONSOR EMAIL
         # --------------------------------------------------
 
         sponsor_email = getattr(
@@ -5087,13 +5102,17 @@ async def send_cash_sponsorship_confirmation_email(
         if not sponsor_email:
 
             print(
-                "Cash sponsorship has no email address."
+                "Gmail skipped: sponsor has no email address."
             )
 
             return False
 
+        sponsor_email = str(
+            sponsor_email
+        ).strip()
+
         # --------------------------------------------------
-        # GET INFORMATION
+        # SPONSOR NAME
         # --------------------------------------------------
 
         sponsor_name = getattr(
@@ -5101,6 +5120,14 @@ async def send_cash_sponsorship_confirmation_email(
             "sponsor_name",
             "Sponsor"
         )
+
+        if not sponsor_name:
+
+            sponsor_name = "Sponsor"
+
+        # --------------------------------------------------
+        # TIER
+        # --------------------------------------------------
 
         tier = getattr(
             sponsorship,
@@ -5116,32 +5143,49 @@ async def send_cash_sponsorship_confirmation_email(
                 "Sponsorship Package"
             )
 
+        # --------------------------------------------------
+        # DONATION AMOUNT
+        # --------------------------------------------------
+
         donation_amount = getattr(
             sponsorship,
             "donation_amount",
             0
         )
 
-        # Your database stores the donation amount
-        # in centavos, so convert it back to PHP.
-
         try:
 
             donation_amount_php = (
                 Decimal(
                     str(donation_amount)
-                ) / Decimal("100")
+                )
+                /
+                Decimal("100")
             )
 
         except Exception:
 
-            donation_amount_php = Decimal("0.00")
+            donation_amount_php = Decimal(
+                "0.00"
+            )
+
+        # --------------------------------------------------
+        # PAYMENT STATUS
+        # --------------------------------------------------
 
         payment_status = getattr(
             payment,
             "status",
             "Paid"
         )
+
+        if not payment_status:
+
+            payment_status = "Paid"
+
+        # --------------------------------------------------
+        # PAYMONGO REFERENCE
+        # --------------------------------------------------
 
         reference = getattr(
             sponsorship,
@@ -5158,7 +5202,41 @@ async def send_cash_sponsorship_confirmation_email(
             )
 
         # --------------------------------------------------
-        # EMAIL SUBJECT
+        # LOG
+        # --------------------------------------------------
+
+        print(
+            "Sponsor:",
+            sponsor_name
+        )
+
+        print(
+            "Email:",
+            sponsor_email
+        )
+
+        print(
+            "Tier:",
+            tier
+        )
+
+        print(
+            "Donation:",
+            f"₱{donation_amount_php:,.2f}"
+        )
+
+        print(
+            "Payment Status:",
+            payment_status
+        )
+
+        print(
+            "PayMongo Reference:",
+            reference
+        )
+
+        # --------------------------------------------------
+        # SUBJECT
         # --------------------------------------------------
 
         subject = (
@@ -5167,7 +5245,7 @@ async def send_cash_sponsorship_confirmation_email(
         )
 
         # --------------------------------------------------
-        # EMAIL MESSAGE
+        # BODY
         # --------------------------------------------------
 
         body = f"""
@@ -5180,16 +5258,25 @@ payment has been successfully received.
 
 SPONSORSHIP DETAILS
 ----------------------------------------
-Name: {sponsor_name}
-Sponsorship Tier: {tier}
-Donation Amount: ₱{donation_amount_php:,.2f}
-Payment Status: {payment_status}
+
+Name:
+{sponsor_name}
+
+Sponsorship Tier:
+{tier}
+
+Donation Amount:
+₱{donation_amount_php:,.2f}
+
+Payment Status:
+{payment_status}
 """
 
         if reference:
 
             body += f"""
-PayMongo Reference: {reference}
+PayMongo Reference:
+{reference}
 """
 
         body += """
@@ -5206,7 +5293,7 @@ CYF Registration System
 """
 
         # --------------------------------------------------
-        # SEND EMAIL
+        # MIME MESSAGE
         # --------------------------------------------------
 
         message = MIMEMultipart()
@@ -5231,12 +5318,21 @@ CYF Registration System
         # GMAIL SMTP
         # --------------------------------------------------
 
+        print("=" * 70)
+        print("CONNECTING TO GMAIL")
+        print("=" * 70)
+
         with smtplib.SMTP(
             "smtp.gmail.com",
-            587
+            587,
+            timeout=30
         ) as server:
 
+            server.ehlo()
+
             server.starttls()
+
+            server.ehlo()
 
             server.login(
                 GMAIL_USERNAME,
@@ -5245,24 +5341,39 @@ CYF Registration System
 
             server.sendmail(
                 GMAIL_USERNAME,
-                sponsor_email,
+                [sponsor_email],
                 message.as_string()
             )
 
+        print("=" * 70)
+        print("CASH SPONSORSHIP EMAIL SENT SUCCESSFULLY")
         print(
-            "Cash sponsorship confirmation email sent to:",
+            "Recipient:",
             sponsor_email
         )
+        print("=" * 70)
 
         return True
 
     except Exception as e:
 
+        print("=" * 70)
         print(
-            "Cash sponsorship confirmation email failed:",
+            "CASH SPONSORSHIP EMAIL FAILED"
+        )
+
+        print(
+            "Error Type:",
+            type(e).__name__
+        )
+
+        print(
+            "Error:",
             repr(e)
         )
 
+        print("=" * 70)
+
         return False
 
 
@@ -5279,195 +5390,6 @@ CYF Registration System
 
 
 
-
-
-
-
-# ============================================================
-# ITEM SPONSORSHIP CONFIRMATION EMAIL
-# ============================================================
-
-async def send_item_sponsorship_confirmation_email(
-    donation
-):
-
-    try:
-
-        # ----------------------------------------------------
-        # GET EMAIL
-        # ----------------------------------------------------
-
-        recipient_email = str(
-            donation.email
-        ).strip()
-
-        if not recipient_email:
-
-            print(
-                "Item sponsorship email failed: "
-                "Sponsor email is empty."
-            )
-
-            return False
-
-        # ----------------------------------------------------
-        # SPONSOR INFORMATION
-        # ----------------------------------------------------
-
-        sponsor_name = (
-            donation.sponsor_name
-            or "Sponsor"
-        )
-
-        item_name = (
-            donation.item_name
-            or "Item"
-        )
-
-        quantity = (
-            donation.quantity
-            or 0
-        )
-
-        unit = (
-            getattr(
-                donation,
-                "unit",
-                None
-            )
-            or "unit"
-        )
-
-        # ----------------------------------------------------
-        # EMAIL SUBJECT
-        # ----------------------------------------------------
-
-        subject = (
-            "Item Donation Sponsorship Confirmation "
-            "| CYF Registration System"
-        )
-
-        # ----------------------------------------------------
-        # EMAIL MESSAGE
-        # ----------------------------------------------------
-
-        body = f"""
-Dear {sponsor_name},
-
-Thank you for your generous support of the CYF ministry.
-
-We are pleased to confirm that your item donation sponsorship has been successfully recorded.
-
-DONATION DETAILS
-----------------------------------------
-
-Sponsor Name:
-{sponsor_name}
-
-Local Church:
-{getattr(donation, "local_church", "N/A")}
-
-Contact Number:
-{getattr(donation, "contact", "N/A")}
-
-Sector:
-{getattr(donation, "sector", "N/A")}
-
-Item Donated:
-{item_name}
-
-Quantity:
-{quantity} {unit}
-
-Donation Status:
-Confirmed
-
-----------------------------------------
-
-DELIVERY INFORMATION
-
-Please deliver your donated item to:
-
-Butuan Grace Baptist Church
-
-You may also contact:
-
-Pastor Edward Deligero
-0911 252 3584
-
-----------------------------------------
-
-Thank you again for your generosity and willingness to support CYF events.
-
-Your contribution will help provide the necessary resources and materials for our youth ministry activities.
-
-We sincerely appreciate your support.
-
-God bless you!
-
-CYF Registration System
-"""
-
-        # ----------------------------------------------------
-        # SEND EMAIL
-        # ----------------------------------------------------
-
-        msg = MIMEMultipart()
-
-        msg["From"] = (
-            f"{GMAIL_FROM_NAME} "
-            f"<{GMAIL_USERNAME}>"
-        )
-
-        msg["To"] = recipient_email
-
-        msg["Subject"] = subject
-
-        msg.attach(
-            MIMEText(
-                body,
-                "plain",
-                "utf-8"
-            )
-        )
-
-        # ----------------------------------------------------
-        # GMAIL SMTP
-        # ----------------------------------------------------
-
-        with smtplib.SMTP(
-            "smtp.gmail.com", 
-            587
-        ) as server:
-
-            server.starttls()
-
-            server.login(
-                GMAIL_USERNAME,
-                GMAIL_APP_PASSWORD
-            )
-
-            server.sendmail(
-                GMAIL_USERNAME,
-                recipient_email,
-                msg.as_string()
-            )
-
-        print(
-            "Item sponsorship confirmation email sent to:",
-            recipient_email
-        )
-
-        return True
-
-    except Exception as e:
-
-        print(
-            "Item sponsorship confirmation email failed:",
-            e
-        )
-
-        return False
 
 
 
@@ -12765,7 +12687,7 @@ def create_cash_sponsorship(
 # ============================================================
 
 
-@app.post("/webhooks/paymongo")
+@@app.post("/webhooks/paymongo")
 async def paymongo_webhook(
     request: Request,
     db: Session = Depends(get_db)
@@ -12777,178 +12699,7 @@ async def paymongo_webhook(
     print("=" * 70)
 
     # ========================================================
-    # HELPER:
-    # AUTOMATICALLY PROCESS FINDING SPONSOR QUEUE
-    # ========================================================
-
-    async def trigger_finding_sponsor_queue():
-
-        print("\n")
-        print("=" * 70)
-        print("AUTOMATIC FINDING SPONSOR PROCESSING")
-        print("=" * 70)
-
-        try:
-
-            # ------------------------------------------------
-            # Build URL using the same deployed application
-            # ------------------------------------------------
-
-            base_url = str(
-                request.base_url
-            ).rstrip("/")
-
-            queue_url = (
-                base_url +
-                "/process_finding_sponsor_queue"
-            )
-
-            print(
-                "Finding Sponsor Queue URL:",
-                queue_url
-            )
-
-            # ------------------------------------------------
-            # Use urllib in a background thread.
-            #
-            # This avoids requiring httpx.
-            # ------------------------------------------------
-
-            def send_queue_request():
-
-                req = urllib.request.Request(
-                    queue_url,
-                    method="POST",
-                    headers={
-                        "Content-Type":
-                            "application/json"
-                    },
-                    data=b"{}"
-                )
-
-                try:
-
-                    with urllib.request.urlopen(
-                        req,
-                        timeout=60
-                    ) as response:
-
-                        response_body = (
-                            response.read()
-                            .decode("utf-8")
-                        )
-
-                        return (
-                            response.status,
-                            response_body
-                        )
-
-                except urllib.error.HTTPError as e:
-
-                    try:
-
-                        error_body = (
-                            e.read()
-                            .decode("utf-8")
-                        )
-
-                    except Exception:
-
-                        error_body = str(e)
-
-                    return (
-                        e.code,
-                        error_body
-                    )
-
-            status_code, response_body = (
-                await asyncio.to_thread(
-                    send_queue_request
-                )
-            )
-
-            print(
-                "Finding Sponsor HTTP Status:",
-                status_code
-            )
-
-            print(
-                "Finding Sponsor Response:",
-                response_body
-            )
-
-            if (
-                status_code >= 200
-                and status_code < 300
-            ):
-
-                print(
-                    "=" * 70
-                )
-
-                print(
-                    "FINDING SPONSOR QUEUE "
-                    "PROCESSED SUCCESSFULLY"
-                )
-
-                print(
-                    "=" * 70
-                )
-
-                return {
-                    "success": True,
-                    "status_code": status_code,
-                    "response": response_body
-                }
-
-            print(
-                "=" * 70
-            )
-
-            print(
-                "FINDING SPONSOR QUEUE "
-                "RETURNED ERROR"
-            )
-
-            print(
-                "=" * 70
-            )
-
-            return {
-                "success": False,
-                "status_code": status_code,
-                "response": response_body
-            }
-
-        except Exception as e:
-
-            print("=" * 70)
-
-            print(
-                "FINDING SPONSOR "
-                "AUTOMATIC PROCESSING FAILED"
-            )
-
-            print(
-                "Error Type:",
-                type(e).__name__
-            )
-
-            print(
-                "Error:",
-                repr(e)
-            )
-
-            print("=" * 70)
-
-            return {
-                "success": False,
-                "status_code": None,
-                "response": str(e)
-            }
-
-    # ========================================================
-    # 1. READ BODY
+    # 1. READ RAW BODY
     # ========================================================
 
     try:
@@ -12967,20 +12718,20 @@ async def paymongo_webhook(
             content={
                 "received": False,
                 "processed": False,
-                "message":
-                    "Unable to read webhook body."
+                "message": "Unable to read webhook body."
             }
         )
 
     if not raw_body:
+
+        print("Webhook body is empty.")
 
         return JSONResponse(
             status_code=400,
             content={
                 "received": False,
                 "processed": False,
-                "message":
-                    "Empty webhook body."
+                "message": "Empty webhook body."
             }
         )
 
@@ -12990,7 +12741,7 @@ async def paymongo_webhook(
     )
 
     # ========================================================
-    # 2. SIGNATURE
+    # 2. GET PAYMONGO SIGNATURE
     # ========================================================
 
     signature_header = request.headers.get(
@@ -13008,8 +12759,7 @@ async def paymongo_webhook(
             content={
                 "received": False,
                 "processed": False,
-                "message":
-                    "Missing PayMongo signature."
+                "message": "Missing PayMongo signature."
             }
         )
 
@@ -13031,9 +12781,7 @@ async def paymongo_webhook(
                 1
             )
 
-            parts[key.strip()] = (
-                value.strip()
-            )
+            parts[key.strip()] = value.strip()
 
         timestamp = parts.get("t")
 
@@ -13049,19 +12797,20 @@ async def paymongo_webhook(
 
         if not timestamp:
 
+            print(
+                "Missing webhook timestamp."
+            )
+
             return JSONResponse(
                 status_code=401,
                 content={
                     "received": False,
                     "processed": False,
-                    "message":
-                        "Missing webhook timestamp."
+                    "message": "Missing webhook timestamp."
                 }
             )
 
-        timestamp_int = int(
-            timestamp
-        )
+        timestamp_int = int(timestamp)
 
         current_timestamp = int(
             time.time()
@@ -13080,13 +12829,16 @@ async def paymongo_webhook(
 
         if difference > 300:
 
+            print(
+                "Webhook timestamp expired."
+            )
+
             return JSONResponse(
                 status_code=401,
                 content={
                     "received": False,
                     "processed": False,
-                    "message":
-                        "Webhook timestamp expired."
+                    "message": "Webhook timestamp expired."
                 }
             )
 
@@ -13101,21 +12853,16 @@ async def paymongo_webhook(
                 content={
                     "received": False,
                     "processed": False,
-                    "message":
-                        "Webhook secret is not configured."
+                    "message": "Webhook secret is not configured."
                 }
             )
 
         signed_payload = (
             f"{timestamp}."
-        ).encode(
-            "utf-8"
-        ) + raw_body
+        ).encode("utf-8") + raw_body
 
         expected_signature = hmac.new(
-            PAYMONGO_WEBHOOK_SECRET.encode(
-                "utf-8"
-            ),
+            PAYMONGO_WEBHOOK_SECRET.encode("utf-8"),
             signed_payload,
             hashlib.sha256
         ).hexdigest()
@@ -13128,13 +12875,16 @@ async def paymongo_webhook(
 
         if not provided_signature:
 
+            print(
+                "Missing signature value."
+            )
+
             return JSONResponse(
                 status_code=401,
                 content={
                     "received": False,
                     "processed": False,
-                    "message":
-                        "Missing signature value."
+                    "message": "Missing signature value."
                 }
             )
 
@@ -13152,8 +12902,7 @@ async def paymongo_webhook(
                 content={
                     "received": False,
                     "processed": False,
-                    "message":
-                        "Invalid PayMongo signature."
+                    "message": "Invalid PayMongo webhook signature."
                 }
             )
 
@@ -13173,8 +12922,7 @@ async def paymongo_webhook(
             content={
                 "received": False,
                 "processed": False,
-                "message":
-                    "Invalid PayMongo webhook signature."
+                "message": "Invalid PayMongo webhook signature."
             }
         )
 
@@ -13185,9 +12933,7 @@ async def paymongo_webhook(
     try:
 
         payload = json.loads(
-            raw_body.decode(
-                "utf-8"
-            )
+            raw_body.decode("utf-8")
         )
 
     except Exception as e:
@@ -13202,13 +12948,12 @@ async def paymongo_webhook(
             content={
                 "received": False,
                 "processed": False,
-                "message":
-                    "Invalid JSON payload."
+                "message": "Invalid JSON payload."
             }
         )
 
     # ========================================================
-    # 5. EVENT
+    # 5. EVENT DATA
     # ========================================================
 
     event_data = payload.get(
@@ -13264,7 +13009,7 @@ async def paymongo_webhook(
     print("=" * 70)
 
     # ========================================================
-    # 6. ONLY SUCCESS EVENTS
+    # 6. ONLY PROCESS SUCCESSFUL PAYMENT EVENTS
     # ========================================================
 
     if event_type not in {
@@ -13282,12 +13027,11 @@ async def paymongo_webhook(
             "processed": False,
             "event_id": event_id,
             "event_type": event_type,
-            "message":
-                "Event ignored."
+            "message": "Event ignored."
         }
 
     # ========================================================
-    # 7. RESOURCE
+    # 7. PAYMENT RESOURCE
     # ========================================================
 
     resource = event_attributes.get(
@@ -13477,7 +13221,7 @@ async def paymongo_webhook(
     )
 
     # ========================================================
-    # 13. AMOUNT
+    # 13. PAYMENT AMOUNT
     # ========================================================
 
     paymongo_amount = resource_attributes.get(
@@ -13504,7 +13248,9 @@ async def paymongo_webhook(
     )
 
     # ========================================================
+    # ========================================================
     # CASH SPONSORSHIP
+    # ========================================================
     # ========================================================
 
     cash_sponsorship = None
@@ -13577,6 +13323,11 @@ async def paymongo_webhook(
         )
     ):
 
+        print(
+            "Searching sponsorship by PayMongo Payment ID:",
+            paymongo_payment_id
+        )
+
         cash_sponsorship = (
             db.query(
                 CashSponsorship
@@ -13600,6 +13351,11 @@ async def paymongo_webhook(
             "paymongo_link_id"
         )
     ):
+
+        print(
+            "Searching sponsorship by PayMongo Link ID:",
+            paymongo_link_id
+        )
 
         cash_sponsorship = (
             db.query(
@@ -13625,21 +13381,21 @@ async def paymongo_webhook(
             cash_sponsorship.id
         )
         print(
-            "Reference:",
+            "PayMongo Reference:",
             paymongo_reference
         )
         print(
-            "Payment ID:",
+            "PayMongo Payment ID:",
             paymongo_payment_id
         )
         print(
-            "Link ID:",
+            "PayMongo Link ID:",
             paymongo_link_id
         )
         print("=" * 70)
 
         # ====================================================
-        # SAVE PAYMONGO IDs
+        # SAVE PAYMONGO IDENTIFIERS
         # ====================================================
 
         if (
@@ -13679,7 +13435,7 @@ async def paymongo_webhook(
             )
 
         # ====================================================
-        # CURRENT STATUS
+        # CURRENT PAYMENT STATUS
         # ====================================================
 
         current_status = str(
@@ -13697,13 +13453,13 @@ async def paymongo_webhook(
         )
 
         # ====================================================
-        # ALREADY PAID
+        # IDEMPOTENCY
         # ====================================================
 
         if current_status == "paid":
 
             print(
-                "Sponsorship already paid."
+                "Sponsorship already marked as Paid."
             )
 
             try:
@@ -13714,16 +13470,11 @@ async def paymongo_webhook(
 
                 db.rollback()
 
-            # ------------------------------------------------
-            # IMPORTANT:
-            #
-            # Even if PayMongo sends the webhook again,
-            # automatically make sure the queue is processed.
-            # ------------------------------------------------
-
-            finding_result = (
-                await trigger_finding_sponsor_queue()
+            print("=" * 70)
+            print(
+                "DUPLICATE WEBHOOK - ALREADY PROCESSED"
             )
+            print("=" * 70)
 
             return {
 
@@ -13743,20 +13494,11 @@ async def paymongo_webhook(
                     cash_sponsorship.id,
 
                 "payment_status":
-                    cash_sponsorship.payment_status,
-
-                "finding_sponsor_processed":
-                    finding_result.get(
-                        "success",
-                        False
-                    ),
-
-                "finding_sponsor_trigger":
-                    "webhook"
+                    cash_sponsorship.payment_status
             }
 
         # ====================================================
-        # DONATION AMOUNT
+        # 19. DATABASE DONATION AMOUNT
         # ====================================================
 
         try:
@@ -13785,6 +13527,10 @@ async def paymongo_webhook(
 
         if donation_amount <= 0:
 
+            print(
+                "Invalid sponsorship amount."
+            )
+
             db.rollback()
 
             return {
@@ -13804,7 +13550,7 @@ async def paymongo_webhook(
             }
 
         # ====================================================
-        # VERIFY PAYMENT AMOUNT
+        # 20. VERIFY PAYMENT AMOUNT
         # ====================================================
 
         if (
@@ -13844,7 +13590,7 @@ async def paymongo_webhook(
             }
 
         # ====================================================
-        # CONVERT TO PESOS
+        # 21. CONVERT CENTAVOS TO PESOS
         # ====================================================
 
         donation_pesos = (
@@ -13852,8 +13598,8 @@ async def paymongo_webhook(
         )
 
         # ====================================================
-        # FIND TOTAL
-        # ====================================================
+        # 22. GET CASH DONATION TOTAL
+        # ========================================================
 
         donation_total = (
             db.query(
@@ -13866,8 +13612,8 @@ async def paymongo_webhook(
         )
 
         # ====================================================
-        # CREATE TOTAL IF NEEDED
-        # ====================================================
+        # 23. CREATE TOTAL RECORD IF NEEDED
+        # ========================================================
 
         if not donation_total:
 
@@ -13882,8 +13628,8 @@ async def paymongo_webhook(
             db.flush()
 
         # ====================================================
-        # CURRENT TOTAL
-        # ====================================================
+        # 24. CURRENT TOTAL
+        # ========================================================
 
         try:
 
@@ -13915,7 +13661,7 @@ async def paymongo_webhook(
         )
 
         # ====================================================
-        # UPDATE TOTAL
+        # 25. UPDATE DONATION TOTAL
         # ====================================================
 
         donation_total.total_amount = (
@@ -13932,7 +13678,7 @@ async def paymongo_webhook(
             )
 
         # ====================================================
-        # MARK SPONSORSHIP PAID
+        # 26. MARK SPONSORSHIP AS PAID
         # ====================================================
 
         cash_sponsorship.payment_status = (
@@ -13976,7 +13722,7 @@ async def paymongo_webhook(
             )
 
         # ====================================================
-        # COMMIT PAYMENT FIRST
+        # 27. COMMIT PAYMENT DATABASE UPDATE
         # ====================================================
 
         try:
@@ -14009,14 +13755,16 @@ async def paymongo_webhook(
             )
 
         # ====================================================
-        # SAVE PLAIN VALUES
+        # 28. SAVE PLAIN VALUES BEFORE EMAIL
         # ====================================================
 
         saved_sponsorship_id = (
             cash_sponsorship.id
         )
 
-        saved_total = new_total
+        saved_total = (
+            new_total
+        )
 
         saved_donation = (
             donation_pesos
@@ -14045,7 +13793,18 @@ async def paymongo_webhook(
         print("=" * 70)
 
         # ====================================================
-        # GMAIL THANK-YOU MESSAGE
+        # 29. GMAIL CONFIRMATION
+        # ====================================================
+        #
+        # Current function:
+        #
+        # async def send_cash_sponsorship_confirmation_email(
+        #     sponsorship,
+        #     payment
+        # )
+        #
+        # Therefore we call it DIRECTLY.
+        #
         # ====================================================
 
         gmail_success = False
@@ -14056,93 +13815,11 @@ async def paymongo_webhook(
 
         try:
 
-            sponsor_name = getattr(
-                cash_sponsorship,
-                "sponsor_name",
-                "Sponsor"
-            )
-
             sponsor_email = getattr(
                 cash_sponsorship,
                 "email",
                 None
             )
-
-            selected_tier = getattr(
-                cash_sponsorship,
-                "selected_tier",
-                None
-            )
-
-            if not selected_tier:
-
-                selected_tier = getattr(
-                    cash_sponsorship,
-                    "package_tier",
-                    "Sponsorship Package"
-                )
-
-            paymongo_payment_id_saved = getattr(
-                cash_sponsorship,
-                "paymongo_payment_id",
-                None
-            )
-
-            paymongo_link_id_saved = getattr(
-                cash_sponsorship,
-                "paymongo_link_id",
-                None
-            )
-
-            paymongo_reference_saved = getattr(
-                cash_sponsorship,
-                "paymongo_reference",
-                None
-            )
-
-            # =================================================
-            # IMPORTANT:
-            #
-            # The Gmail function uses .get()
-            # Therefore this MUST be a dictionary.
-            # =================================================
-
-            sponsorship_email_data = {
-
-                "id":
-                    saved_sponsorship_id,
-
-                "sponsor_name":
-                    sponsor_name,
-
-                "email":
-                    sponsor_email,
-
-                "selected_tier":
-                    selected_tier,
-
-                "package_tier":
-                    selected_tier,
-
-                "donation_amount":
-                    getattr(
-                        cash_sponsorship,
-                        "donation_amount",
-                        0
-                    ),
-
-                "payment_status":
-                    "Paid",
-
-                "paymongo_reference":
-                    paymongo_reference_saved,
-
-                "paymongo_payment_id":
-                    paymongo_payment_id_saved,
-
-                "paymongo_link_id":
-                    paymongo_link_id_saved
-            }
 
             if not sponsor_email:
 
@@ -14152,110 +13829,77 @@ async def paymongo_webhook(
 
             else:
 
-                email_function = globals().get(
-                    "send_cash_sponsorship_confirmation_email"
+                # ------------------------------------------------
+                # The email function expects:
+                #
+                # sponsorship
+                # payment
+                #
+                # For cash sponsorship, the sponsorship object
+                # already contains the PayMongo information.
+                #
+                # We therefore pass the same sponsorship object
+                # as the first argument.
+                #
+                # ------------------------------------------------
+
+                print(
+                    "Sending sponsorship Gmail..."
                 )
 
-                if not email_function:
+                gmail_success = bool(
+                    await send_cash_sponsorship_confirmation_email(
+                        cash_sponsorship,
+                        cash_sponsorship
+                    )
+                )
+
+                if gmail_success:
 
                     print(
-                        "ERROR: "
-                        "send_cash_sponsorship_confirmation_email "
-                        "not found."
+                        "GMAIL SENT SUCCESSFULLY"
                     )
 
                 else:
 
                     print(
-                        "Sending sponsorship Gmail..."
+                        "GMAIL FUNCTION RETURNED FALSE"
                     )
-
-                    # =================================================
-                    # IMPORTANT:
-                    #
-                    # ONLY ONE ARGUMENT
-                    #
-                    # The old code was:
-                    #
-                    # email_function(
-                    #     sponsorship_email_data,
-                    #     None
-                    # )
-                    #
-                    # That caused:
-                    #
-                    # takes 1 positional argument
-                    # but 2 were given
-                    # =================================================
-
-                    result = await asyncio.to_thread(
-                        email_function,
-                        sponsorship_email_data
-                    )
-
-                    gmail_success = bool(
-                        result
-                    )
-
-                    if gmail_success:
-
-                        print(
-                            "GMAIL SENT SUCCESSFULLY"
-                        )
-
-                    else:
-
-                        print(
-                            "GMAIL FUNCTION RETURNED FALSE"
-                        )
 
         except Exception as e:
 
             print("=" * 70)
-
             print(
                 "GMAIL PROCESSING FAILED"
             )
-
             print(
                 "Error Type:",
                 type(e).__name__
             )
-
             print(
                 "Error:",
                 repr(e)
             )
-
             print("=" * 70)
 
+            gmail_success = False
+
         # ====================================================
-        # AUTOMATIC FINDING SPONSOR PROCESSING
+        # 30. WEBHOOK COMPLETE
         # ====================================================
         #
         # IMPORTANT:
         #
-        # The frontend NO LONGER needs to call:
+        # THERE IS NO FINDING SPONSOR QUEUE PROCESSING HERE.
         #
-        # POST /process_finding_sponsor_queue
+        # The webhook ONLY:
         #
-        # The webhook does it automatically after payment.
+        # 1. Verifies PayMongo
+        # 2. Finds sponsorship
+        # 3. Marks sponsorship Paid
+        # 4. Updates donation total
+        # 5. Sends Gmail
         #
-        # ====================================================
-
-        finding_result = (
-            await trigger_finding_sponsor_queue()
-        )
-
-        finding_sponsor_processed = (
-            finding_result.get(
-                "success",
-                False
-            )
-        )
-
-        # ====================================================
-        # FINAL LOG
         # ====================================================
 
         print("=" * 70)
@@ -14280,19 +13924,14 @@ async def paymongo_webhook(
         )
 
         print(
-            "Finding Sponsor:",
-            (
-                "PROCESSED AUTOMATICALLY"
-                if finding_sponsor_processed
-                else
-                "AUTOMATIC PROCESSING FAILED"
-            )
+            "Post-payment queue processing:",
+            "NOT PERFORMED BY WEBHOOK"
         )
 
         print("=" * 70)
 
         # ====================================================
-        # RETURN
+        # 31. RETURN SUCCESS
         # ====================================================
 
         return {
@@ -14335,18 +13974,7 @@ async def paymongo_webhook(
                 paymongo_link_id,
 
             "gmail_sent":
-                gmail_success,
-
-            "finding_sponsor_processed":
-                finding_sponsor_processed,
-
-            "finding_sponsor_trigger":
-                "webhook",
-
-            "finding_sponsor_response":
-                finding_result.get(
-                    "response"
-                )
+                gmail_success
         }
 
     # ========================================================
@@ -14358,7 +13986,7 @@ async def paymongo_webhook(
     payment = None
 
     # ========================================================
-    # 19. INTERNAL PAYMENT ID
+    # 32. MATCH INTERNAL PAYMENT ID
     # ========================================================
 
     internal_payment_id = metadata.get(
@@ -14388,7 +14016,7 @@ async def paymongo_webhook(
             payment = None
 
     # ========================================================
-    # 20. PAYMENT BY REFERENCE
+    # 33. MATCH PAYMENT BY REFERENCE
     # ========================================================
 
     if (
@@ -14412,7 +14040,7 @@ async def paymongo_webhook(
         )
 
     # ========================================================
-    # 21. PAYMENT BY PAYMONGO PAYMENT ID
+    # 34. MATCH PAYMENT BY PAYMONGO PAYMENT ID
     # ========================================================
 
     if (
@@ -14436,7 +14064,7 @@ async def paymongo_webhook(
         )
 
     # ========================================================
-    # 22. PAYMENT BY LINK ID
+    # 35. MATCH PAYMENT BY LINK ID
     # ========================================================
 
     if (
@@ -14460,7 +14088,7 @@ async def paymongo_webhook(
         )
 
     # ========================================================
-    # 23. NORMAL PAYMENT NOT FOUND
+    # 36. PAYMENT NOT FOUND
     # ========================================================
 
     if not payment:
@@ -14508,7 +14136,7 @@ async def paymongo_webhook(
     print("=" * 70)
 
     # ========================================================
-    # SAVE PAYMONGO IDs
+    # 37. SAVE PAYMONGO IDS
     # ========================================================
 
     if (
@@ -14548,7 +14176,7 @@ async def paymongo_webhook(
         )
 
     # ========================================================
-    # PAYMENT TYPE
+    # 38. PAYMENT TYPE
     # ========================================================
 
     payment_type = str(
@@ -14561,7 +14189,7 @@ async def paymongo_webhook(
     ).strip().lower()
 
     # ========================================================
-    # PARTICIPANT
+    # 39. PARTICIPANT PAYMENT
     # ========================================================
 
     if payment_type == "participant":
@@ -14748,6 +14376,10 @@ async def paymongo_webhook(
                 datetime.datetime.now()
             )
 
+        # ====================================================
+        # COMMIT PARTICIPANT PAYMENT
+        # ====================================================
+
         try:
 
             db.commit()
@@ -14808,7 +14440,7 @@ async def paymongo_webhook(
         }
 
     # ========================================================
-    # STORE
+    # 40. STORE PAYMENT
     # ========================================================
 
     elif payment_type == "store":
@@ -14993,6 +14625,10 @@ async def paymongo_webhook(
                 datetime.datetime.now()
             )
 
+        # ====================================================
+        # COMMIT STORE PAYMENT
+        # ====================================================
+
         try:
 
             db.commit()
@@ -15070,10 +14706,15 @@ async def paymongo_webhook(
         }
 
     # ========================================================
-    # UNKNOWN
+    # 41. UNKNOWN PAYMENT TYPE
     # ========================================================
 
     db.rollback()
+
+    print(
+        "Unsupported payment type:",
+        payment_type
+    )
 
     return {
 
