@@ -5045,6 +5045,10 @@ CYF Registration Team
 # CASH SPONSORSHIP CONFIRMATION EMAIL
 # ======================================================
 
+# ======================================================
+# CASH SPONSORSHIP CONFIRMATION EMAIL
+# ======================================================
+
 def send_cash_sponsorship_confirmation_email(
     sponsorship,
     payment=None
@@ -5052,8 +5056,7 @@ def send_cash_sponsorship_confirmation_email(
     """
     Synchronous Gmail email sender.
 
-    IMPORTANT:
-    This function must be executed using:
+    This function MUST be executed through:
 
         await asyncio.to_thread(
             send_cash_sponsorship_confirmation_email,
@@ -5061,7 +5064,7 @@ def send_cash_sponsorship_confirmation_email(
             None
         )
 
-    Never await this function directly.
+    Do NOT await this function directly.
     """
 
     try:
@@ -5075,40 +5078,52 @@ def send_cash_sponsorship_confirmation_email(
         # 1. GET VALUES
         # ==================================================
 
-        print("[EMAIL 1] Reading sponsorship information...")
-
-        sponsor_email = sponsorship.get(
-            "email"
+        print(
+            "[EMAIL 1] Reading sponsorship information..."
         )
 
-        sponsor_name = sponsorship.get(
+        sponsor_email = getattr(
+            sponsorship,
+            "email",
+            None
+        )
+
+        sponsor_name = getattr(
+            sponsorship,
             "sponsor_name",
             "Sponsor"
         )
 
-        tier = sponsorship.get(
-            "selected_tier"
+        tier = getattr(
+            sponsorship,
+            "selected_tier",
+            None
         )
 
         if not tier:
 
-            tier = sponsorship.get(
+            tier = getattr(
+                sponsorship,
                 "package_tier",
                 "Sponsorship Package"
             )
 
-        donation_amount = sponsorship.get(
+        donation_amount = getattr(
+            sponsorship,
             "donation_amount",
             0
         )
 
-        payment_status = sponsorship.get(
+        payment_status = getattr(
+            sponsorship,
             "payment_status",
             "Paid"
         )
 
-        reference = sponsorship.get(
-            "paymongo_reference"
+        reference = getattr(
+            sponsorship,
+            "paymongo_reference",
+            None
         )
 
         print(
@@ -5156,7 +5171,8 @@ def send_cash_sponsorship_confirmation_email(
             donation_amount_php = (
                 Decimal(
                     str(donation_amount)
-                ) /
+                )
+                /
                 Decimal("100")
             )
 
@@ -5254,19 +5270,24 @@ CYF Registration System
         # ==================================================
 
         print("=" * 70)
+
         print(
             "[EMAIL 5] CONNECTING TO GMAIL SMTP..."
         )
+
         print(
             "SMTP Server: smtp.gmail.com"
         )
+
         print(
             "SMTP Port: 587"
         )
+
         print(
             "Username:",
             GMAIL_USERNAME
         )
+
         print("=" * 70)
 
         smtp_start = time.time()
@@ -5324,10 +5345,15 @@ CYF Registration System
                 "[EMAIL 8] Sending email..."
             )
 
-            server.sendmail(
+            result = server.sendmail(
                 GMAIL_USERNAME,
                 sponsor_email,
                 message.as_string()
+            )
+
+            print(
+                "[EMAIL 8] Gmail sendmail result:",
+                result
             )
 
             print(
@@ -5354,11 +5380,13 @@ CYF Registration System
                     )
 
         smtp_time = (
-            time.time() -
+            time.time()
+            -
             smtp_start
         )
 
         print("=" * 70)
+
         print(
             "CASH SPONSORSHIP EMAIL SENT SUCCESSFULLY"
         )
@@ -5385,16 +5413,24 @@ CYF Registration System
 
         print("\n")
         print("=" * 70)
+
         print(
             "CASH SPONSORSHIP EMAIL FAILED"
         )
 
+        # IMPORTANT:
+        # Do NOT use sponsorship.get() here.
+        # sponsorship is a SimpleNamespace.
+
+        failed_email = getattr(
+            sponsorship,
+            "email",
+            "Unknown"
+        )
+
         print(
             "Recipient:",
-            sponsorship.get(
-                "email",
-                "Unknown"
-            )
+            failed_email
         )
 
         print(
@@ -16028,195 +16064,130 @@ async def process_cash_sponsorship_background(
     #
     # ==================================================
 
-    queue_start = time.time()
+    # ==================================================
+# 3. FINDING SPONSOR QUEUE
+# ==================================================
 
-    print("=" * 70)
-    print(
-        "[BACKGROUND 3] FINDING SPONSOR QUEUE STARTED"
+queue_start = time.time()
+
+print("=" * 70)
+print(
+    "[BACKGROUND 3] FINDING SPONSOR QUEUE STARTED"
+)
+
+print(
+    "Sponsorship ID:",
+    sponsorship_id
+)
+
+print("=" * 70)
+
+queue_db = None
+
+try:
+
+    queue_function = globals().get(
+        "process_finding_sponsor_queue_logic"
     )
 
-    print(
-        "Sponsorship ID:",
-        sponsorship_id
-    )
+    if not queue_function:
 
-    print("=" * 70)
+        queue_result = {
 
-    queue_db = None
+            "success": False,
 
-    try:
+            "message":
+                "Queue processing function "
+                "is not defined."
+        }
 
-        queue_function = globals().get(
-            "process_finding_sponsor_queue_logic"
+        print(
+            "[BACKGROUND 3] Queue function not found."
         )
 
-        if not queue_function:
+    else:
 
-            queue_result = {
+        print(
+            "[BACKGROUND 3] Opening fresh queue DB session..."
+        )
 
-                "success":
-                    False,
+        queue_db = SessionLocal()
 
-                "message":
-                    "Queue processing function "
-                    "is not defined."
-            }
+        print(
+            "[BACKGROUND 3] Queue DB session opened."
+        )
+
+        print(
+            "[BACKGROUND 3] Calling queue function..."
+        )
+
+        # ==================================================
+        # CHECK WHETHER QUEUE FUNCTION IS ASYNC
+        # ==================================================
+
+        if inspect.iscoroutinefunction(
+            queue_function
+        ):
 
             print(
-                "[BACKGROUND 3] Queue function not found."
+                "[BACKGROUND 3] Queue function is ASYNC."
+            )
+
+            queue_result = await queue_function(
+                queue_db
             )
 
         else:
 
-            # ==================================================
-            # CREATE NEW DATABASE SESSION
-            # ==================================================
-
             print(
-                "[BACKGROUND 3] Opening fresh queue DB session..."
+                "[BACKGROUND 3] Queue function is SYNC."
             )
 
-            queue_db = SessionLocal()
-
-            print(
-                "[BACKGROUND 3] Queue DB session opened."
-            )
-
-            print(
-                "[BACKGROUND 3] Calling queue function..."
-            )
-
-            # ==================================================
-            # SUPPORT BOTH:
+            # --------------------------------------------------
+            # Run synchronous queue processing in worker thread.
             #
-            # async queue functions
-            #
-            # AND
-            #
-            # normal synchronous queue functions
-            # ==================================================
+            # The queue DB session is created here and passed
+            # into that worker operation.
+            # --------------------------------------------------
 
-            result = queue_function(
-                queue_db
+            def run_sync_queue():
+
+                try:
+
+                    return queue_function(
+                        queue_db
+                    )
+
+                except Exception:
+
+                    raise
+
+            queue_result = await asyncio.to_thread(
+                run_sync_queue
             )
 
-            if inspect.isawaitable(
-                result
-            ):
-
-                queue_result = await result
-
-            else:
-
-                # --------------------------------------------------
-                # If the queue function is synchronous and performs
-                # blocking work, run it in another thread instead.
-                #
-                # IMPORTANT:
-                # We already called it above, so this branch cannot
-                # undo blocking work.
-                #
-                # Therefore your queue function should ideally be
-                # converted to an async-safe function.
-                #
-                # --------------------------------------------------
-
-                queue_result = result
-
-            queue_processed = True
-
-            print("=" * 70)
-            print(
-                "[BACKGROUND 3] FINDING SPONSOR QUEUE COMPLETED"
-            )
-
-            print(
-                "Queue Result:",
-                queue_result
-            )
-
-            print("=" * 70)
-
-    except Exception as e:
+        queue_processed = True
 
         print("=" * 70)
+
         print(
-            "[BACKGROUND 3] FINDING SPONSOR QUEUE FAILED"
+            "[BACKGROUND 3] FINDING SPONSOR QUEUE COMPLETED"
         )
 
         print(
-            "Sponsorship ID:",
-            sponsorship_id
-        )
-
-        print(
-            "Error:",
-            repr(e)
+            "Queue Result:",
+            queue_result
         )
 
         print("=" * 70)
 
-        queue_result = {
+except Exception as e:
 
-            "success":
-                False,
-
-            "message":
-                "Donation was successful, "
-                "but sponsorship processing failed.",
-
-            "error":
-                str(e)
-        }
-
-    finally:
-
-        if queue_db:
-
-            try:
-
-                queue_db.close()
-
-                print(
-                    "[BACKGROUND 3] Queue database session closed."
-                )
-
-            except Exception as e:
-
-                print(
-                    "[BACKGROUND 3] Error closing queue DB:",
-                    repr(e)
-                )
-
-            queue_db = None
-
-    print(
-        "[BACKGROUND 3] Queue processing time:",
-        round(
-            time.time() - queue_start,
-            2
-        ),
-        "seconds"
-    )
-
-    # ==================================================
-    # 4. FINAL RESULT
-    # ==================================================
-
-    total_time = (
-        time.time()
-        -
-        overall_start
-    )
-
-    print("\n")
     print("=" * 70)
 
     print(
-        "BACKGROUND CASH SPONSORSHIP PROCESSING COMPLETE"
+        "[BACKGROUND 3] FINDING SPONSOR QUEUE FAILED"
     )
-
-    print("=" * 70)
 
     print(
         "Sponsorship ID:",
@@ -16224,30 +16195,58 @@ async def process_cash_sponsorship_background(
     )
 
     print(
-        "Email Sent:",
-        sponsor_email_sent
+        "Error Type:",
+        type(e).__name__
     )
 
     print(
-        "Queue Processed:",
-        queue_processed
-    )
-
-    print(
-        "Queue Result:",
-        queue_result
-    )
-
-    print(
-        "TOTAL BACKGROUND PROCESSING TIME:",
-        round(
-            total_time,
-            2
-        ),
-        "seconds"
+        "Error:",
+        repr(e)
     )
 
     print("=" * 70)
+
+    queue_result = {
+
+        "success": False,
+
+        "message":
+            "Donation was successful, "
+            "but sponsorship processing failed.",
+
+        "error":
+            str(e)
+    }
+
+finally:
+
+    if queue_db:
+
+        try:
+
+            queue_db.close()
+
+            print(
+                "[BACKGROUND 3] Queue database session closed."
+            )
+
+        except Exception as e:
+
+            print(
+                "[BACKGROUND 3] Error closing queue DB:",
+                repr(e)
+            )
+
+        queue_db = None
+
+print(
+    "[BACKGROUND 3] Queue processing time:",
+    round(
+        time.time() - queue_start,
+        2
+    ),
+    "seconds"
+)
 
 
 
