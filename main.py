@@ -16546,6 +16546,10 @@ def sponsorship_payment_status(
     db: Session = Depends(get_db)
 ):
 
+    # ======================================================
+    # FIND SPONSORSHIP BY PAYMONGO LINK ID
+    # ======================================================
+
     sponsorship = (
         db.query(CashSponsorship)
         .filter(
@@ -16554,7 +16558,19 @@ def sponsorship_payment_status(
         .first()
     )
 
+    # ======================================================
+    # SPONSORSHIP NOT FOUND
+    # ======================================================
+
     if not sponsorship:
+
+        print("=" * 70)
+        print("SPONSORSHIP PAYMENT STATUS")
+        print("=" * 70)
+        print("Requested Payment ID:", payment_id)
+        print("SPONSORSHIP NOT FOUND")
+        print("=" * 70)
+
         return {
             "success": False,
             "found": False,
@@ -16562,9 +16578,17 @@ def sponsorship_payment_status(
             "paid": False
         }
 
-    payment_status = (
+    # ======================================================
+    # GET PAYMENT STATUS
+    # ======================================================
+
+    payment_status = str(
         sponsorship.payment_status or "Pending"
     ).strip().lower()
+
+    # ======================================================
+    # DETERMINE IF PAID
+    # ======================================================
 
     paid = payment_status in [
         "paid",
@@ -16573,28 +16597,74 @@ def sponsorship_payment_status(
         "completed"
     ]
 
+    # ======================================================
+    # DEBUG LOG
+    # ======================================================
+
     print("=" * 70)
     print("SPONSORSHIP PAYMENT STATUS")
     print("=" * 70)
-    print("Requested Payment ID:", payment_id)
-    print("Sponsorship ID:", sponsorship.id)
-    print("PayMongo Link ID:", sponsorship.paymongo_link_id)
-    print("PayMongo Reference:", sponsorship.paymongo_reference)
-    print("PayMongo Payment ID:", sponsorship.paymongo_payment_id)
-    print("Payment Status:", sponsorship.payment_status)
-    print("Paid:", paid)
+
+    print(
+        "Requested Payment ID:",
+        payment_id
+    )
+
+    print(
+        "Sponsorship ID:",
+        sponsorship.id
+    )
+
+    print(
+        "PayMongo Link ID:",
+        sponsorship.paymongo_link_id
+    )
+
+    print(
+        "PayMongo Reference:",
+        sponsorship.paymongo_reference
+    )
+
+    print(
+        "Payment Status:",
+        sponsorship.payment_status
+    )
+
+    print(
+        "Paid:",
+        paid
+    )
+
     print("=" * 70)
 
+    # ======================================================
+    # RESPONSE
+    # ======================================================
+
     return {
-        "success": True,
-        "found": True,
-        "sponsorship_id": sponsorship.id,
-        "payment_status": sponsorship.payment_status or "Pending",
-        "paid": paid,
-        "paymongo_link_id": sponsorship.paymongo_link_id,
-        "paymongo_reference": sponsorship.paymongo_reference,
-        "paymongo_payment_id": sponsorship.paymongo_payment_id
+
+        "success":
+            True,
+
+        "found":
+            True,
+
+        "sponsorship_id":
+            sponsorship.id,
+
+        "payment_status":
+            sponsorship.payment_status or "Pending",
+
+        "paid":
+            paid,
+
+        "paymongo_link_id":
+            sponsorship.paymongo_link_id,
+
+        "paymongo_reference":
+            sponsorship.paymongo_reference
     }
+
 
 
 
