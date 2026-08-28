@@ -5059,191 +5059,155 @@ CYF Registration Team
 # GMAIL CASH SPONSORSHIP CONFIRMATION
 # ==========================================================
 
-def send_cash_sponsorship_confirmation_email(
-    sponsorship_data,
-    amount
+# ======================================================
+# CASH SPONSORSHIP CONFIRMATION EMAIL
+# ======================================================
+
+async def send_cash_sponsorship_confirmation_email(
+    sponsorship,
+    payment
 ):
     """
-    Synchronous Gmail sender.
-
-    IMPORTANT:
-    This function must NOT be awaited.
-
-    Run it with:
-
-        await asyncio.to_thread(
-            send_cash_sponsorship_confirmation_email,
-            sponsorship_data
-        )
+    Send confirmation email after a cash sponsorship
+    has been successfully paid through PayMongo.
     """
-
-    print("\n")
-    print("=" * 70)
-    print("GMAIL PROCESSING STARTED")
-    print("=" * 70)
 
     try:
 
-        # ==================================================
-        # READ DATA
-        # ==================================================
+        # --------------------------------------------------
+        # GET SPONSOR EMAIL
+        # --------------------------------------------------
 
-        sponsor_email = sponsorship_data.get(
-            "email"
+        sponsor_email = getattr(
+            sponsorship,
+            "email",
+            None
         )
-
-        sponsor_name = sponsorship_data.get(
-            "sponsor_name",
-            "Sponsor"
-        )
-
-        tier = sponsorship_data.get(
-            "selected_tier"
-        )
-
-        if not tier:
-
-            tier = sponsorship_data.get(
-                "package_tier",
-                "Sponsorship Package"
-            )
-
-        donation_amount = sponsorship_data.get(
-            "donation_amount",
-            0
-        )
-
-        payment_status = sponsorship_data.get(
-            "payment_status",
-            "Paid"
-        )
-
-        reference = sponsorship_data.get(
-            "paymongo_reference"
-        )
-
-        # ==================================================
-        # LOG
-        # ==================================================
-
-        print(
-            "Sponsor:",
-            sponsor_name
-        )
-
-        print(
-            "Email:",
-            sponsor_email
-        )
-
-        print(
-            "Tier:",
-            tier
-        )
-
-        print(
-            "Reference:",
-            reference
-        )
-
-        # ==================================================
-        # VALIDATE EMAIL
-        # ==================================================
 
         if not sponsor_email:
 
             print(
-                "GMAIL ERROR: Sponsor email is missing."
+                "Cash sponsorship has no email address."
             )
 
             return False
 
-        sponsor_email = str(
-            sponsor_email
-        ).strip()
+        # --------------------------------------------------
+        # GET INFORMATION
+        # --------------------------------------------------
 
-        # ==================================================
-        # AMOUNT
-        #
-        # PayMongo amount is CENTAVOS
-        # ==================================================
+        sponsor_name = getattr(
+            sponsorship,
+            "sponsor_name",
+            "Sponsor"
+        )
+
+        tier = getattr(
+            sponsorship,
+            "selected_tier",
+            None
+        )
+
+        if not tier:
+
+            tier = getattr(
+                sponsorship,
+                "package_tier",
+                "Sponsorship Package"
+            )
+
+        donation_amount = getattr(
+            sponsorship,
+            "donation_amount",
+            0
+        )
+
+        # Your database stores the donation amount
+        # in centavos, so convert it back to PHP.
 
         try:
 
-            donation_php = (
+            donation_amount_php = (
                 Decimal(
                     str(donation_amount)
-                )
-                /
-                Decimal("100")
+                ) / Decimal("100")
             )
 
         except Exception:
 
-            donation_php = Decimal(
-                "0.00"
+            donation_amount_php = Decimal("0.00")
+
+        payment_status = getattr(
+            payment,
+            "status",
+            "Paid"
+        )
+
+        reference = getattr(
+            sponsorship,
+            "paymongo_reference",
+            None
+        )
+
+        if not reference:
+
+            reference = getattr(
+                payment,
+                "paymongo_reference",
+                None
             )
 
-        # ==================================================
-        # SUBJECT
-        # ==================================================
+        # --------------------------------------------------
+        # EMAIL SUBJECT
+        # --------------------------------------------------
 
         subject = (
             "Cash Sponsorship Payment Confirmation "
             "- CYF Registration System"
         )
 
-        # ==================================================
-        # BODY
-        # ==================================================
+        # --------------------------------------------------
+        # EMAIL MESSAGE
+        # --------------------------------------------------
 
         body = f"""
 Dear {sponsor_name},
 
 Thank you for your generous support of the CYF ministry.
 
-We are pleased to confirm that your sponsorship payment
-has been successfully received.
+We are pleased to confirm that your cash sponsorship
+payment has been successfully received.
 
 SPONSORSHIP DETAILS
 ----------------------------------------
-
-Name:
-{sponsor_name}
-
-Sponsorship Tier:
-{tier}
-
-Donation Amount:
-₱{donation_php:,.2f}
-
-Payment Status:
-{payment_status}
+Name: {sponsor_name}
+Sponsorship Tier: {tier}
+Donation Amount: ₱{donation_amount_php:,.2f}
+Payment Status: {payment_status}
 """
 
         if reference:
 
             body += f"""
-PayMongo Reference:
-{reference}
+PayMongo Reference: {reference}
 """
 
         body += """
 ----------------------------------------
 
-Your generosity helps support our youth ministry
+Thank you for helping support our youth ministry
 activities and CYF events.
 
-Thank you for your support.
+Your generosity is greatly appreciated.
 
 God bless you!
 
 CYF Registration System
 """
 
-        # ==================================================
-        # MIME
-        # ==================================================
+        # --------------------------------------------------
+        # SEND EMAIL
+        # --------------------------------------------------
 
         message = MIMEMultipart()
 
@@ -5263,138 +5227,49 @@ CYF Registration System
             )
         )
 
-        print(
-            "MIME message created."
-        )
+        # --------------------------------------------------
+        # GMAIL SMTP
+        # --------------------------------------------------
 
-        # ==================================================
-        # SMTP
-        # ==================================================
-
-        print("=" * 70)
-        print("CONNECTING TO GMAIL")
-        print("=" * 70)
-
-        server = None
-
-        try:
-
-            server = smtplib.SMTP(
-                "smtp.gmail.com",
-                587,
-                timeout=30
-            )
-
-            print(
-                "SMTP connection established."
-            )
-
-            server.ehlo()
-
-            print(
-                "Starting TLS..."
-            )
+        with smtplib.SMTP(
+            "smtp.gmail.com",
+            587
+        ) as server:
 
             server.starttls()
-
-            server.ehlo()
-
-            print(
-                "TLS started."
-            )
-
-            print(
-                "Logging into Gmail..."
-            )
 
             server.login(
                 GMAIL_USERNAME,
                 GMAIL_APP_PASSWORD
             )
 
-            print(
-                "Gmail login successful."
-            )
-
-            print(
-                "Sending email to:",
-                sponsor_email
-            )
-
-            result = server.sendmail(
+            server.sendmail(
                 GMAIL_USERNAME,
-                [sponsor_email],
+                sponsor_email,
                 message.as_string()
             )
 
-            if result:
+        print(
+            "Cash sponsorship confirmation email sent to:",
+            sponsor_email
+        )
 
-                print(
-                    "GMAIL ERROR: Gmail rejected recipient."
-                )
-
-                print(
-                    "Rejected:",
-                    result
-                )
-
-                return False
-
-            print(
-                "=" * 70
-            )
-
-            print(
-                "GMAIL SENT SUCCESSFULLY"
-            )
-
-            print(
-                "Recipient:",
-                sponsor_email
-            )
-
-            print(
-                "=" * 70
-            )
-
-            return True
-
-        finally:
-
-            if server:
-
-                try:
-
-                    server.quit()
-
-                except Exception as e:
-
-                    print(
-                        "SMTP close warning:",
-                        repr(e)
-                    )
+        return True
 
     except Exception as e:
 
-        print("=" * 70)
-
         print(
-            "GMAIL PROCESSING FAILED"
-        )
-
-        print(
-            "Error Type:",
-            type(e).__name__
-        )
-
-        print(
-            "Error:",
+            "Cash sponsorship confirmation email failed:",
             repr(e)
         )
 
-        print("=" * 70)
-
         return False
+
+
+
+
+
+
 
 
 
