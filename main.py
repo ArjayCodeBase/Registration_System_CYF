@@ -5041,103 +5041,114 @@ CYF Registration Team
 # CASH SPONSORSHIP CONFIRMATION EMAIL
 # ======================================================
 
+# ======================================================
+# CASH SPONSORSHIP CONFIRMATION EMAIL
+# ======================================================
+
 def send_cash_sponsorship_confirmation_email(
     sponsorship,
     payment=None
 ):
     """
-    Send confirmation email after a cash sponsorship
-    has been successfully paid through PayMongo.
+    Synchronous Gmail email sender.
 
     IMPORTANT:
-    This function is intentionally SYNCHRONOUS because
-    smtplib itself is synchronous.
+    This function must be executed using:
 
-    The background processor will execute this function
-    using asyncio.to_thread(), preventing SMTP from
-    blocking the FastAPI event loop.
+        await asyncio.to_thread(
+            send_cash_sponsorship_confirmation_email,
+            sponsorship_data,
+            None
+        )
+
+    Never await this function directly.
     """
 
     try:
 
+        print("\n")
         print("=" * 70)
         print("CASH SPONSORSHIP EMAIL PROCESSING")
         print("=" * 70)
 
-        # --------------------------------------------------
-        # GET SPONSOR EMAIL
-        # --------------------------------------------------
+        # ==================================================
+        # 1. GET VALUES
+        # ==================================================
 
-        sponsor_email = getattr(
-            sponsorship,
-            "email",
-            None
+        print("[EMAIL 1] Reading sponsorship information...")
+
+        sponsor_email = sponsorship.get(
+            "email"
         )
 
-        if not sponsor_email:
-
-            print(
-                "Cash sponsorship has no email address."
-            )
-
-            return False
-
-        sponsor_email = str(
-            sponsor_email
-        ).strip()
-
-        if not sponsor_email:
-
-            print(
-                "Cash sponsorship email address is empty."
-            )
-
-            return False
-
-        # --------------------------------------------------
-        # GET SPONSOR NAME
-        # --------------------------------------------------
-
-        sponsor_name = getattr(
-            sponsorship,
+        sponsor_name = sponsorship.get(
             "sponsor_name",
-            None
+            "Sponsor"
         )
 
-        if not sponsor_name:
-
-            sponsor_name = "Sponsor"
-
-        # --------------------------------------------------
-        # GET SPONSORSHIP TIER
-        # --------------------------------------------------
-
-        tier = getattr(
-            sponsorship,
-            "selected_tier",
-            None
+        tier = sponsorship.get(
+            "selected_tier"
         )
 
         if not tier:
 
-            tier = getattr(
-                sponsorship,
+            tier = sponsorship.get(
                 "package_tier",
-                None
+                "Sponsorship Package"
             )
 
-        if not tier:
-
-            tier = "Sponsorship Package"
-
-        # --------------------------------------------------
-        # GET DONATION AMOUNT
-        # --------------------------------------------------
-
-        donation_amount = getattr(
-            sponsorship,
+        donation_amount = sponsorship.get(
             "donation_amount",
             0
+        )
+
+        payment_status = sponsorship.get(
+            "payment_status",
+            "Paid"
+        )
+
+        reference = sponsorship.get(
+            "paymongo_reference"
+        )
+
+        print(
+            "[EMAIL 1] Sponsor:",
+            sponsor_name
+        )
+
+        print(
+            "[EMAIL 1] Email:",
+            sponsor_email
+        )
+
+        print(
+            "[EMAIL 1] Tier:",
+            tier
+        )
+
+        print(
+            "[EMAIL 1] Reference:",
+            reference
+        )
+
+        # ==================================================
+        # 2. VALIDATE EMAIL
+        # ==================================================
+
+        if not sponsor_email:
+
+            print(
+                "[EMAIL ERROR] Sponsor email is missing."
+            )
+
+            return False
+
+        # ==================================================
+        # 3. CONVERT AMOUNT
+        # ==================================================
+
+        print(
+            "[EMAIL 2] Converting donation amount..."
         )
 
         try:
@@ -5145,92 +5156,33 @@ def send_cash_sponsorship_confirmation_email(
             donation_amount_php = (
                 Decimal(
                     str(donation_amount)
-                )
-                /
+                ) /
                 Decimal("100")
             )
 
-        except Exception:
+        except Exception as e:
+
+            print(
+                "[EMAIL 2] Amount conversion failed:",
+                repr(e)
+            )
 
             donation_amount_php = Decimal(
                 "0.00"
             )
 
-        # --------------------------------------------------
-        # PAYMENT STATUS
-        # --------------------------------------------------
+        # ==================================================
+        # 4. CREATE EMAIL BODY
+        # ==================================================
 
-        payment_status = getattr(
-            sponsorship,
-            "payment_status",
-            None
+        print(
+            "[EMAIL 3] Creating email message..."
         )
-
-        if not payment_status:
-
-            if payment:
-
-                payment_status = getattr(
-                    payment,
-                    "status",
-                    None
-                )
-
-        if not payment_status:
-
-            payment_status = "Paid"
-
-        # --------------------------------------------------
-        # PAYMONGO REFERENCE
-        # --------------------------------------------------
-
-        reference = getattr(
-            sponsorship,
-            "paymongo_reference",
-            None
-        )
-
-        if not reference and payment:
-
-            reference = getattr(
-                payment,
-                "paymongo_reference",
-                None
-            )
-
-        # --------------------------------------------------
-        # PAYMONGO PAYMENT ID
-        # --------------------------------------------------
-
-        paymongo_payment_id = getattr(
-            sponsorship,
-            "paymongo_payment_id",
-            None
-        )
-
-        if (
-            not paymongo_payment_id
-            and payment
-        ):
-
-            paymongo_payment_id = getattr(
-                payment,
-                "paymongo_payment_id",
-                None
-            )
-
-        # --------------------------------------------------
-        # EMAIL SUBJECT
-        # --------------------------------------------------
 
         subject = (
             "Cash Sponsorship Payment Confirmation "
             "- CYF Registration System"
         )
-
-        # --------------------------------------------------
-        # EMAIL BODY
-        # --------------------------------------------------
 
         body = f"""
 Dear {sponsor_name},
@@ -5254,12 +5206,6 @@ Payment Status: {payment_status}
 PayMongo Reference: {reference}
 """
 
-        if paymongo_payment_id:
-
-            body += f"""
-PayMongo Payment ID: {paymongo_payment_id}
-"""
-
         body += """
 ----------------------------------------
 
@@ -5273,9 +5219,13 @@ God bless you!
 CYF Registration System
 """
 
-        # --------------------------------------------------
-        # CREATE EMAIL
-        # --------------------------------------------------
+        # ==================================================
+        # 5. CREATE MIME MESSAGE
+        # ==================================================
+
+        print(
+            "[EMAIL 4] Creating MIME message..."
+        )
 
         message = MIMEMultipart()
 
@@ -5295,38 +5245,66 @@ CYF Registration System
             )
         )
 
-        # --------------------------------------------------
-        # SMTP
-        # --------------------------------------------------
-        #
-        # This is synchronous.
-        #
-        # The caller MUST use:
-        #
-        # await asyncio.to_thread(
-        #     send_cash_sponsorship_confirmation_email,
-        #     sponsorship,
-        #     None
-        # )
-        #
-        # so this does not block FastAPI.
-        #
-        # --------------------------------------------------
-
         print(
-            "Connecting to Gmail SMTP..."
+            "[EMAIL 4] MIME message created."
         )
 
-        with smtplib.SMTP(
-            "smtp.gmail.com",
-            587,
-            timeout=20
-        ) as server:
+        # ==================================================
+        # 6. CONNECT TO GMAIL
+        # ==================================================
+
+        print("=" * 70)
+        print(
+            "[EMAIL 5] CONNECTING TO GMAIL SMTP..."
+        )
+        print(
+            "SMTP Server: smtp.gmail.com"
+        )
+        print(
+            "SMTP Port: 587"
+        )
+        print(
+            "Username:",
+            GMAIL_USERNAME
+        )
+        print("=" * 70)
+
+        smtp_start = time.time()
+
+        server = None
+
+        try:
+
+            server = smtplib.SMTP(
+                "smtp.gmail.com",
+                587,
+                timeout=15
+            )
+
+            print(
+                "[EMAIL 5] SMTP connection established."
+            )
+
+            # ==================================================
+            # 7. START TLS
+            # ==================================================
+
+            print(
+                "[EMAIL 6] Starting TLS..."
+            )
 
             server.starttls()
 
             print(
-                "Logging into Gmail SMTP..."
+                "[EMAIL 6] TLS started."
+            )
+
+            # ==================================================
+            # 8. LOGIN
+            # ==================================================
+
+            print(
+                "[EMAIL 7] Logging into Gmail..."
             )
 
             server.login(
@@ -5335,7 +5313,15 @@ CYF Registration System
             )
 
             print(
-                "Sending sponsorship confirmation email..."
+                "[EMAIL 7] Gmail login successful."
+            )
+
+            # ==================================================
+            # 9. SEND EMAIL
+            # ==================================================
+
+            print(
+                "[EMAIL 8] Sending email..."
             )
 
             server.sendmail(
@@ -5344,9 +5330,51 @@ CYF Registration System
                 message.as_string()
             )
 
+            print(
+                "[EMAIL 8] Email accepted by Gmail."
+            )
+
+        finally:
+
+            if server:
+
+                try:
+
+                    print(
+                        "[EMAIL 9] Closing SMTP connection..."
+                    )
+
+                    server.quit()
+
+                except Exception as e:
+
+                    print(
+                        "[EMAIL 9] SMTP close error:",
+                        repr(e)
+                    )
+
+        smtp_time = (
+            time.time() -
+            smtp_start
+        )
+
+        print("=" * 70)
         print(
-            "Cash sponsorship confirmation email sent to:",
+            "CASH SPONSORSHIP EMAIL SENT SUCCESSFULLY"
+        )
+
+        print(
+            "Recipient:",
             sponsor_email
+        )
+
+        print(
+            "SMTP Processing Time:",
+            round(
+                smtp_time,
+                2
+            ),
+            "seconds"
         )
 
         print("=" * 70)
@@ -5355,9 +5383,23 @@ CYF Registration System
 
     except Exception as e:
 
+        print("\n")
         print("=" * 70)
         print(
-            "CASH SPONSORSHIP CONFIRMATION EMAIL FAILED"
+            "CASH SPONSORSHIP EMAIL FAILED"
+        )
+
+        print(
+            "Recipient:",
+            sponsorship.get(
+                "email",
+                "Unknown"
+            )
+        )
+
+        print(
+            "Error Type:",
+            type(e).__name__
         )
 
         print(
@@ -5368,7 +5410,6 @@ CYF Registration System
         print("=" * 70)
 
         return False
-
 
 
 
