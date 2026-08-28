@@ -22,6 +22,13 @@
             padding: 0;
         }
 
+        :root {
+            --primary: #9d2b20;
+            --primary-dark: #7f2118;
+            --primary-light: #fdf0ee;
+            --primary-border: #e8bbb6;
+        }
+
         body {
             font-family:
                 Arial,
@@ -34,23 +41,13 @@
         }
 
         /* =====================================================
-           MAIN BRAND COLOR
-           ===================================================== */
-
-        :root {
-            --primary: #9d2b20;
-            --primary-dark: #7f2118;
-            --primary-light: #fdf0ee;
-            --primary-border: #e8bbb6;
-        }
-
-        /* =====================================================
            HEADER
-        ===================================================== */
+           ===================================================== */
 
         .header {
             background: var(--primary);
             color: white;
+
             padding: 18px 30px;
 
             display: flex;
@@ -79,7 +76,7 @@
 
         /* =====================================================
            MAIN
-        ===================================================== */
+           ===================================================== */
 
         .container {
             width: min(
@@ -92,12 +89,14 @@
 
         /* =====================================================
            LOADING
-        ===================================================== */
+           ===================================================== */
 
         .loading {
             background: white;
             border-radius: 12px;
+
             padding: 50px 20px;
+
             text-align: center;
 
             box-shadow:
@@ -141,28 +140,37 @@
 
         /* =====================================================
            ERROR
-        ===================================================== */
+           ===================================================== */
 
         .error-box {
             background: #fff0f0;
-            border: 1px solid #ffcaca;
+
+            border:
+                1px solid #ffcaca;
+
             color: #b42318;
 
             padding: 18px;
+
             border-radius: 10px;
 
             display: none;
+
             margin-bottom: 20px;
         }
 
         /* =====================================================
-           PARTICIPANT CARD
-        ===================================================== */
+           CARDS
+           ===================================================== */
 
-        .participant-card {
+        .participant-card,
+        .payment-card {
             background: white;
+
             border-radius: 12px;
+
             padding: 25px;
+
             margin-bottom: 20px;
 
             box-shadow:
@@ -174,12 +182,21 @@
                 );
         }
 
-        .participant-title {
+        .participant-title,
+        .section-title {
             font-size: 20px;
             font-weight: 700;
+
             margin-bottom: 20px;
+        }
+
+        .participant-title {
             color: var(--primary);
         }
+
+        /* =====================================================
+           PARTICIPANT
+           ===================================================== */
 
         .participant-grid {
             display: grid;
@@ -199,9 +216,11 @@
         .info-label {
             font-size: 12px;
             color: #777;
+
             margin-bottom: 5px;
 
             text-transform: uppercase;
+
             letter-spacing: 0.4px;
         }
 
@@ -212,48 +231,28 @@
         }
 
         /* =====================================================
-           PAYMENT CARD
-        ===================================================== */
-
-        .payment-card {
-            background: white;
-            border-radius: 12px;
-            padding: 25px;
-            margin-bottom: 20px;
-
-            box-shadow:
-                0 2px 12px rgba(
-                    0,
-                    0,
-                    0,
-                    0.08
-                );
-        }
-
-        .section-title {
-            font-size: 20px;
-            font-weight: 700;
-            margin-bottom: 20px;
-        }
-
-        /* =====================================================
-           ITEM LIST
-        ===================================================== */
+           ITEMS
+           ===================================================== */
 
         .item-list {
             display: flex;
             flex-direction: column;
+
             gap: 14px;
         }
 
         .item {
-            border: 2px solid #e3e7eb;
+            border:
+                2px solid #e3e7eb;
+
             border-radius: 10px;
 
             padding: 18px;
 
             display: flex;
+
             align-items: center;
+
             justify-content: space-between;
 
             gap: 20px;
@@ -270,13 +269,19 @@
         }
 
         .item.selectable:hover {
-            border-color: var(--primary-border);
-            background: var(--primary-light);
+            border-color:
+                var(--primary-border);
+
+            background:
+                var(--primary-light);
         }
 
         .item.selected {
-            border-color: var(--primary);
-            background: var(--primary-light);
+            border-color:
+                var(--primary);
+
+            background:
+                var(--primary-light);
 
             box-shadow:
                 0 0 0 2px rgba(
@@ -292,29 +297,25 @@
             border-color: #dcefe4;
         }
 
-        /*
-         * Disabled item because another
-         * required item is unpaid.
-         */
-
         .item.locked {
             background: #f5f5f5;
+
             border-color: #dedede;
+
             opacity: 0.65;
+
             cursor: not-allowed;
         }
 
         .item-left {
             display: flex;
+
             align-items: center;
+
             gap: 14px;
 
             min-width: 0;
         }
-
-        /* =====================================================
-           CHECKBOX
-        ===================================================== */
 
         .checkbox-wrapper {
             width: 24px;
@@ -329,16 +330,13 @@
 
             cursor: pointer;
 
-            accent-color: var(--primary);
+            accent-color:
+                var(--primary);
         }
 
         .checkbox-wrapper input:disabled {
             cursor: not-allowed;
         }
-
-        /* =====================================================
-           ITEM ICON
-        ===================================================== */
 
         .item-icon {
             width: 45px;
@@ -349,13 +347,17 @@
             border-radius: 10px;
 
             background: #f5e4e1;
+
             color: var(--primary);
 
             display: flex;
+
             align-items: center;
+
             justify-content: center;
 
             font-weight: 700;
+
             font-size: 15px;
         }
 
@@ -376,24 +378,29 @@
 
         .item-price {
             margin-top: 4px;
+
             font-size: 14px;
+
             color: #666;
         }
 
         .item-right {
             display: flex;
+
             align-items: center;
+
             gap: 15px;
         }
 
         /* =====================================================
            STATUS
-        ===================================================== */
+           ===================================================== */
 
         .status {
             display: inline-flex;
 
             align-items: center;
+
             justify-content: center;
 
             padding: 7px 13px;
@@ -401,6 +408,7 @@
             border-radius: 20px;
 
             font-size: 12px;
+
             font-weight: 700;
 
             white-space: nowrap;
@@ -423,12 +431,13 @@
 
         /* =====================================================
            T-SHIRT SIZE
-        ===================================================== */
+           ===================================================== */
 
         .size-section {
             display: none;
 
             margin-top: 18px;
+
             padding: 18px;
 
             background: #f7f9fc;
@@ -447,6 +456,7 @@
             display: block;
 
             font-size: 13px;
+
             font-weight: 700;
 
             margin-bottom: 8px;
@@ -472,7 +482,8 @@
         }
 
         .size-select:focus {
-            border-color: var(--primary);
+            border-color:
+                var(--primary);
 
             box-shadow:
                 0 0 0 3px rgba(
@@ -485,17 +496,21 @@
 
         /* =====================================================
            TOTAL
-        ===================================================== */
+           ===================================================== */
 
         .total-row {
-            border-top: 1px solid #e5e7eb;
+            border-top:
+                1px solid #e5e7eb;
 
             margin-top: 20px;
+
             padding-top: 20px;
 
             display: flex;
 
-            justify-content: space-between;
+            justify-content:
+                space-between;
+
             align-items: center;
         }
 
@@ -507,12 +522,13 @@
         .total-amount {
             font-size: 25px;
             font-weight: 800;
+
             color: var(--primary);
         }
 
         /* =====================================================
-           SELECTION MESSAGE
-        ===================================================== */
+           MESSAGE
+           ===================================================== */
 
         .selection-message {
             margin-top: 15px;
@@ -534,8 +550,8 @@
         }
 
         /* =====================================================
-           SUCCESS MESSAGE
-        ===================================================== */
+           SUCCESS
+           ===================================================== */
 
         .success-message {
             display: none;
@@ -563,17 +579,19 @@
 
         /* =====================================================
            CHECKOUT
-        ===================================================== */
+           ===================================================== */
 
         .checkout-section {
             margin-top: 25px;
+
             text-align: center;
         }
 
         .pay-button {
             border: none;
 
-            background: var(--primary);
+            background:
+                var(--primary);
 
             color: white;
 
@@ -582,6 +600,7 @@
             border-radius: 8px;
 
             font-size: 16px;
+
             font-weight: 700;
 
             cursor: pointer;
@@ -590,19 +609,24 @@
         }
 
         .pay-button:hover {
-            background: var(--primary-dark);
-            transform: translateY(-1px);
+            background:
+                var(--primary-dark);
+
+            transform:
+                translateY(-1px);
         }
 
         .pay-button:disabled {
             opacity: 0.6;
+
             cursor: not-allowed;
+
             transform: none;
         }
 
         /* =====================================================
-           PAYMENT WAITING MESSAGE
-        ===================================================== */
+           WAITING
+           ===================================================== */
 
         .payment-waiting {
             display: none;
@@ -625,7 +649,7 @@
             text-align: center;
         }
 
-        .payment-waiting .spinner-small {
+        .spinner-small {
             width: 18px;
             height: 18px;
 
@@ -648,8 +672,8 @@
         }
 
         /* =====================================================
-           PAYMENT HISTORY
-        ===================================================== */
+           HISTORY
+           ===================================================== */
 
         .history-table-wrapper {
             overflow-x: auto;
@@ -657,7 +681,10 @@
 
         table {
             width: 100%;
-            border-collapse: collapse;
+
+            border-collapse:
+                collapse;
+
             min-width: 700px;
         }
 
@@ -669,6 +696,7 @@
             padding: 13px;
 
             font-size: 13px;
+
             color: #555;
 
             border-bottom:
@@ -684,19 +712,17 @@
             font-size: 14px;
         }
 
-        /* =====================================================
-           EMPTY
-        ===================================================== */
-
         .empty {
             text-align: center;
+
             padding: 30px;
+
             color: #777;
         }
 
         /* =====================================================
-           BACK BUTTON
-        ===================================================== */
+           BACK
+           ===================================================== */
 
         .back-button {
             background: transparent;
@@ -732,7 +758,7 @@
 
         /* =====================================================
            MOBILE
-        ===================================================== */
+           ===================================================== */
 
         @media (
             max-width: 700px
@@ -760,7 +786,8 @@
             }
 
             .item {
-                align-items: flex-start;
+                align-items:
+                    flex-start;
             }
 
             .item-right {
@@ -786,1012 +813,1481 @@
 <body>
 
 
-    <!-- =====================================================
-         HEADER
-    ====================================================== -->
+<header class="header">
 
-    <header class="header">
+    <div>
 
-        <div>
-
-            <div class="header-title">
-                Registration Payment
-            </div>
-
-            <div class="header-subtitle">
-                Event Registration Merchandise
-            </div>
-
+        <div class="header-title">
+            Registration Payment
         </div>
 
-        <button
-            class="back-button"
-            onclick="goHome()"
-        >
-            Back
-        </button>
+        <div class="header-subtitle">
+            Event Registration Merchandise
+        </div>
 
-    </header>
+    </div>
+
+    <button
+        class="back-button"
+        onclick="goHome()"
+    >
+        Back
+    </button>
+
+</header>
 
 
-    <!-- =====================================================
-         MAIN
-    ====================================================== -->
+<main class="container">
 
-    <main class="container">
+
+    <div
+        id="loading"
+        class="loading"
+    >
+
+        <div class="spinner"></div>
+
+        <p>
+            Loading payment information...
+        </p>
+
+    </div>
+
+
+    <div
+        id="errorBox"
+        class="error-box"
+    ></div>
+
+
+    <div
+        id="content"
+        style="display:none;"
+    >
 
 
         <!-- =================================================
-             LOADING
-        ================================================== -->
+             PARTICIPANT
+             ================================================= -->
+
+        <section class="participant-card">
+
+            <div class="participant-title">
+                Participant Information
+            </div>
+
+            <div class="participant-grid">
+
+                <div>
+
+                    <div class="info-label">
+                        Name
+                    </div>
+
+                    <div
+                        class="info-value"
+                        id="participantName"
+                    >
+                        —
+                    </div>
+
+                </div>
+
+
+                <div>
+
+                    <div class="info-label">
+                        Registration Number
+                    </div>
+
+                    <div
+                        class="info-value"
+                        id="registrationNumber"
+                    >
+                        —
+                    </div>
+
+                </div>
+
+
+                <div>
+
+                    <div class="info-label">
+                        Participant Type
+                    </div>
+
+                    <div
+                        class="info-value"
+                        id="participantType"
+                    >
+                        —
+                    </div>
+
+                </div>
+
+
+                <div>
+
+                    <div class="info-label">
+                        Participant ID
+                    </div>
+
+                    <div
+                        class="info-value"
+                        id="participantId"
+                    >
+                        —
+                    </div>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- =================================================
+             SUCCESS
+             ================================================= -->
 
         <div
-            id="loading"
-            class="loading"
+            id="successMessage"
+            class="success-message"
         >
 
-            <div class="spinner"></div>
+            <h3>
+                Registration Payment Complete
+            </h3>
 
             <p>
-                Loading payment information...
+                Your mandatory Lanyard payment has been confirmed.
+                The T-shirt is optional and may be purchased separately.
             </p>
 
         </div>
 
 
         <!-- =================================================
-             ERROR
-        ================================================== -->
+             ITEMS
+             ================================================= -->
 
-        <div
-            id="errorBox"
-            class="error-box"
-        ></div>
+        <section class="payment-card">
 
+            <div class="section-title">
+                Select Registration Items
+            </div>
 
-        <!-- =================================================
-             CONTENT
-        ================================================== -->
-
-        <div
-            id="content"
-            style="display:none;"
-        >
-
-
-            <!-- =============================================
-                 PARTICIPANT INFORMATION
-            ============================================== -->
-
-            <section class="participant-card">
-
-                <div class="participant-title">
-                    Participant Information
-                </div>
-
-                <div class="participant-grid">
-
-
-                    <div>
-
-                        <div class="info-label">
-                            Name
-                        </div>
-
-                        <div
-                            class="info-value"
-                            id="participantName"
-                        >
-                            —
-                        </div>
-
-                    </div>
-
-
-                    <div>
-
-                        <div class="info-label">
-                            Registration Number
-                        </div>
-
-                        <div
-                            class="info-value"
-                            id="registrationNumber"
-                        >
-                            —
-                        </div>
-
-                    </div>
-
-
-                    <div>
-
-                        <div class="info-label">
-                            Participant Type
-                        </div>
-
-                        <div
-                            class="info-value"
-                            id="participantType"
-                        >
-                            —
-                        </div>
-
-                    </div>
-
-
-                    <div>
-
-                        <div class="info-label">
-                            Participant ID
-                        </div>
-
-                        <div
-                            class="info-value"
-                            id="participantId"
-                        >
-                            —
-                        </div>
-
-                    </div>
-
-                </div>
-
-            </section>
-
-
-            <!-- =============================================
-                 SUCCESS MESSAGE
-            ============================================== -->
 
             <div
-                id="successMessage"
-                class="success-message"
+                id="itemList"
+                class="item-list"
+            ></div>
+
+
+            <!-- T-SHIRT SIZE -->
+
+            <div
+                id="sizeSection"
+                class="size-section"
             >
 
-                <h3>
-                    Payment Complete
-                </h3>
+                <label
+                    class="size-label"
+                    for="tshirtSize"
+                >
+                    T-Shirt Size
+                </label>
 
-                <p>
-                    Your mandatory Lanyard payment has been confirmed. The T-shirt is optional.
-                </p>
+                <select
+                    id="tshirtSize"
+                    class="size-select"
+                >
+
+                    <option value="">
+                        Select T-Shirt Size
+                    </option>
+
+                    <option value="M">
+                        M
+                    </option>
+
+                    <option value="L">
+                        L
+                    </option>
+
+                    <option value="XL">
+                        XL
+                    </option>
+
+                </select>
 
             </div>
 
 
-            <!-- =============================================
-                 PAYMENT ITEMS
-            ============================================== -->
+            <!-- MESSAGE -->
 
-            <section class="payment-card">
+            <div
+                id="selectionMessage"
+                class="selection-message"
+            ></div>
 
-                <div class="section-title">
-                    Select Registration Items
+
+            <!-- TOTAL -->
+
+            <div class="total-row">
+
+                <div class="total-label">
+                    Amount Due
                 </div>
 
+                <div
+                    class="total-amount"
+                    id="totalAmount"
+                >
+                    ₱0.00
+                </div>
+
+            </div>
+
+
+            <!-- CHECKOUT -->
+
+            <div
+                id="checkoutSection"
+                class="checkout-section"
+                style="display:none;"
+            >
+
+                <button
+                    id="payButton"
+                    class="pay-button"
+                    type="button"
+                    onclick="proceedToPayment()"
+                >
+                    Proceed to Payment
+                </button>
+
 
                 <div
-                    id="itemList"
-                    class="item-list"
-                ></div>
-
-
-                <!-- =========================================
-                     T-SHIRT SIZE
-                ========================================== -->
-
-                <div
-                    id="sizeSection"
-                    class="size-section"
+                    id="paymentWaiting"
+                    class="payment-waiting"
                 >
 
-                    <label
-                        class="size-label"
-                        for="tshirtSize"
-                    >
-                        T-Shirt Size
-                    </label>
+                    <span
+                        class="spinner-small"
+                    ></span>
 
-                    <select
-                        id="tshirtSize"
-                        class="size-select"
-                    >
-
-                        <option value="">
-                            Select T-Shirt Size
-                        </option>
-
-                        <option value="M">
-                            M
-                        </option>
-
-                        <option value="L">
-                            L
-                        </option>
-
-                        <option value="XL">
-                            XL
-                        </option>
-
-                    </select>
+                    Waiting for payment confirmation...
 
                 </div>
 
+            </div>
 
-                <!-- =========================================
-                     SELECTION MESSAGE
-                ========================================== -->
-
-                <div
-                    id="selectionMessage"
-                    class="selection-message"
-                ></div>
+        </section>
 
 
-                <!-- =========================================
-                     TOTAL
-                ========================================== -->
+        <!-- =================================================
+             HISTORY
+             ================================================= -->
 
-                <div class="total-row">
+        <section class="payment-card">
 
-                    <div class="total-label">
-                        Amount Due
-                    </div>
+            <div class="section-title">
+                Payment History
+            </div>
 
-                    <div
-                        class="total-amount"
-                        id="totalAmount"
-                    >
-                        ₱0.00
-                    </div>
+            <div
+                id="historyContainer"
+                class="history-table-wrapper"
+            >
 
+                <div class="empty">
+                    No payment history found.
                 </div>
 
+            </div>
 
-                <!-- =========================================
-                     CHECKOUT
-                ========================================== -->
-
-                <div
-                    id="checkoutSection"
-                    class="checkout-section"
-                    style="display:none;"
-                >
-
-                    <button
-                        id="payButton"
-                        class="pay-button"
-                        onclick="proceedToPayment()"
-                    >
-                        Proceed to Payment
-                    </button>
-
-                    <div
-                        id="paymentWaiting"
-                        class="payment-waiting"
-                    >
-
-                        <span
-                            class="spinner-small"
-                        ></span>
-
-                        Waiting for payment confirmation...
-                        This page will refresh automatically after payment.
-
-                    </div>
-
-                </div>
-
-            </section>
+        </section>
 
 
-            <!-- =============================================
-                 PAYMENT HISTORY
-            ============================================== -->
+    </div>
 
-            <section class="payment-card">
-
-                <div class="section-title">
-                    Payment History
-                </div>
+</main>
 
 
-                <div
-                    id="historyContainer"
-                    class="history-table-wrapper"
-                >
-
-                    <div class="empty">
-                        No payment history found.
-                    </div>
-
-                </div>
-
-            </section>
+<script>
 
 
-        </div>
+/* =========================================================
+   API
+   ========================================================= */
 
-    </main>
-
-
-    <script>
-
-        /* =====================================================
-           API
-        ===================================================== */
-
-        const API_BASE = "";
+const API_BASE = "";
 
 
-        /* =====================================================
-           GET PARTICIPANT ID
-        ===================================================== */
+/* =========================================================
+   PARTICIPANT ID
+   ========================================================= */
 
-        const params =
-            new URLSearchParams(
-                window.location.search
-            );
-
-        const participantId =
-            params.get(
-                "participant_id"
-            );
+const params =
+    new URLSearchParams(
+        window.location.search
+    );
 
 
-        /* =====================================================
-           DATA
-        ===================================================== */
-
-        let paymentData = null;
-
-        let paymentPollingTimer = null;
-
-        let paymentWindow = null;
-
-        let paymentCreated = false;
+const participantId =
+    params.get(
+        "participant_id"
+    );
 
 
-        /* =====================================================
-           FORMAT CURRENCY
-        ===================================================== */
+/* =========================================================
+   STATE
+   ========================================================= */
 
-        function formatCurrency(
-            value
-        ) {
+let paymentData = null;
 
-            const amount =
-                Number(
-                    value || 0
-                );
+let paymentPollingTimer = null;
 
-            return "₱" +
-                (
-                    amount / 100
-                ).toLocaleString(
-                    "en-PH",
-                    {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2
-                    }
-                );
+let paymentWindow = null;
+
+let paymentCreated = false;
+
+
+/*
+ * Prevent multiple create-payment
+ * requests at the same time.
+ */
+let creatingPayment = false;
+
+
+/*
+ * Stores the current checkout payment.
+ *
+ * This is intentionally kept separate from
+ * the mandatory Lanyard payment state.
+ */
+let currentPaymentRequest = null;
+
+
+/* =========================================================
+   CURRENCY
+   ========================================================= */
+
+function formatCurrency(value) {
+
+    const amount =
+        Number(
+            value || 0
+        );
+
+    return "₱" +
+        (
+            amount / 100
+        ).toLocaleString(
+            "en-PH",
+            {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }
+        );
+
+}
+
+
+/* =========================================================
+   ESCAPE HTML
+   ========================================================= */
+
+function escapeHtml(value) {
+
+    if (
+        value === null ||
+        value === undefined
+    ) {
+        return "";
+    }
+
+    return String(value)
+        .replace(
+            /&/g,
+            "&amp;"
+        )
+        .replace(
+            /</g,
+            "&lt;"
+        )
+        .replace(
+            />/g,
+            "&gt;"
+        )
+        .replace(
+            /"/g,
+            "&quot;"
+        )
+        .replace(
+            /'/g,
+            "&#039;"
+        );
+
+}
+
+
+/* =========================================================
+   DATE
+   ========================================================= */
+
+function formatDate(value) {
+
+    if (!value) {
+        return "—";
+    }
+
+    const date =
+        new Date(value);
+
+    if (
+        Number.isNaN(
+            date.getTime()
+        )
+    ) {
+        return value;
+    }
+
+    return date.toLocaleString(
+        "en-PH",
+        {
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+            hour: "numeric",
+            minute: "2-digit"
+        }
+    );
+
+}
+
+
+/* =========================================================
+   STATUS
+   ========================================================= */
+
+function getStatusClass(status) {
+
+    const value =
+        String(
+            status || ""
+        ).toLowerCase();
+
+    if (
+        value === "paid" ||
+        value === "success" ||
+        value === "succeeded" ||
+        value === "completed"
+    ) {
+        return "status-paid";
+    }
+
+    if (
+        value === "pending"
+    ) {
+        return "status-pending";
+    }
+
+    return "status-unpaid";
+
+}
+
+
+function getStatusText(status) {
+
+    if (!status) {
+        return "Unpaid";
+    }
+
+    return String(status)
+        .charAt(0)
+        .toUpperCase()
+        +
+        String(status)
+            .slice(1)
+            .toLowerCase();
+
+}
+
+
+/* =========================================================
+   IS PAID
+   ========================================================= */
+
+function isPaid(item) {
+
+    const status =
+        String(
+            item?.status || ""
+        ).toLowerCase();
+
+    return (
+        status === "paid" ||
+        status === "success" ||
+        status === "succeeded" ||
+        status === "completed"
+    );
+
+}
+
+
+/* =========================================================
+   GO HOME
+   ========================================================= */
+
+function goHome() {
+
+    stopPaymentPolling();
+
+    window.location.href =
+        "/home.html";
+
+}
+
+
+/* =========================================================
+   SHOW ERROR
+   ========================================================= */
+
+function showError(message) {
+
+    document
+        .getElementById("loading")
+        .style.display =
+        "none";
+
+
+    const errorBox =
+        document.getElementById(
+            "errorBox"
+        );
+
+
+    errorBox.textContent =
+        message;
+
+
+    errorBox.style.display =
+        "block";
+
+
+    document
+        .getElementById("content")
+        .style.display =
+        "none";
+
+}
+
+
+/* =========================================================
+   LOAD PAYMENT STATUS
+   ========================================================= */
+
+async function loadPaymentStatus(
+    showLoading = true
+) {
+
+    if (!participantId) {
+
+        showError(
+            "Participant ID is missing from the URL."
+        );
+
+        return;
+
+    }
+
+
+    try {
+
+        if (showLoading) {
+
+            document
+                .getElementById("loading")
+                .style.display =
+                "block";
+
         }
 
 
-        /* =====================================================
-           ESCAPE HTML
-        ===================================================== */
-
-        function escapeHtml(
-            value
-        ) {
-
-            if (
-                value === null ||
-                value === undefined
-            ) {
-
-                return "";
-
-            }
-
-            return String(value)
-                .replace(
-                    /&/g,
-                    "&amp;"
-                )
-                .replace(
-                    /</g,
-                    "&lt;"
-                )
-                .replace(
-                    />/g,
-                    "&gt;"
-                )
-                .replace(
-                    /"/g,
-                    "&quot;"
-                )
-                .replace(
-                    /'/g,
-                    "&#039;"
-                );
-        }
-
-
-        /* =====================================================
-           FORMAT DATE
-        ===================================================== */
-
-        function formatDate(
-            value
-        ) {
-
-            if (!value) {
-                return "—";
-            }
-
-            const date =
-                new Date(value);
-
-            if (
-                Number.isNaN(
-                    date.getTime()
-                )
-            ) {
-
-                return value;
-
-            }
-
-            return date.toLocaleString(
-                "en-PH",
+        const response =
+            await fetch(
+                `${API_BASE}/payment_status/${encodeURIComponent(participantId)}`,
                 {
-                    year: "numeric",
-                    month: "short",
-                    day: "numeric",
-                    hour: "numeric",
-                    minute: "2-digit"
+                    cache: "no-store"
                 }
             );
-        }
 
 
-        /* =====================================================
-           STATUS CLASS
-        ===================================================== */
-
-        function getStatusClass(
-            status
-        ) {
-
-            const value =
-                String(
-                    status || ""
-                ).toLowerCase();
-
-            if (
-                value === "paid" ||
-                value === "success" ||
-                value === "succeeded" ||
-                value === "completed"
-            ) {
-
-                return "status-paid";
-
-            }
-
-            if (
-                value === "pending"
-            ) {
-
-                return "status-pending";
-
-            }
-
-            return "status-unpaid";
-        }
+        let data = null;
 
 
-        /* =====================================================
-           STATUS TEXT
-        ===================================================== */
+        try {
 
-        function getStatusText(
-            status
-        ) {
+            data =
+                await response.json();
 
-            if (!status) {
-                return "Unpaid";
-            }
+        } catch {
 
-            return String(status)
-                .charAt(0)
-                .toUpperCase()
-                +
-                String(status)
-                    .slice(1)
-                    .toLowerCase();
-        }
-
-
-        /* =====================================================
-           GO HOME
-        ===================================================== */
-
-        function goHome() {
-
-            window.location.href =
-                "/home.html";
+            data = null;
 
         }
 
 
-        /* =====================================================
-           LOAD PAYMENT STATUS
-        ===================================================== */
-
-        async function loadPaymentStatus(
-            showLoading = true
-        ) {
-
-            if (!participantId) {
-
-                showError(
-                    "Participant ID is missing from the URL."
-                );
-
-                return;
-
-            }
-
-            try {
-
-                if (showLoading) {
-
-                    document
-                        .getElementById(
-                            "loading"
-                        )
-                        .style.display =
-                        "block";
-
-                }
-
-
-                const response =
-                    await fetch(
-                        `${API_BASE}/payment_status/${encodeURIComponent(participantId)}`,
-                        {
-                            cache: "no-store"
-                        }
-                    );
-
-
-                let data = null;
-
-
-                try {
-
-                    data =
-                        await response.json();
-
-                } catch {
-
-                    data = null;
-
-                }
-
-
-                if (!response.ok) {
-
-                    throw new Error(
-                        data?.detail ||
-                        "Unable to load payment information."
-                    );
-
-                }
-
-
-                paymentData =
-                    data;
-
-
-                renderPage();
-
-
-            } catch (error) {
-
-                console.error(
-                    "Payment status error:",
-                    error
-                );
-
-
-                if (showLoading) {
-
-                    showError(
-                        error.message ||
-                        "Unable to load payment information."
-                    );
-
-                }
-
-            }
-
-        }
-
-
-        /* =====================================================
-           SHOW ERROR
-        ===================================================== */
-
-        function showError(
-            message
-        ) {
-
-            document
-                .getElementById(
-                    "loading"
-                )
-                .style.display =
-                "none";
-
-
-            const errorBox =
-                document.getElementById(
-                    "errorBox"
-                );
-
-
-            errorBox.textContent =
-                message;
-
-
-            errorBox.style.display =
-                "block";
-
-
-            document
-                .getElementById(
-                    "content"
-                )
-                .style.display =
-                "none";
-
-        }
-
-
-        /* =====================================================
-           RENDER PAGE
-        ===================================================== */
-
-        function renderPage() {
-
-            document
-                .getElementById(
-                    "loading"
-                )
-                .style.display =
-                "none";
-
-
-            document
-                .getElementById(
-                    "errorBox"
-                )
-                .style.display =
-                "none";
-
-
-            document
-                .getElementById(
-                    "content"
-                )
-                .style.display =
-                "block";
-
-
-            renderParticipant();
-
-            renderItems();
-
-            renderPaymentHistory();
-
-        }
-
-
-        /* =====================================================
-           RENDER PARTICIPANT
-        ===================================================== */
-
-        function renderParticipant() {
-
-            document
-                .getElementById(
-                    "participantName"
-                )
-                .textContent =
-                paymentData.fullname ||
-                "—";
-
-
-            document
-                .getElementById(
-                    "registrationNumber"
-                )
-                .textContent =
-                paymentData.registration_number ||
-                "—";
-
-
-            document
-                .getElementById(
-                    "participantType"
-                )
-                .textContent =
-                paymentData.participant_type ||
-                "—";
-
-
-            document
-                .getElementById(
-                    "participantId"
-                )
-                .textContent =
-                paymentData.participant_id ||
-                "—";
-
-        }
-
-
-        /* =====================================================
-           CHECK IF PAID
-        ===================================================== */
-
-        function isPaid(
-            item
-        ) {
-
-            const status =
-                String(
-                    item?.status || ""
-                ).toLowerCase();
-
-            return (
-                status === "paid" ||
-                status === "success" ||
-                status === "succeeded" ||
-                status === "completed"
-            );
-        }
-
-
-        /* =====================================================
-           CHECK IF UNPAID
-        ===================================================== */
-
-        function isUnpaid(
-            item
-        ) {
-
-            return (
-                item &&
-                !isPaid(item)
+        if (!response.ok) {
+
+            throw new Error(
+                data?.detail ||
+                "Unable to load payment information."
             );
 
         }
 
 
-        /* =====================================================
-           RENDER ITEMS
-        ===================================================== */
+        paymentData =
+            data;
 
-        function renderItems() {
 
-            const itemList =
-                document.getElementById(
-                    "itemList"
-                );
+        renderPage();
 
-            itemList.innerHTML = "";
 
-            const hasTshirt =
-                Boolean(paymentData.tshirt);
+    } catch (error) {
 
-            const hasLanyard =
-                Boolean(paymentData.lanyard);
+        console.error(
+            "Payment status error:",
+            error
+        );
 
-            const tshirtPaid =
-                hasTshirt &&
-                isPaid(paymentData.tshirt);
 
-            const lanyardPaid =
-                hasLanyard &&
-                isPaid(paymentData.lanyard);
+        if (showLoading) {
 
-            const lanyardUnpaid =
-                hasLanyard &&
-                !lanyardPaid;
+            showError(
+                error.message ||
+                "Unable to load payment information."
+            );
 
-            /*
-             * IMPORTANT BUSINESS RULE:
-             *
-             * The Lanyard is mandatory.
-             * The T-shirt is optional.
-             *
-             * Therefore payment is complete as soon as
-             * the mandatory Lanyard is Paid, even when the
-             * optional T-shirt is still Unpaid.
-             */
-            const mandatoryItemsPaid =
-                !hasLanyard ||
-                lanyardPaid;
+        }
 
-            /*
-             * T-shirt remains locked while the mandatory
-             * Lanyard is unpaid.
-             */
-            const lockTshirt =
-                lanyardUnpaid;
+    }
 
-            if (hasTshirt) {
+}
 
-                itemList.innerHTML +=
-                    createItemHtml(
-                        paymentData.tshirt,
-                        "TS",
-                        "tshirt",
-                        lockTshirt
-                    );
-            }
 
-            if (hasLanyard) {
+/* =========================================================
+   RENDER PAGE
+   ========================================================= */
 
-                itemList.innerHTML +=
-                    createItemHtml(
-                        paymentData.lanyard,
-                        "LN",
-                        "lanyard",
-                        false
-                    );
-            }
+function renderPage() {
 
-            const successMessage =
-                document.getElementById(
-                    "successMessage"
-                );
+    document
+        .getElementById("loading")
+        .style.display =
+        "none";
 
-            const checkoutSection =
-                document.getElementById(
-                    "checkoutSection"
-                );
 
-            const selectionMessage =
-                document.getElementById(
-                    "selectionMessage"
-                );
+    document
+        .getElementById("errorBox")
+        .style.display =
+        "none";
 
-            const paymentWaiting =
-                document.getElementById(
-                    "paymentWaiting"
-                );
 
-            /*
-             * MANDATORY PAYMENT COMPLETE
-             *
-             * Do NOT require the optional T-shirt to be paid.
-             */
-            if (mandatoryItemsPaid) {
+    document
+        .getElementById("content")
+        .style.display =
+        "block";
 
-                successMessage.style.display =
-                    "block";
 
-                successMessage.innerHTML = `
-                    <h3>
-                        Registration Payment Complete
-                    </h3>
-                    <p>
-                        Your mandatory Lanyard payment has been confirmed.
-                        The T-shirt is optional and may be purchased separately.
-                    </p>
-                `;
+    renderParticipant();
 
-                /*
-                 * The mandatory payment is already complete,
-                 * so the page must never remain in a waiting state.
-                 */
-                paymentWaiting.style.display =
-                    "none";
+    renderItems();
 
-                paymentCreated = false;
+    renderPaymentHistory();
 
-                stopPaymentPolling();
+}
 
-                /*
-                 * If the optional T-shirt is unpaid, keep checkout
-                 * available so the participant can purchase it.
-                 */
-                if (hasTshirt && !tshirtPaid) {
 
-                    checkoutSection.style.display =
-                        "block";
+/* =========================================================
+   PARTICIPANT
+   ========================================================= */
 
-                    selectionMessage.style.display =
-                        "block";
+function renderParticipant() {
 
-                    selectionMessage.textContent =
-                        "Your Lanyard is paid. The T-shirt is optional and is now available for purchase.";
+    document
+        .getElementById("participantName")
+        .textContent =
+        paymentData.fullname ||
+        "—";
 
-                } else {
 
-                    checkoutSection.style.display =
-                        "none";
+    document
+        .getElementById("registrationNumber")
+        .textContent =
+        paymentData.registration_number ||
+        "—";
 
-                    selectionMessage.style.display =
-                        "none";
-                }
 
-                document
-                    .getElementById("sizeSection")
-                    .classList
-                    .remove("visible");
+    document
+        .getElementById("participantType")
+        .textContent =
+        paymentData.participant_type ||
+        "—";
 
-                updateTotal();
 
-                return;
-            }
+    document
+        .getElementById("participantId")
+        .textContent =
+        paymentData.participant_id ||
+        "—";
 
-            /*
-             * Mandatory Lanyard is still unpaid.
-             */
-            successMessage.style.display =
-                "none";
+}
+
+
+/* =========================================================
+   RENDER ITEMS
+   ========================================================= */
+
+function renderItems() {
+
+    const itemList =
+        document.getElementById(
+            "itemList"
+        );
+
+
+    itemList.innerHTML =
+        "";
+
+
+    const hasTshirt =
+        Boolean(
+            paymentData?.tshirt
+        );
+
+
+    const hasLanyard =
+        Boolean(
+            paymentData?.lanyard
+        );
+
+
+    const tshirtPaid =
+        hasTshirt &&
+        isPaid(
+            paymentData.tshirt
+        );
+
+
+    const lanyardPaid =
+        hasLanyard &&
+        isPaid(
+            paymentData.lanyard
+        );
+
+
+    /*
+     * Lanyard is mandatory.
+     *
+     * T-shirt is locked only while
+     * Lanyard remains unpaid.
+     */
+    const lockTshirt =
+        hasLanyard &&
+        !lanyardPaid;
+
+
+    if (hasTshirt) {
+
+        itemList.innerHTML +=
+            createItemHtml(
+                paymentData.tshirt,
+                "TS",
+                "tshirt",
+                lockTshirt
+            );
+
+    }
+
+
+    if (hasLanyard) {
+
+        itemList.innerHTML +=
+            createItemHtml(
+                paymentData.lanyard,
+                "LN",
+                "lanyard",
+                false
+            );
+
+    }
+
+
+    const successMessage =
+        document.getElementById(
+            "successMessage"
+        );
+
+
+    const checkoutSection =
+        document.getElementById(
+            "checkoutSection"
+        );
+
+
+    const selectionMessage =
+        document.getElementById(
+            "selectionMessage"
+        );
+
+
+    /*
+     * Mandatory Lanyard has been paid.
+     */
+    if (
+        !hasLanyard ||
+        lanyardPaid
+    ) {
+
+        successMessage.style.display =
+            "block";
+
+
+        successMessage.innerHTML = `
+            <h3>
+                Registration Payment Complete
+            </h3>
+
+            <p>
+                Your mandatory Lanyard payment has been confirmed.
+                The T-shirt is optional and may be purchased separately.
+            </p>
+        `;
+
+
+        /*
+         * IMPORTANT:
+         *
+         * Do not hide checkout merely because
+         * the mandatory payment is already complete.
+         */
+        if (
+            hasTshirt &&
+            !tshirtPaid
+        ) {
 
             checkoutSection.style.display =
                 "block";
 
-            paymentWaiting.style.display =
-                paymentCreated
-                    ? "block"
-                    : "none";
 
-            if (lanyardUnpaid) {
+            selectionMessage.style.display =
+                "block";
 
-                selectionMessage.style.display =
-                    "block";
+
+            /*
+             * Don't overwrite a useful selection
+             * message if the user already selected
+             * the T-shirt.
+             */
+            const tshirtCheckbox =
+                document.getElementById(
+                    "tshirtCheckbox"
+                );
+
+
+            if (
+                tshirtCheckbox &&
+                tshirtCheckbox.checked
+            ) {
 
                 selectionMessage.textContent =
-                    "The Lanyard must be paid first. The T-shirt cannot be selected until the Lanyard payment is completed.";
+                    "T-shirt selected. Please choose a size, then proceed to payment.";
 
             } else {
 
-                selectionMessage.style.display =
-                    "none";
+                selectionMessage.textContent =
+                    "Your Lanyard is paid. The T-shirt is optional and is now available for purchase.";
+
             }
 
-            updateSelectionUI();
+        } else {
+
+            checkoutSection.style.display =
+                "none";
+
+            selectionMessage.style.display =
+                "none";
+
         }
 
-        /* =====================================================
-           CREATE ITEM HTML
-        ===================================================== */
 
-        function createItemHtml(
-            item,
-            icon,
-            type,
-            locked = false
-        ) {
+        /*
+         * Do not display the size section
+         * until T-shirt is selected.
+         */
+        updateSelectionUI();
 
-            const paid =
-                isPaid(item);
+        return;
 
+    }
+
+
+    /*
+     * Lanyard still unpaid.
+     */
+
+    successMessage.style.display =
+        "none";
+
+
+    checkoutSection.style.display =
+        "block";
+
+
+    selectionMessage.style.display =
+        "block";
+
+
+    selectionMessage.textContent =
+        "The Lanyard must be paid first. The T-shirt cannot be selected until the Lanyard payment is completed.";
+
+
+    updateSelectionUI();
+
+}
+
+
+/* =========================================================
+   CREATE ITEM HTML
+   ========================================================= */
+
+function createItemHtml(
+    item,
+    icon,
+    type,
+    locked = false
+) {
+
+    const paid =
+        isPaid(item);
+
+
+    const status =
+        item?.status ||
+        "Unpaid";
+
+
+    const statusClass =
+        getStatusClass(
+            status
+        );
+
+
+    const statusText =
+        getStatusText(
+            status
+        );
+
+
+    const disabled =
+        paid ||
+        locked
+            ? "disabled"
+            : "";
+
+
+    let itemClass;
+
+
+    if (paid) {
+
+        itemClass =
+            "paid";
+
+    } else if (locked) {
+
+        itemClass =
+            "locked";
+
+    } else {
+
+        itemClass =
+            "selectable";
+
+    }
+
+
+    let lockedMessage =
+        "";
+
+
+    if (
+        locked &&
+        !paid
+    ) {
+
+        lockedMessage = `
+            <div
+                class="item-price"
+                style="
+                    color:#9d2b20;
+                    font-weight:600;
+                "
+            >
+                Pay Lanyard first
+            </div>
+        `;
+
+    }
+
+
+    return `
+
+        <div
+            class="item ${itemClass}"
+            id="${type}Item"
+            onclick="${
+                locked || paid
+                    ? ""
+                    : `toggleItem('${type}')`
+            }"
+        >
+
+            <div class="item-left">
+
+                <div
+                    class="checkbox-wrapper"
+                >
+
+                    <input
+                        type="checkbox"
+                        id="${type}Checkbox"
+                        ${disabled}
+                        onclick="
+                            event.stopPropagation();
+                            updateSelectionUI();
+                        "
+                    >
+
+                </div>
+
+
+                <div class="item-icon">
+
+                    ${escapeHtml(icon)}
+
+                </div>
+
+
+                <div>
+
+                    <div class="item-name">
+
+                        ${escapeHtml(
+                            item?.item_name ||
+                            "Registration Item"
+                        )}
+
+                    </div>
+
+
+                    <div class="item-price">
+
+                        ${formatCurrency(
+                            item?.price
+                        )}
+
+                    </div>
+
+
+                    ${lockedMessage}
+
+                </div>
+
+            </div>
+
+
+            <div class="item-right">
+
+                <span
+                    class="status ${statusClass}"
+                >
+
+                    ${escapeHtml(
+                        statusText
+                    )}
+
+                </span>
+
+            </div>
+
+        </div>
+
+    `;
+
+}
+
+
+/* =========================================================
+   TOGGLE ITEM
+   ========================================================= */
+
+function toggleItem(type) {
+
+    const checkbox =
+        document.getElementById(
+            `${type}Checkbox`
+        );
+
+
+    if (!checkbox) {
+        return;
+    }
+
+
+    if (checkbox.disabled) {
+        return;
+    }
+
+
+    /*
+     * T-shirt cannot be selected
+     * before Lanyard is paid.
+     */
+    if (
+        type === "tshirt" &&
+        paymentData?.lanyard &&
+        !isPaid(
+            paymentData.lanyard
+        )
+    ) {
+
+        alert(
+            "Please pay for the Lanyard first."
+        );
+
+        return;
+
+    }
+
+
+    checkbox.checked =
+        !checkbox.checked;
+
+
+    updateSelectionUI();
+
+}
+
+
+/* =========================================================
+   UPDATE SELECTION UI
+   ========================================================= */
+
+function updateSelectionUI() {
+
+    const tshirtCheckbox =
+        document.getElementById(
+            "tshirtCheckbox"
+        );
+
+
+    const lanyardCheckbox =
+        document.getElementById(
+            "lanyardCheckbox"
+        );
+
+
+    /*
+     * If Lanyard is unpaid,
+     * force T-shirt unchecked.
+     */
+    if (
+        paymentData?.lanyard &&
+        !isPaid(
+            paymentData.lanyard
+        ) &&
+        tshirtCheckbox
+    ) {
+
+        tshirtCheckbox.checked =
+            false;
+
+    }
+
+
+    const tshirtSelected =
+        Boolean(
+            tshirtCheckbox &&
+            tshirtCheckbox.checked
+        );
+
+
+    const lanyardSelected =
+        Boolean(
+            lanyardCheckbox &&
+            lanyardCheckbox.checked
+        );
+
+
+    const tshirtItem =
+        document.getElementById(
+            "tshirtItem"
+        );
+
+
+    const lanyardItem =
+        document.getElementById(
+            "lanyardItem"
+        );
+
+
+    if (tshirtItem) {
+
+        tshirtItem.classList.toggle(
+            "selected",
+            tshirtSelected
+        );
+
+    }
+
+
+    if (lanyardItem) {
+
+        lanyardItem.classList.toggle(
+            "selected",
+            lanyardSelected
+        );
+
+    }
+
+
+    /*
+     * T-shirt size.
+     */
+    const sizeSection =
+        document.getElementById(
+            "sizeSection"
+        );
+
+
+    if (tshirtSelected) {
+
+        sizeSection.classList.add(
+            "visible"
+        );
+
+    } else {
+
+        sizeSection.classList.remove(
+            "visible"
+        );
+
+        document
+            .getElementById(
+                "tshirtSize"
+            )
+            .value =
+            "";
+
+    }
+
+
+    updateTotal();
+
+
+    const message =
+        document.getElementById(
+            "selectionMessage"
+        );
+
+
+    /*
+     * Lanyard unpaid.
+     */
+    if (
+        paymentData?.lanyard &&
+        !isPaid(
+            paymentData.lanyard
+        )
+    ) {
+
+        message.style.display =
+            "block";
+
+        message.textContent =
+            "The Lanyard must be paid first. The T-shirt cannot be selected until the Lanyard payment is completed.";
+
+        return;
+
+    }
+
+
+    /*
+     * Nothing selected.
+     */
+    if (
+        !tshirtSelected &&
+        !lanyardSelected
+    ) {
+
+        message.style.display =
+            "block";
+
+        message.textContent =
+            "Select one or more unpaid items to continue.";
+
+        return;
+
+    }
+
+
+    /*
+     * T-shirt selected.
+     */
+    if (tshirtSelected) {
+
+        message.style.display =
+            "block";
+
+        message.textContent =
+            "T-shirt selected. Please choose a size, then proceed to payment.";
+
+        return;
+
+    }
+
+
+    /*
+     * Lanyard selected.
+     */
+    if (lanyardSelected) {
+
+        message.style.display =
+            "block";
+
+        message.textContent =
+            "Lanyard selected. Proceed to payment.";
+
+        return;
+
+    }
+
+}
+
+
+/* =========================================================
+   UPDATE TOTAL
+   ========================================================= */
+
+function updateTotal() {
+
+    let total = 0;
+
+
+    const tshirtCheckbox =
+        document.getElementById(
+            "tshirtCheckbox"
+        );
+
+
+    const lanyardCheckbox =
+        document.getElementById(
+            "lanyardCheckbox"
+        );
+
+
+    if (
+        tshirtCheckbox &&
+        tshirtCheckbox.checked &&
+        paymentData?.tshirt &&
+        !isPaid(
+            paymentData.tshirt
+        )
+    ) {
+
+        total += Number(
+            paymentData.tshirt.price ||
+            0
+        );
+
+    }
+
+
+    if (
+        lanyardCheckbox &&
+        lanyardCheckbox.checked &&
+        paymentData?.lanyard &&
+        !isPaid(
+            paymentData.lanyard
+        )
+    ) {
+
+        total += Number(
+            paymentData.lanyard.price ||
+            0
+        );
+
+    }
+
+
+    document
+        .getElementById(
+            "totalAmount"
+        )
+        .textContent =
+        formatCurrency(
+            total
+        );
+
+}
+
+
+/* =========================================================
+   PAYMENT HISTORY
+   ========================================================= */
+
+function renderPaymentHistory() {
+
+    const container =
+        document.getElementById(
+            "historyContainer"
+        );
+
+
+    const payments =
+        paymentData?.payments ||
+        [];
+
+
+    if (
+        payments.length === 0
+    ) {
+
+        container.innerHTML = `
+            <div class="empty">
+                No payment history found.
+            </div>
+        `;
+
+        return;
+
+    }
+
+
+    let rows = "";
+
+
+    payments.forEach(
+        payment => {
 
             const status =
-                item.status ||
-                "Unpaid";
+                payment.status ||
+                "Pending";
 
 
             const statusClass =
@@ -1806,125 +2302,65 @@
                 );
 
 
-            /*
-             * Paid OR locked.
-             */
-
-            const disabled =
-                (
-                    paid ||
-                    locked
-                )
-                    ? "disabled"
-                    : "";
-
-
-            let itemClass = "";
-
-
-            if (paid) {
-
-                itemClass =
-                    "paid";
-
-            } else if (locked) {
-
-                itemClass =
-                    "locked";
-
-            } else {
-
-                itemClass =
-                    "selectable";
-
-            }
-
-
-            let lockedMessage = "";
+            const items = [];
 
 
             if (
-                locked &&
-                !paid
+                payment.tshirt_selected
             ) {
 
-                lockedMessage = `
-                    <div
-                        class="item-price"
-                        style="color:#9d2b20;font-weight:600;"
-                    >
-                        Pay Lanyard first
-                    </div>
-                `;
+                items.push(
+                    "T-Shirt"
+                );
 
             }
 
 
-            return `
+            if (
+                payment.lanyard_selected
+            ) {
 
-                <div
-                    class="item ${itemClass}"
-                    id="${type}Item"
-                    onclick="${
-                        locked || paid
-                            ? ""
-                            : `toggleItem('${type}')`
-                    }"
-                >
+                items.push(
+                    "Lanyard"
+                );
 
-                    <div class="item-left">
-
-                        <div
-                            class="checkbox-wrapper"
-                        >
-
-                            <input
-                                type="checkbox"
-                                id="${type}Checkbox"
-                                ${disabled}
-                                onclick="event.stopPropagation(); updateSelectionUI();"
-                            >
-
-                        </div>
+            }
 
 
-                        <div class="item-icon">
+            if (
+                items.length === 0
+            ) {
 
-                            ${escapeHtml(
-                                icon
-                            )}
+                items.push(
+                    "Registration"
+                );
 
-                        </div>
-
-
-                        <div>
-
-                            <div class="item-name">
-
-                                ${escapeHtml(
-                                    item.item_name ||
-                                    "Registration Item"
-                                )}
-
-                            </div>
+            }
 
 
-                            <div class="item-price">
+            rows += `
 
-                                ${formatCurrency(
-                                    item.price
-                                )}
+                <tr>
 
-                            </div>
+                    <td>
+                        #${escapeHtml(
+                            payment.payment_id
+                        )}
+                    </td>
 
-                            ${lockedMessage}
+                    <td>
+                        ${escapeHtml(
+                            items.join(", ")
+                        )}
+                    </td>
 
-                        </div>
+                    <td>
+                        ${formatCurrency(
+                            payment.amount
+                        )}
+                    </td>
 
-                    </div>
-
-
-                    <div class="item-right">
+                    <td>
 
                         <span
                             class="status ${statusClass}"
@@ -1936,1197 +2372,1068 @@
 
                         </span>
 
-                    </div>
+                    </td>
 
-                </div>
+                    <td>
+                        ${escapeHtml(
+                            formatDate(
+                                payment.created_at
+                            )
+                        )}
+                    </td>
+
+                    <td>
+                        ${escapeHtml(
+                            payment.paymongo_reference ||
+                            "—"
+                        )}
+                    </td>
+
+                </tr>
 
             `;
 
         }
+    );
 
 
-        /* =====================================================
-           TOGGLE ITEM
-        ===================================================== */
+    container.innerHTML = `
 
-        function toggleItem(
-            type
-        ) {
+        <table>
 
-            const checkbox =
-                document.getElementById(
-                    `${type}Checkbox`
-                );
+            <thead>
 
+                <tr>
 
-            if (!checkbox) {
-                return;
-            }
+                    <th>
+                        Payment #
+                    </th>
 
+                    <th>
+                        Items
+                    </th>
 
-            if (checkbox.disabled) {
-                return;
-            }
+                    <th>
+                        Amount
+                    </th>
 
+                    <th>
+                        Status
+                    </th>
 
-            /*
-             * Extra protection:
-             *
-             * If Lanyard is unpaid,
-             * T-shirt cannot be selected.
-             */
+                    <th>
+                        Date
+                    </th>
 
-            if (
-                type === "tshirt" &&
-                paymentData?.lanyard &&
-                isUnpaid(
-                    paymentData.lanyard
-                )
-            ) {
+                    <th>
+                        Reference
+                    </th>
 
-                alert(
-                    "Please pay for the Lanyard first. The T-shirt cannot be selected until the Lanyard payment is completed."
-                );
+                </tr>
 
-                return;
+            </thead>
 
-            }
+            <tbody>
 
+                ${rows}
 
-            checkbox.checked =
-                !checkbox.checked;
+            </tbody>
+
+        </table>
+
+    `;
+
+}
 
 
-            updateSelectionUI();
+/* =========================================================
+   RESET PAYMENT BUTTON
+   ========================================================= */
+
+function resetPaymentButton() {
+
+    const button =
+        document.getElementById(
+            "payButton"
+        );
+
+
+    if (!button) {
+        return;
+    }
+
+
+    button.disabled =
+        false;
+
+
+    button.textContent =
+        "Proceed to Payment";
+
+
+    paymentCreated =
+        false;
+
+
+    currentPaymentRequest =
+        null;
+
+
+    document
+        .getElementById(
+            "paymentWaiting"
+        )
+        .style.display =
+        "none";
+
+
+    /*
+     * Do not leave an old window reference
+     * around.
+     */
+    paymentWindow =
+        null;
+
+}
+
+
+/* =========================================================
+   PROCEED TO PAYMENT
+   ========================================================= */
+
+async function proceedToPayment() {
+
+    /*
+     * Prevent duplicate clicks.
+     */
+    if (creatingPayment) {
+        return;
+    }
+
+
+    if (!paymentData) {
+        return;
+    }
+
+
+    const tshirtCheckbox =
+        document.getElementById(
+            "tshirtCheckbox"
+        );
+
+
+    const lanyardCheckbox =
+        document.getElementById(
+            "lanyardCheckbox"
+        );
+
+
+    const tshirtSelected =
+        Boolean(
+            tshirtCheckbox &&
+            tshirtCheckbox.checked
+        );
+
+
+    const lanyardSelected =
+        Boolean(
+            lanyardCheckbox &&
+            lanyardCheckbox.checked
+        );
+
+
+    /*
+     * =====================================================
+     * LANYARD RULE
+     * =====================================================
+     *
+     * If Lanyard is unpaid, T-shirt cannot
+     * be purchased at the same time.
+     */
+    if (
+        paymentData?.lanyard &&
+        !isPaid(
+            paymentData.lanyard
+        ) &&
+        tshirtSelected
+    ) {
+
+        alert(
+            "Please pay for the Lanyard first. The T-shirt can be purchased after the Lanyard payment is completed."
+        );
+
+        return;
+
+    }
+
+
+    /*
+     * At least one item.
+     */
+    if (
+        !tshirtSelected &&
+        !lanyardSelected
+    ) {
+
+        alert(
+            "Please select at least one unpaid item."
+        );
+
+        return;
+
+    }
+
+
+    /*
+     * =====================================================
+     * T-SHIRT SIZE
+     * =====================================================
+     */
+
+    let tshirtSize =
+        null;
+
+
+    if (tshirtSelected) {
+
+        const sizeElement =
+            document.getElementById(
+                "tshirtSize"
+            );
+
+
+        tshirtSize =
+            sizeElement.value
+                .trim()
+                .toUpperCase();
+
+
+        if (!tshirtSize) {
+
+            alert(
+                "Please select a T-shirt size."
+            );
+
+            sizeElement.focus();
+
+            return;
 
         }
 
+    }
 
-        /* =====================================================
-           UPDATE SELECTION UI
-        ===================================================== */
 
-        function updateSelectionUI() {
+    /*
+     * Paid item protection.
+     */
+    if (
+        tshirtSelected &&
+        paymentData?.tshirt &&
+        isPaid(
+            paymentData.tshirt
+        )
+    ) {
 
-            const tshirtCheckbox =
-                document.getElementById(
-                    "tshirtCheckbox"
-                );
+        alert(
+            "The T-shirt has already been paid."
+        );
 
+        return;
 
-            const lanyardCheckbox =
-                document.getElementById(
-                    "lanyardCheckbox"
-                );
+    }
 
 
-            /*
-             * Safety rule:
-             *
-             * Lanyard unpaid = T-shirt
-             * must always be unchecked.
-             */
+    if (
+        lanyardSelected &&
+        paymentData?.lanyard &&
+        isPaid(
+            paymentData.lanyard
+        )
+    ) {
 
-            if (
-                paymentData?.lanyard &&
-                isUnpaid(
-                    paymentData.lanyard
-                ) &&
-                tshirtCheckbox
-            ) {
+        alert(
+            "The Lanyard has already been paid."
+        );
 
-                tshirtCheckbox.checked =
-                    false;
+        return;
 
-            }
+    }
 
 
-            const tshirtSelected =
-                Boolean(
-                    tshirtCheckbox &&
-                    tshirtCheckbox.checked
-                );
+    const button =
+        document.getElementById(
+            "payButton"
+        );
 
 
-            const lanyardSelected =
-                Boolean(
-                    lanyardCheckbox &&
-                    lanyardCheckbox.checked
-                );
+    const waiting =
+        document.getElementById(
+            "paymentWaiting"
+        );
 
 
-            /*
-             * Highlight selected cards.
-             */
+    creatingPayment =
+        true;
 
-            const tshirtItem =
-                document.getElementById(
-                    "tshirtItem"
-                );
 
+    button.disabled =
+        true;
 
-            const lanyardItem =
-                document.getElementById(
-                    "lanyardItem"
-                );
 
+    button.textContent =
+        "Preparing payment...";
 
-            if (tshirtItem) {
 
-                tshirtItem.classList.toggle(
-                    "selected",
-                    tshirtSelected
-                );
+    try {
 
-            }
+        /*
+         * =================================================
+         * REQUEST BODY
+         * =================================================
+         */
 
+        const requestBody = {
 
-            if (lanyardItem) {
+            participant_id:
+                Number(
+                    paymentData.participant_id
+                ),
 
-                lanyardItem.classList.toggle(
-                    "selected",
-                    lanyardSelected
-                );
+            tshirt_selected:
+                tshirtSelected,
 
-            }
+            lanyard_selected:
+                lanyardSelected,
 
+            tshirt_size:
+                tshirtSelected
+                    ? tshirtSize
+                    : null
 
-            /*
-             * T-shirt size.
-             */
+        };
 
-            const sizeSection =
-                document.getElementById(
-                    "sizeSection"
-                );
 
+        console.log(
+            "CREATE PAYMENT REQUEST:",
+            requestBody
+        );
 
-            if (tshirtSelected) {
 
-                sizeSection.classList.add(
-                    "visible"
-                );
+        /*
+         * =================================================
+         * CREATE PAYMENT
+         * =================================================
+         */
 
-            } else {
+        const response =
+            await fetch(
+                `${API_BASE}/create_payment`,
+                {
 
-                sizeSection.classList.remove(
-                    "visible"
-                );
+                    method:
+                        "POST",
 
-                document
-                    .getElementById(
-                        "tshirtSize"
-                    )
-                    .value = "";
+                    headers: {
 
-            }
+                        "Content-Type":
+                            "application/json",
 
+                        "Accept":
+                            "application/json"
 
-            /*
-             * Update total.
-             */
+                    },
 
-            updateTotal();
-
-
-            /*
-             * Update message.
-             */
-
-            const message =
-                document.getElementById(
-                    "selectionMessage"
-                );
-
-
-            /*
-             * Lanyard unpaid takes priority.
-             */
-
-            if (
-                paymentData?.lanyard &&
-                isUnpaid(
-                    paymentData.lanyard
-                )
-            ) {
-
-                message.style.display =
-                    "block";
-
-                message.textContent =
-                    "The Lanyard must be paid first. The T-shirt cannot be selected until the Lanyard payment is completed.";
-
-                return;
-
-            }
-
-
-            if (
-                !tshirtSelected &&
-                !lanyardSelected
-            ) {
-
-                message.style.display =
-                    "block";
-
-                message.textContent =
-                    "Select one or more unpaid items to continue.";
-
-                return;
-
-            }
-
-
-            const selected = [];
-
-
-            if (tshirtSelected) {
-
-                selected.push(
-                    "T-Shirt"
-                );
-
-            }
-
-
-            if (lanyardSelected) {
-
-                selected.push(
-                    "Lanyard"
-                );
-
-            }
-
-
-            message.style.display =
-                "block";
-
-
-            message.textContent =
-                "Selected: " +
-                selected.join(
-                    ", "
-                );
-
-        }
-
-
-        /* =====================================================
-           UPDATE TOTAL
-        ===================================================== */
-
-        function updateTotal() {
-
-            let total = 0;
-
-
-            const tshirtCheckbox =
-                document.getElementById(
-                    "tshirtCheckbox"
-                );
-
-
-            const lanyardCheckbox =
-                document.getElementById(
-                    "lanyardCheckbox"
-                );
-
-
-            /*
-             * T-SHIRT
-             */
-
-            if (
-                tshirtCheckbox &&
-                tshirtCheckbox.checked &&
-                paymentData?.tshirt &&
-                !isPaid(
-                    paymentData.tshirt
-                )
-            ) {
-
-                total += Number(
-                    paymentData.tshirt.price || 0
-                );
-
-            }
-
-
-            /*
-             * LANYARD
-             */
-
-            if (
-                lanyardCheckbox &&
-                lanyardCheckbox.checked &&
-                paymentData?.lanyard &&
-                !isPaid(
-                    paymentData.lanyard
-                )
-            ) {
-
-                total += Number(
-                    paymentData.lanyard.price || 0
-                );
-
-            }
-
-
-            document
-                .getElementById(
-                    "totalAmount"
-                )
-                .textContent =
-                formatCurrency(
-                    total
-                );
-
-        }
-
-
-        /* =====================================================
-           PAYMENT HISTORY
-        ===================================================== */
-
-        function renderPaymentHistory() {
-
-            const container =
-                document.getElementById(
-                    "historyContainer"
-                );
-
-
-            const payments =
-                paymentData.payments ||
-                [];
-
-
-            if (
-                payments.length === 0
-            ) {
-
-                container.innerHTML = `
-
-                    <div class="empty">
-
-                        No payment history found.
-
-                    </div>
-
-                `;
-
-                return;
-
-            }
-
-
-            let rows = "";
-
-
-            payments.forEach(
-                payment => {
-
-                    const status =
-                        payment.status ||
-                        "Pending";
-
-
-                    const statusClass =
-                        getStatusClass(
-                            status
-                        );
-
-
-                    const statusText =
-                        getStatusText(
-                            status
-                        );
-
-
-                    const items = [];
-
-
-                    if (
-                        payment.tshirt_selected
-                    ) {
-
-                        items.push(
-                            "T-Shirt"
-                        );
-
-                    }
-
-
-                    if (
-                        payment.lanyard_selected
-                    ) {
-
-                        items.push(
-                            "Lanyard"
-                        );
-
-                    }
-
-
-                    if (
-                        items.length === 0
-                    ) {
-
-                        items.push(
-                            "Registration"
-                        );
-
-                    }
-
-
-                    rows += `
-
-                        <tr>
-
-                            <td>
-
-                                #${escapeHtml(
-                                    payment.payment_id
-                                )}
-
-                            </td>
-
-
-                            <td>
-
-                                ${escapeHtml(
-                                    items.join(
-                                        ", "
-                                    )
-                                )}
-
-                            </td>
-
-
-                            <td>
-
-                                ${formatCurrency(
-                                    payment.amount
-                                )}
-
-                            </td>
-
-
-                            <td>
-
-                                <span
-                                    class="status ${statusClass}"
-                                >
-
-                                    ${escapeHtml(
-                                        statusText
-                                    )}
-
-                                </span>
-
-                            </td>
-
-
-                            <td>
-
-                                ${escapeHtml(
-                                    formatDate(
-                                        payment.created_at
-                                    )
-                                )}
-
-                            </td>
-
-
-                            <td>
-
-                                ${escapeHtml(
-                                    payment.paymongo_reference ||
-                                    "—"
-                                )}
-
-                            </td>
-
-                        </tr>
-
-                    `;
+                    body:
+                        JSON.stringify(
+                            requestBody
+                        )
 
                 }
             );
 
 
-            container.innerHTML = `
+        let data =
+            null;
 
-                <table>
 
-                    <thead>
+        try {
 
-                        <tr>
+            data =
+                await response.json();
 
-                            <th>
-                                Payment #
-                            </th>
+        } catch {
 
-                            <th>
-                                Items
-                            </th>
-
-                            <th>
-                                Amount
-                            </th>
-
-                            <th>
-                                Status
-                            </th>
-
-                            <th>
-                                Date
-                            </th>
-
-                            <th>
-                                Reference
-                            </th>
-
-                        </tr>
-
-                    </thead>
-
-                    <tbody>
-
-                        ${rows}
-
-                    </tbody>
-
-                </table>
-
-            `;
+            data =
+                null;
 
         }
 
 
-        /* =====================================================
-           PROCEED TO PAYMENT
-        ===================================================== */
-
-        async function proceedToPayment() {
-
-            if (!paymentData) {
-                return;
-            }
+        console.log(
+            "CREATE PAYMENT RESPONSE:",
+            data
+        );
 
 
-            const tshirtCheckbox =
-                document.getElementById(
-                    "tshirtCheckbox"
-                );
+        if (!response.ok) {
 
+            let errorMessage =
+                "Unable to create payment.";
 
-            const lanyardCheckbox =
-                document.getElementById(
-                    "lanyardCheckbox"
-                );
-
-
-            const tshirtSelected =
-                Boolean(
-                    tshirtCheckbox &&
-                    tshirtCheckbox.checked
-                );
-
-
-            const lanyardSelected =
-                Boolean(
-                    lanyardCheckbox &&
-                    lanyardCheckbox.checked
-                );
-
-
-            /*
-             * IMPORTANT:
-             *
-             * Lanyard unpaid means T-shirt
-             * cannot be selected.
-             */
 
             if (
-                paymentData.lanyard &&
-                isUnpaid(
-                    paymentData.lanyard
-                ) &&
-                tshirtSelected
+                data?.detail
             ) {
 
-                alert(
-                    "Please pay for the Lanyard first. The T-shirt cannot be selected until the Lanyard payment is completed."
-                );
+                if (
+                    typeof data.detail ===
+                    "string"
+                ) {
 
-                return;
+                    errorMessage =
+                        data.detail;
 
-            }
+                } else {
 
-
-            /*
-             * Require at least one item.
-             */
-
-            if (
-                !tshirtSelected &&
-                !lanyardSelected
-            ) {
-
-                alert(
-                    "Please select at least one unpaid item."
-                );
-
-                return;
-
-            }
-
-
-            /*
-             * T-shirt size validation.
-             */
-
-            let tshirtSize = null;
-
-
-            if (tshirtSelected) {
-
-                tshirtSize =
-                    document
-                        .getElementById(
-                            "tshirtSize"
-                        )
-                        .value
-                        .trim()
-                        .toUpperCase();
-
-
-                if (!tshirtSize) {
-
-                    alert(
-                        "Please select a T-shirt size."
-                    );
-
-                    document
-                        .getElementById(
-                            "tshirtSize"
-                        )
-                        .focus();
-
-                    return;
+                    errorMessage =
+                        JSON.stringify(
+                            data.detail
+                        );
 
                 }
 
             }
 
 
-            /*
-             * Make sure paid items cannot
-             * accidentally be submitted.
-             */
+            throw new Error(
+                errorMessage
+            );
 
-            if (
-                tshirtSelected &&
-                isPaid(
-                    paymentData.tshirt
-                )
-            ) {
-
-                alert(
-                    "The T-shirt has already been paid."
-                );
-
-                return;
-
-            }
+        }
 
 
-            if (
-                lanyardSelected &&
-                isPaid(
-                    paymentData.lanyard
-                )
-            ) {
+        /*
+         * =================================================
+         * CHECKOUT URL
+         * =================================================
+         */
 
-                alert(
-                    "The Lanyard has already been paid."
-                );
-
-                return;
-
-            }
+        const checkoutUrl =
+            data?.checkout_url ||
+            data?.payment_url ||
+            data?.checkout_url?.url;
 
 
-            const button =
-                document.getElementById(
-                    "payButton"
-                );
+        if (!checkoutUrl) {
+
+            throw new Error(
+                "Payment was created but no checkout URL was returned."
+            );
+
+        }
 
 
-            const waiting =
-                document.getElementById(
-                    "paymentWaiting"
-                );
+        /*
+         * Save information about the payment
+         * that was just created.
+         */
+        currentPaymentRequest = {
+
+            paymentId:
+                data?.payment_id ||
+                data?.id ||
+                null,
+
+            checkoutUrl:
+                checkoutUrl,
+
+            tshirtSelected:
+                tshirtSelected,
+
+            lanyardSelected:
+                lanyardSelected,
+
+            tshirtSize:
+                tshirtSize
+
+        };
 
 
-            button.disabled =
-                true;
+        /*
+         * =================================================
+         * OPEN PAYMONGO
+         * =================================================
+         *
+         * IMPORTANT:
+         *
+         * We open the checkout only after the
+         * backend successfully created it.
+         */
+        paymentWindow =
+            window.open(
+                checkoutUrl,
+                "_blank"
+            );
 
 
-            button.textContent =
-                "Preparing payment...";
+        /*
+         * Popup blocked.
+         */
+        if (!paymentWindow) {
+
+            alert(
+                "Your browser blocked the payment window. Please allow pop-ups for this site and try again."
+            );
 
 
-            try {
+            resetPaymentButton();
 
-                const requestBody = {
+            return;
 
-                    participant_id:
-                        Number(
-                            paymentData.participant_id
-                        ),
-
-                    tshirt_selected:
-                        Boolean(
-                            tshirtSelected
-                        ),
-
-                    lanyard_selected:
-                        Boolean(
-                            lanyardSelected
-                        ),
-
-                    tshirt_size:
-                        tshirtSelected
-                            ? tshirtSize
-                            : null
-
-                };
+        }
 
 
-                console.log(
-                    "CREATE PAYMENT REQUEST:",
-                    requestBody
-                );
+        /*
+         * Mark payment as active.
+         */
+        paymentCreated =
+            true;
 
 
-                const response =
-                    await fetch(
-                        `${API_BASE}/create_payment`,
-                        {
+        waiting.style.display =
+            "block";
 
-                            method:
-                                "POST",
 
-                            headers: {
+        waiting.innerHTML = `
 
-                                "Content-Type":
-                                    "application/json",
+            <span
+                class="spinner-small"
+            ></span>
 
-                                "Accept":
-                                    "application/json"
+            Waiting for payment confirmation...
+            You may complete payment in the PayMongo tab.
 
-                            },
+        `;
 
-                            body:
-                                JSON.stringify(
-                                    requestBody
-                                )
 
-                        }
+        button.textContent =
+            "Payment Window Opened";
+
+
+        /*
+         * Release the create lock.
+         */
+        creatingPayment =
+            false;
+
+
+        /*
+         * Start polling.
+         */
+        startPaymentPolling();
+
+
+        /*
+         * Focus PayMongo window when possible.
+         */
+        try {
+
+            paymentWindow.focus();
+
+        } catch {
+
+            // Ignore browser restrictions.
+
+        }
+
+
+        /*
+         * Monitor whether the PayMongo tab
+         * was closed.
+         */
+        monitorPaymentWindow();
+
+
+    } catch (error) {
+
+        console.error(
+            "Payment creation error:",
+            error
+        );
+
+
+        alert(
+            error.message ||
+            "Unable to proceed to payment."
+        );
+
+
+        creatingPayment =
+            false;
+
+
+        resetPaymentButton();
+
+    }
+
+}
+
+
+/* =========================================================
+   MONITOR PAYMENT WINDOW
+   ========================================================= */
+
+function monitorPaymentWindow() {
+
+    /*
+     * Stop if there is no current window.
+     */
+    if (!paymentWindow) {
+        return;
+    }
+
+
+    const monitor =
+        setInterval(
+            async function () {
+
+                /*
+                 * Window was closed.
+                 */
+                if (
+                    paymentWindow.closed
+                ) {
+
+                    clearInterval(
+                        monitor
                     );
 
 
-                let data = null;
+                    paymentWindow =
+                        null;
 
 
-                try {
-
-                    data =
-                        await response.json();
-
-                } catch {
-
-                    data = null;
-
-                }
+                    /*
+                     * The user closed PayMongo.
+                     *
+                     * Do NOT assume payment succeeded.
+                     *
+                     * First check the backend.
+                     */
+                    await checkPaymentStatus();
 
 
-                console.log(
-                    "CREATE PAYMENT RESPONSE:",
-                    data
-                );
-
-
-                if (!response.ok) {
-
-                    let errorMessage =
-                        "Unable to create payment.";
-
-
+                    /*
+                     * If payment was not completed,
+                     * unlock the button so the user
+                     * can try again.
+                     */
                     if (
-                        data?.detail
+                        paymentCreated
                     ) {
 
-                        if (
-                            typeof data.detail ===
-                            "string"
-                        ) {
+                        resetPaymentButton();
 
-                            errorMessage =
-                                data.detail;
+                        /*
+                         * Keep selection intact.
+                         * The user can simply click
+                         * Proceed to Payment again.
+                         */
 
-                        } else {
-
-                            errorMessage =
-                                JSON.stringify(
-                                    data.detail
-                                );
-
-                        }
+                        updateSelectionUI();
 
                     }
 
-
-                    throw new Error(
-                        errorMessage
-                    );
-
                 }
 
+            },
+            1000
+        );
 
-                /*
-                 * Find checkout URL.
-                 */
-
-                const checkoutUrl =
-                    data?.checkout_url ||
-                    data?.payment_url ||
-                    data?.checkout_url?.url;
+}
 
 
-                if (!checkoutUrl) {
+/* =========================================================
+   START POLLING
+   ========================================================= */
 
-                    throw new Error(
-                        "Payment was created but no checkout URL was returned."
-                    );
+function startPaymentPolling() {
 
-                }
-
-
-                /*
-                 * =================================================
-                 * OPEN PAYMONGO IN A NEW TAB
-                 * =================================================
-                 */
-
-                paymentWindow =
-                    window.open(
-                        checkoutUrl,
-                        "_blank"
-                    );
+    stopPaymentPolling();
 
 
-                /*
-                 * Popup blocker protection.
-                 */
-
-                if (!paymentWindow) {
-
-                    alert(
-                        "Your browser blocked the payment window. Please allow pop-ups for this site and try again."
-                    );
+    /*
+     * Check immediately.
+     */
+    checkPaymentStatus();
 
 
-                    button.disabled =
-                        false;
+    /*
+     * Continue every 3 seconds.
+     */
+    paymentPollingTimer =
+        setInterval(
+            checkPaymentStatus,
+            3000
+        );
+
+}
 
 
-                    button.textContent =
-                        "Proceed to Payment";
+/* =========================================================
+   STOP POLLING
+   ========================================================= */
 
-                    return;
+function stopPaymentPolling() {
 
-                }
+    if (
+        paymentPollingTimer
+    ) {
 
+        clearInterval(
+            paymentPollingTimer
+        );
 
-                /*
-                 * Mark payment as created.
-                 */
+        paymentPollingTimer =
+            null;
 
-                paymentCreated =
-                    true;
+    }
 
-
-                /*
-                 * Show waiting message.
-                 */
-
-                waiting.style.display =
-                    "block";
+}
 
 
-                waiting.innerHTML = `
+/* =========================================================
+   CLOSE PAYMENT WINDOW
+   ========================================================= */
 
-                    <span
-                        class="spinner-small"
-                    ></span>
+function closePaymentWindow() {
 
-                    Waiting for payment confirmation...
-                    This page will refresh automatically after payment.
+    try {
 
-                `;
+        if (
+            paymentWindow &&
+            !paymentWindow.closed
+        ) {
 
-
-                button.textContent =
-                    "Waiting for Payment";
-
-
-                /*
-                 * Start polling backend.
-                 */
-
-                startPaymentPolling();
-
-
-            } catch (error) {
-
-                console.error(
-                    "Payment creation error:",
-                    error
-                );
-
-
-                alert(
-                    error.message ||
-                    "Unable to proceed to payment."
-                );
-
-
-                button.disabled =
-                    false;
-
-
-                button.textContent =
-                    "Proceed to Payment";
-
-            }
+            paymentWindow.close();
 
         }
 
+    } catch {
 
-        /* =====================================================
-           START PAYMENT POLLING
-        ===================================================== */
+        // Ignore.
 
-        function startPaymentPolling() {
+    }
+
+
+    paymentWindow =
+        null;
+
+}
+
+
+/* =========================================================
+   CHECK PAYMENT STATUS
+   ========================================================= */
+
+async function checkPaymentStatus() {
+
+    if (!participantId) {
+        return;
+    }
+
+
+    try {
+
+        const response =
+            await fetch(
+                `${API_BASE}/payment_status/${encodeURIComponent(participantId)}`,
+                {
+                    cache: "no-store"
+                }
+            );
+
+
+        if (!response.ok) {
+            return;
+        }
+
+
+        const data =
+            await response.json();
+
+
+        /*
+         * Always replace local state
+         * with backend state.
+         */
+        paymentData =
+            data;
+
+
+        /*
+         * =================================================
+         * CHECK MANDATORY LANYARD
+         * =================================================
+         */
+
+        const lanyardPaid =
+            Boolean(
+                data?.lanyard &&
+                isPaid(
+                    data.lanyard
+                )
+            );
+
+
+        /*
+         * =================================================
+         * CHECK T-SHIRT
+         * =================================================
+         */
+
+        const tshirtPaid =
+            Boolean(
+                data?.tshirt &&
+                isPaid(
+                    data.tshirt
+                )
+            );
+
+
+        /*
+         * If the current payment contained
+         * a T-shirt and the T-shirt is now paid,
+         * payment is complete.
+         */
+        const currentTshirtPaid =
+            Boolean(
+                currentPaymentRequest?.tshirtSelected &&
+                tshirtPaid
+            );
+
+
+        /*
+         * If the current payment contained
+         * the Lanyard and the Lanyard is now paid,
+         * payment is complete.
+         */
+        const currentLanyardPaid =
+            Boolean(
+                currentPaymentRequest?.lanyardSelected &&
+                lanyardPaid
+            );
+
+
+        /*
+         * =================================================
+         * PAYMENT SUCCESS
+         * =================================================
+         */
+
+        if (
+            currentTshirtPaid ||
+            currentLanyardPaid
+        ) {
+
+            console.log(
+                "PAYMENT CONFIRMED",
+                {
+                    lanyardPaid,
+                    tshirtPaid
+                }
+            );
+
 
             stopPaymentPolling();
 
 
-            /*
-             * Check immediately.
-             */
+            paymentCreated =
+                false;
 
+
+            creatingPayment =
+                false;
+
+
+            closePaymentWindow();
+
+
+            /*
+             * Clear current payment.
+             */
+            currentPaymentRequest =
+                null;
+
+
+            /*
+             * Reload/render current backend state.
+             */
+            renderPage();
+
+
+            return;
+
+        }
+
+
+        /*
+         * =================================================
+         * NO CURRENT PAYMENT
+         * =================================================
+         *
+         * This can happen when the user simply
+         * returns to the page after navigation.
+         */
+
+        if (!paymentCreated) {
+
+            renderPage();
+
+            return;
+
+        }
+
+
+        /*
+         * Payment still pending.
+         */
+        renderPage();
+
+
+    } catch (error) {
+
+        console.error(
+            "Payment polling error:",
+            error
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+   VISIBILITY CHANGE
+   ========================================================= */
+
+document.addEventListener(
+    "visibilitychange",
+    function () {
+
+        if (
+            document.visibilityState ===
+            "visible"
+        ) {
+
+            /*
+             * Whenever user returns to this
+             * page, ask backend for latest state.
+             */
             checkPaymentStatus();
 
-
-            /*
-             * Then check every 3 seconds.
-             */
-
-            paymentPollingTimer =
-                setInterval(
-                    checkPaymentStatus,
-                    3000
-                );
-
         }
 
-
-        /* =====================================================
-           STOP PAYMENT POLLING
-        ===================================================== */
-
-        function stopPaymentPolling() {
-
-            if (
-                paymentPollingTimer
-            ) {
-
-                clearInterval(
-                    paymentPollingTimer
-                );
-
-                paymentPollingTimer =
-                    null;
-
-            }
-
-        }
+    }
+);
 
 
-        /* =====================================================
-           CHECK PAYMENT STATUS
-        ===================================================== */
+/* =========================================================
+   WINDOW FOCUS
+   ========================================================= */
 
-        async function checkPaymentStatus() {
+window.addEventListener(
+    "focus",
+    function () {
 
-            if (!participantId) {
-                return;
-            }
+        /*
+         * Returning from PayMongo can trigger
+         * window focus instead of visibilitychange
+         * on some mobile browsers.
+         */
+        checkPaymentStatus();
 
-            try {
+    }
+);
 
-                const response =
-                    await fetch(
-                        `${API_BASE}/payment_status/${encodeURIComponent(participantId)}`,
-                        {
-                            cache: "no-store"
-                        }
-                    );
 
-                if (!response.ok) {
-                    return;
-                }
+/* =========================================================
+   T-SHIRT SIZE CHANGE
+   ========================================================= */
 
-                const data =
-                    await response.json();
+document.addEventListener(
+    "DOMContentLoaded",
+    function () {
 
-                /*
-                 * IMPORTANT:
-                 *
-                 * The Lanyard is the mandatory item.
-                 *
-                 * Do NOT require the Lanyard checkbox to still
-                 * be checked. The webhook updates the database,
-                 * and the backend status endpoint is the source
-                 * of truth.
-                 */
-                const lanyardPaid =
-                    Boolean(
-                        data?.lanyard &&
-                        isPaid(data.lanyard)
-                    );
+        const sizeSelect =
+            document.getElementById(
+                "tshirtSize"
+            );
 
-                /*
-                 * Once the mandatory Lanyard is Paid:
-                 *
-                 * - stop the waiting state
-                 * - stop polling
-                 * - close PayMongo if possible
-                 * - render the latest backend state
-                 *
-                 * The optional T-shirt must NOT keep the user
-                 * waiting.
-                 */
-                if (lanyardPaid) {
 
-                    console.log(
-                        "MANDATORY LANYARD PAYMENT CONFIRMED"
-                    );
+        if (sizeSelect) {
 
-                    stopPaymentPolling();
+            sizeSelect.addEventListener(
+                "change",
+                function () {
 
-                    paymentCreated = false;
+                    const tshirtCheckbox =
+                        document.getElementById(
+                            "tshirtCheckbox"
+                        );
 
-                    try {
 
-                        if (
-                            paymentWindow &&
-                            !paymentWindow.closed
-                        ) {
-                            paymentWindow.close();
-                        }
+                    if (
+                        tshirtCheckbox &&
+                        tshirtCheckbox.checked
+                    ) {
 
-                    } catch {
-                        // Ignore cross-origin restrictions.
+                        const message =
+                            document.getElementById(
+                                "selectionMessage"
+                            );
+
+
+                        message.style.display =
+                            "block";
+
+
+                        message.textContent =
+                            `T-shirt selected — Size ${sizeSelect.value}. Click Proceed to Payment.`;
+
                     }
 
-                    paymentData =
-                        data;
-
-                    renderPage();
-
-                    return;
                 }
+            );
 
-                /*
-                 * Mandatory payment is not complete yet.
-                 * Keep polling while paymentCreated is active.
-                 */
-                paymentData =
-                    data;
-
-                renderPage();
-
-            } catch (error) {
-
-                console.error(
-                    "Payment polling error:",
-                    error
-                );
-            }
         }
 
-        /* =====================================================
-           PAGE VISIBILITY
-        ===================================================== */
 
-        document.addEventListener(
-            "visibilitychange",
-            function () {
+        /*
+         * Initial load.
+         */
+        loadPaymentStatus();
 
-                /*
-                 * When the user returns to this
-                 * tab after paying, immediately
-                 * check the backend.
-                 */
-
-                if (
-                    document.visibilityState ===
-                    "visible" &&
-                    paymentCreated
-                ) {
-
-                    checkPaymentStatus();
-
-                }
-
-            }
-        );
+    }
+);
 
 
-        /* =====================================================
-           INITIALIZE
-        ===================================================== */
+/* =========================================================
+   CLEANUP
+   ========================================================= */
 
-        document.addEventListener(
-            "DOMContentLoaded",
-            function () {
+window.addEventListener(
+    "beforeunload",
+    function () {
 
-                loadPaymentStatus();
+        stopPaymentPolling();
 
-            }
-        );
+    }
+);
 
-
-        /* =====================================================
-           CLEANUP
-        ===================================================== */
-
-        window.addEventListener(
-            "beforeunload",
-            function () {
-
-                stopPaymentPolling();
-
-            }
-        );
-
-    </script>
+</script>
 
 </body>
 
 </html>
+
