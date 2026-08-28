@@ -5060,7 +5060,8 @@ CYF Registration Team
 # ==========================================================
 
 def send_cash_sponsorship_confirmation_email(
-    sponsorship_data
+    sponsorship_data,
+    amount
 ):
     """
     Synchronous Gmail sender.
