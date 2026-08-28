@@ -12189,7 +12189,629 @@ def create_payment(
 
 
 
+# ============================================================
+# CREATE CASH SPONSORSHIP
+# ============================================================
+#
+# IMPORTANT:
+#
+# This endpoint ONLY creates the sponsorship/payment.
+#
+# The donation is NOT added to CashDonationTotal yet because
+# the PayMongo payment is still Pending.
+#
+# cash_total_added:
+#
+#     0 = donation has NOT yet been added to CashDonationTotal
+#
+#     donation_amount = donation has already been added
+#
+# The payment-success/webhook endpoint is responsible for:
+#
+#     1. Marking payment as Paid
+#     2. Adding donation_amount to CashDonationTotal
+#     3. Setting cash_total_added = donation_amount
+#
+# This prevents the same PayMongo payment from being added
+# to CashDonationTotal multiple times.
+#
+# ============================================================
 
+@app.post("/sponsorship/create_cash")
+def create_cash_sponsorship(
+    data: CashSponsorshipCreate,
+    db: Session = Depends(get_db)
+):
+
+    # ========================================================
+    # CLEAN INPUT
+    # ========================================================
+
+    selected_tier = (
+        data.selected_tier.strip()
+    )
+
+    sponsor_name = (
+        data.sponsor_name.strip()
+    )
+
+    local_church = (
+        data.local_church.strip()
+    )
+
+    sector = (
+        data.sector.strip()
+    )
+
+    amount = Decimal(
+        str(data.donation_amount)
+    ).quantize(
+        Decimal("0.01")
+    )
+
+    # ========================================================
+    # VALIDATE AMOUNT
+    # ========================================================
+
+    if amount <= 0:
+
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Donation amount must be "
+                "greater than ₱0.00."
+            )
+        )
+
+    # ========================================================
+    # DETERMINE CORRECT TIER
+    # ========================================================
+
+    correct_tier = (
+        determine_sponsorship_tier(
+            amount
+        )
+    )
+
+    # ========================================================
+    # CHECK SELECTED TIER
+    # ========================================================
+
+    if (
+        selected_tier.lower()
+        !=
+        correct_tier.lower()
+    ):
+
+        if (
+            correct_tier
+            ==
+            "1st (Bronze) Tier"
+        ):
+
+            message = (
+                f"Your donation of "
+                f"₱{amount:,.2f} belongs to "
+                f"the 1st (Bronze) Tier, "
+                f"which is below ₱1,000. "
+                f"Please reselect the "
+                f"1st (Bronze) Tier package."
+            )
+
+        elif (
+            correct_tier
+            ==
+            "2nd (Silver) Tier"
+        ):
+
+            message = (
+                f"Your donation of "
+                f"₱{amount:,.2f} belongs to "
+                f"the 2nd (Silver) Tier, "
+                f"which is ₱1,000 to below "
+                f"₱2,000. Please reselect "
+                f"the 2nd (Silver) Tier package."
+            )
+
+        elif (
+            correct_tier
+            ==
+            "3rd (Gold) Tier"
+        ):
+
+            message = (
+                f"Your donation of "
+                f"₱{amount:,.2f} belongs to "
+                f"the 3rd (Gold) Tier, "
+                f"which is ₱2,000 to below "
+                f"₱3,000. Please reselect "
+                f"the 3rd (Gold) Tier package."
+            )
+
+        else:
+
+            message = (
+                f"Your donation of "
+                f"₱{amount:,.2f} belongs to "
+                f"the 4th (Diamond) Tier, "
+                f"which is ₱3,000 and above. "
+                f"Please reselect the "
+                f"4th (Diamond) Tier package."
+            )
+
+        raise HTTPException(
+            status_code=400,
+            detail=message
+        )
+
+    # ========================================================
+    # CREATE LOCAL SPONSORSHIP RECORD
+    # ========================================================
+    #
+    # IMPORTANT:
+    #
+    # cash_total_added = 0
+    #
+    # The donation is NOT yet available for Finding Sponsor
+    # participants.
+    #
+    # It becomes available only after PayMongo confirms
+    # successful payment.
+    #
+    # ========================================================
+
+    sponsorship = CashSponsorship(
+
+        sponsor_name=sponsor_name,
+
+        local_church=local_church,
+
+        contact=(
+            data.contact.strip()
+            if data.contact
+            else None
+        ),
+
+        sector=sector,
+
+        email=(
+            str(data.email)
+            if data.email
+            else None
+        ),
+
+        selected_tier=correct_tier,
+
+        donation_amount=int(
+            amount * 100
+        ),
+
+        payment_status="Pending",
+
+        # ----------------------------------------------------
+        # IMPORTANT
+        # ----------------------------------------------------
+        # Nothing has been added to CashDonationTotal yet.
+        #
+        # This value will be updated by the payment-success
+        # / webhook logic.
+        #
+        cash_total_added=0
+
+    )
+
+    db.add(
+        sponsorship
+    )
+
+    db.commit()
+
+    db.refresh(
+        sponsorship
+    )
+
+    # ========================================================
+    # PAYMONGO AMOUNT
+    # ========================================================
+
+    paymongo_amount = int(
+        amount * 100
+    )
+
+    # ========================================================
+    # DESCRIPTION
+    # ========================================================
+
+    description = (
+        f"Sponsorship - "
+        f"{correct_tier} - "
+        f"{sponsor_name}"
+    )
+
+    # ========================================================
+    # REMARKS
+    # ========================================================
+
+    remarks = (
+        f"Sponsorship ID: "
+        f"{sponsorship.id}"
+    )
+
+    # ========================================================
+    # PAYMONGO SECRET KEY
+    # ========================================================
+
+    secret_key = os.getenv(
+        "PAYMONGO_SECRET_KEY"
+    )
+
+    if not secret_key:
+
+        sponsorship.payment_status = (
+            "Failed"
+        )
+
+        db.commit()
+
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "PAYMONGO_SECRET_KEY "
+                "is not configured."
+            )
+        )
+
+    # ========================================================
+    # PAYMONGO PAYLOAD
+    # ========================================================
+
+    payload = {
+
+        "amount":
+            paymongo_amount,
+
+        "currency":
+            "PHP",
+
+        "description":
+            description,
+
+        "remarks":
+            remarks,
+
+        "metadata": {
+
+            "type":
+                "cash_sponsorship",
+
+            "sponsorship_id":
+                str(sponsorship.id),
+
+            "sponsor_name":
+                sponsor_name,
+
+            "tier":
+                correct_tier,
+
+            "email":
+                (
+                    str(data.email)
+                    if data.email
+                    else ""
+                )
+
+        }
+
+    }
+
+    # ========================================================
+    # CREATE PAYMONGO PAYMENT LINK
+    # ========================================================
+
+    try:
+
+        response = httpx.post(
+
+            "https://api.paymongo.com/v1/payment_links",
+
+            auth=(
+                secret_key,
+                ""
+            ),
+
+            headers={
+
+                "Content-Type":
+                    "application/json",
+
+                "Accept":
+                    "application/json",
+
+                "Idempotency-Key":
+                    (
+                        f"sponsorship-"
+                        f"{sponsorship.id}-"
+                        f"{uuid.uuid4()}"
+                    )
+
+            },
+
+            json=payload,
+
+            timeout=30
+
+        )
+
+    except Exception as e:
+
+        sponsorship.payment_status = (
+            "Failed"
+        )
+
+        db.commit()
+
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                "Unable to connect to PayMongo: "
+                f"{str(e)}"
+            )
+        )
+
+    # ========================================================
+    # PAYMONGO ERROR
+    # ========================================================
+
+    if response.status_code not in [
+        200,
+        201
+    ]:
+
+        try:
+
+            error_data = (
+                response.json()
+            )
+
+        except Exception:
+
+            error_data = {
+                "detail":
+                    response.text
+            }
+
+        sponsorship.payment_status = (
+            "Failed"
+        )
+
+        db.commit()
+
+        raise HTTPException(
+            status_code=502,
+            detail={
+
+                "message":
+                    "PayMongo rejected "
+                    "the payment link.",
+
+                "paymongo":
+                    error_data
+
+            }
+        )
+
+    # ========================================================
+    # PARSE PAYMONGO RESPONSE
+    # ========================================================
+
+    try:
+
+        result = (
+            response.json()
+        )
+
+        payment_data = (
+            result.get(
+                "data",
+                {}
+            )
+        )
+
+        payment_link_id = (
+            payment_data.get(
+                "id"
+            )
+        )
+
+        payment_attributes = (
+            payment_data.get(
+                "attributes",
+                {}
+            )
+        )
+
+        payment_url = (
+
+            payment_attributes.get(
+                "checkout_url"
+            )
+
+            or
+
+            payment_attributes.get(
+                "url"
+            )
+
+            or
+
+            payment_data.get(
+                "url"
+            )
+
+        )
+
+        reference_number = (
+
+            payment_attributes.get(
+                "reference_number"
+            )
+
+            or
+
+            payment_data.get(
+                "reference_number"
+            )
+
+        )
+
+    except Exception:
+
+        sponsorship.payment_status = (
+            "Failed"
+        )
+
+        db.commit()
+
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                "Invalid response received "
+                "from PayMongo."
+            )
+        )
+
+    # ========================================================
+    # VALIDATE PAYMENT LINK ID
+    # ========================================================
+
+    if not payment_link_id:
+
+        sponsorship.payment_status = (
+            "Failed"
+        )
+
+        db.commit()
+
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                "PayMongo did not return "
+                "a payment link ID."
+            )
+        )
+
+    # ========================================================
+    # VALIDATE PAYMENT URL
+    # ========================================================
+
+    if not payment_url:
+
+        sponsorship.payment_status = (
+            "Failed"
+        )
+
+        db.commit()
+
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                "PayMongo did not return "
+                "a payment URL."
+            )
+        )
+
+    # ========================================================
+    # SAVE PAYMONGO DETAILS
+    # ========================================================
+
+    sponsorship.paymongo_link_id = (
+        payment_link_id
+    )
+
+    sponsorship.paymongo_reference = (
+        reference_number
+    )
+
+    sponsorship.payment_url = (
+        payment_url
+    )
+
+    # --------------------------------------------------------
+    # REMAIN PENDING
+    # --------------------------------------------------------
+
+    sponsorship.payment_status = (
+        "Pending"
+    )
+
+    # --------------------------------------------------------
+    # STILL NOT ADDED TO CASH DONATION TOTAL
+    # --------------------------------------------------------
+
+    sponsorship.cash_total_added = 0
+
+    db.commit()
+
+    db.refresh(
+        sponsorship
+    )
+
+    # ========================================================
+    # RESPONSE
+    # ========================================================
+
+    return {
+
+        "success":
+            True,
+
+        "message":
+            "Sponsorship created successfully. "
+            "Payment is currently pending.",
+
+        "sponsorship_id":
+            sponsorship.id,
+
+        "sponsor_name":
+            sponsorship.sponsor_name,
+
+        "tier":
+            correct_tier,
+
+        "donation_amount":
+            float(amount),
+
+        "payment_status":
+            sponsorship.payment_status,
+
+        # ----------------------------------------------------
+        # IMPORTANT
+        # ----------------------------------------------------
+        # This confirms to the frontend that the money has
+        # NOT yet entered the available sponsorship balance.
+        #
+        "cash_total_added":
+            sponsorship.cash_total_added,
+
+        "cash_total_added_display":
+            "₱0.00",
+
+        "cash_donation_total_updated":
+            False,
+
+        "payment_id":
+            payment_link_id,
+
+        "paymongo_link_id":
+            payment_link_id,
+
+        "reference_number":
+            reference_number,
+
+        "payment_url":
+            payment_url
+
+    }
 
 
 
