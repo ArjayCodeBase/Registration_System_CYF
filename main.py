@@ -5388,6 +5388,288 @@ CYF Registration System
 
 
 
+# ============================================================
+# PARTICIPANT PAYMENT CONFIRMATION EMAIL
+# ============================================================
+
+async def send_participant_payment_confirmation_email(
+    participant,
+    payment
+):
+
+    try:
+
+        # ----------------------------------------------------
+        # GET EMAIL
+        # ----------------------------------------------------
+
+        recipient_email = getattr(
+            participant,
+            "email",
+            None
+        )
+
+        if not recipient_email:
+
+            print(
+                "Participant confirmation email failed: "
+                "Participant email is empty."
+            )
+
+            return False
+
+        recipient_email = str(
+            recipient_email
+        ).strip()
+
+        # ----------------------------------------------------
+        # PARTICIPANT NAME
+        # ----------------------------------------------------
+
+        fname = (
+            getattr(
+                participant,
+                "fname",
+                ""
+            )
+            or ""
+        )
+
+        lname = (
+            getattr(
+                participant,
+                "lname",
+                ""
+            )
+            or ""
+        )
+
+        participant_name = (
+            f"{fname} {lname}"
+        ).strip()
+
+        if not participant_name:
+
+            participant_name = "Participant"
+
+        # ----------------------------------------------------
+        # PAYMENT AMOUNT
+        # ----------------------------------------------------
+
+        try:
+
+            amount = (
+                Decimal(
+                    str(
+                        getattr(
+                            payment,
+                            "amount",
+                            0
+                        )
+                    )
+                )
+                / Decimal("100")
+            )
+
+        except Exception:
+
+            amount = Decimal("0.00")
+
+        # ----------------------------------------------------
+        # ITEMS
+        # ----------------------------------------------------
+
+        items = []
+
+        if getattr(
+            payment,
+            "tshirt_selected",
+            0
+        ):
+
+            tshirt_size = getattr(
+                payment,
+                "tshirt_size",
+                None
+            )
+
+            if tshirt_size:
+
+                items.append(
+                    f"T-Shirt ({tshirt_size})"
+                )
+
+            else:
+
+                items.append(
+                    "T-Shirt"
+                )
+
+        if getattr(
+            payment,
+            "lanyard_selected",
+            0
+        ):
+
+            items.append(
+                "Lanyard"
+            )
+
+        if items:
+
+            items_text = ", ".join(
+                items
+            )
+
+        else:
+
+            items_text = "Registration Payment"
+
+        # ----------------------------------------------------
+        # PAYMENT REFERENCE
+        # ----------------------------------------------------
+
+        reference = getattr(
+            payment,
+            "paymongo_reference",
+            None
+        )
+
+        # ----------------------------------------------------
+        # SUBJECT
+        # ----------------------------------------------------
+
+        subject = (
+            "CYF Payment Confirmation "
+            "- CYF Registration System"
+        )
+
+        # ----------------------------------------------------
+        # EMAIL BODY
+        # ----------------------------------------------------
+
+        body = f"""
+Dear {participant_name},
+
+Thank you for your payment to the CYF Registration System.
+
+We are pleased to confirm that your payment has been
+successfully received.
+
+PAYMENT DETAILS
+----------------------------------------
+
+Registration Number:
+{getattr(participant, "registration_number", "N/A")}
+
+Items:
+{items_text}
+
+Amount Paid:
+₱{amount:,.2f}
+
+Payment Status:
+Paid
+"""
+
+        if reference:
+
+            body += f"""
+PayMongo Reference:
+{reference}
+"""
+
+        body += """
+----------------------------------------
+
+Your selected items have been successfully recorded
+in the CYF Registration System.
+
+Thank you for your support.
+
+God bless you!
+
+CYF Registration Team
+CYF Registration System
+"""
+
+        # ----------------------------------------------------
+        # SEND THROUGH RESEND
+        # ----------------------------------------------------
+
+        response = resend.Emails.send({
+
+            "from": (
+                "CYF Registration System "
+                "<onboarding@resend.dev>"
+            ),
+
+            "to": [
+                recipient_email
+            ],
+
+            "subject": subject,
+
+            "text": body
+        })
+
+        print("=" * 70)
+        print(
+            "PARTICIPANT CONFIRMATION EMAIL SENT"
+        )
+        print(
+            "Recipient:",
+            recipient_email
+        )
+        print(
+            "Items:",
+            items_text
+        )
+        print(
+            "Amount:",
+            f"₱{amount:,.2f}"
+        )
+        print(
+            "Resend Response:",
+            response
+        )
+        print("=" * 70)
+
+        return True
+
+    except Exception as e:
+
+        print("=" * 70)
+        print(
+            "PARTICIPANT CONFIRMATION EMAIL FAILED"
+        )
+        print(
+            "Error:",
+            repr(e)
+        )
+        print("=" * 70)
+
+        return False
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 # ======================================================
@@ -9826,10 +10108,14 @@ def payment_status(
     # FIND PARTICIPANT
     # ==================================================
 
-    participant = db.query(Participant).filter(
-        Participant.id == participant_id,
-        Participant.is_archived == 0
-    ).first()
+    participant = (
+        db.query(Participant)
+        .filter(
+            Participant.id == participant_id,
+            Participant.is_archived == 0
+        )
+        .first()
+    )
 
     if not participant:
 
@@ -9843,7 +10129,7 @@ def payment_status(
     # ==================================================
 
     fullname = " ".join(
-        part
+        str(part).strip()
         for part in [
             participant.fname,
             participant.mname,
@@ -9929,40 +10215,64 @@ def payment_status(
     # SUCCESSFUL PAYMENT STATUSES
     # ==================================================
 
-    successful_statuses = [
+    successful_statuses = {
         "paid",
         "success",
         "succeeded",
         "completed"
-    ]
+    }
 
     # ==================================================
-    # CHECK SUCCESSFUL T-SHIRT PAYMENT
+    # CHECK T-SHIRT PAYMENT
     # ==================================================
 
     tshirt_paid = any(
 
-        bool(p.tshirt_selected)
+        bool(
+            getattr(
+                p,
+                "tshirt_selected",
+                False
+            )
+        )
 
         and str(
-            p.status or ""
-        ).lower() in successful_statuses
+            getattr(
+                p,
+                "status",
+                ""
+            )
+            or ""
+        ).strip().lower()
+        in successful_statuses
 
         for p in payments
 
     )
 
     # ==================================================
-    # CHECK SUCCESSFUL LANYARD PAYMENT
+    # CHECK LANYARD PAYMENT
     # ==================================================
 
     lanyard_paid = any(
 
-        bool(p.lanyard_selected)
+        bool(
+            getattr(
+                p,
+                "lanyard_selected",
+                False
+            )
+        )
 
         and str(
-            p.status or ""
-        ).lower() in successful_statuses
+            getattr(
+                p,
+                "status",
+                ""
+            )
+            or ""
+        ).strip().lower()
+        in successful_statuses
 
         for p in payments
 
@@ -9972,37 +10282,171 @@ def payment_status(
     # FALLBACK TO PARTICIPANT STATUS
     # ==================================================
 
-    if str(
-        participant.tshirt_status or ""
-    ).lower() == "paid":
+    participant_tshirt_status = str(
+        getattr(
+            participant,
+            "tshirt_status",
+            ""
+        )
+        or ""
+    ).strip().lower()
+
+    participant_lanyard_status = str(
+        getattr(
+            participant,
+            "lanyard_status",
+            ""
+        )
+        or ""
+    ).strip().lower()
+
+    if participant_tshirt_status == "paid":
 
         tshirt_paid = True
 
-    if str(
-        participant.lanyard_status or ""
-    ).lower() == "paid":
+    if participant_lanyard_status == "paid":
 
         lanyard_paid = True
 
     # ==================================================
-    # UPDATE PARTICIPANT STATUS
+    # DETERMINE LAST PAYMENT
     # ==================================================
 
-    participant.tshirt_status = (
-        "Paid"
-        if tshirt_paid
+    latest_payment = (
+        payments[0]
+        if payments
+        else None
+    )
+
+    # ==================================================
+    # LATEST PAYMENT STATUS
+    # ==================================================
+
+    latest_payment_status = (
+
+        str(
+            getattr(
+                latest_payment,
+                "status",
+                ""
+            )
+            or ""
+        ).strip()
+
+        if latest_payment
+
         else "Unpaid"
     )
 
-    participant.lanyard_status = (
-        "Paid"
-        if lanyard_paid
-        else "Unpaid"
+    latest_payment_status_lower = (
+        latest_payment_status.lower()
     )
 
-    participant.updated_at = datetime.datetime.now()
+    latest_payment_paid = (
+        latest_payment_status_lower
+        in successful_statuses
+    )
 
-    db.commit()
+    # ==================================================
+    # PAYMENT SUCCESS
+    # ==================================================
+    #
+    # This becomes TRUE when the latest payment
+    # has been successfully paid.
+    #
+    # The frontend can use:
+    #
+    # data.payment_success === true
+    #
+    # to display the success popup.
+    #
+    # ==================================================
+
+    payment_success = (
+        latest_payment_paid
+        and (
+            bool(
+                getattr(
+                    latest_payment,
+                    "tshirt_selected",
+                    False
+                )
+            )
+            or
+            bool(
+                getattr(
+                    latest_payment,
+                    "lanyard_selected",
+                    False
+                )
+            )
+        )
+    )
+
+    # ==================================================
+    # DETERMINE PAID ITEMS
+    # ==================================================
+
+    paid_items = []
+
+    if tshirt_paid:
+
+        tshirt_size = getattr(
+            participant,
+            "tshirt_size",
+            None
+        )
+
+        if not tshirt_size and latest_payment:
+
+            tshirt_size = getattr(
+                latest_payment,
+                "tshirt_size",
+                None
+            )
+
+        if tshirt_size:
+
+            paid_items.append(
+                f"T-Shirt ({tshirt_size})"
+            )
+
+        else:
+
+            paid_items.append(
+                "T-Shirt"
+            )
+
+    if lanyard_paid:
+
+        paid_items.append(
+            "Lanyard"
+        )
+
+    # ==================================================
+    # PAYMENT MESSAGE
+    # ==================================================
+
+    if payment_success:
+
+        payment_message = (
+            "Payment successful."
+        )
+
+    elif latest_payment_status_lower in {
+        "pending",
+        "processing"
+    }:
+
+        payment_message = (
+            "Payment is still being processed."
+        )
+
+    else:
+
+        payment_message = (
+            "No successful payment found."
+        )
 
     # ==================================================
     # RETURN PAYMENT STATUS
@@ -10023,12 +10467,57 @@ def payment_status(
         "fullname":
             fullname,
 
+        "email":
+            getattr(
+                participant,
+                "email",
+                None
+            ),
+
         "participant_type":
-            participant.participant_type,
+            getattr(
+                participant,
+                "participant_type",
+                None
+            ),
+
+        "registration_status":
+            getattr(
+                participant,
+                "registration_status",
+                None
+            ),
 
         # ==================================================
-        # T-SHIRT
+        # OVERALL PAYMENT STATUS
         # ==================================================
+
+        "payment_success":
+            payment_success,
+
+        "payment_status":
+            latest_payment_status,
+
+        "payment_message":
+            payment_message,
+
+        "paid_items":
+            paid_items,
+
+        "paid_items_count":
+            len(paid_items),
+
+        # ==================================================
+        # T-SHIRT SUMMARY
+        # ==================================================
+
+        "tshirt_paid":
+            tshirt_paid,
+
+        "tshirt_status":
+            "Paid"
+            if tshirt_paid
+            else "Unpaid",
 
         "tshirt": {
 
@@ -10051,13 +10540,28 @@ def payment_status(
             "status":
                 "Paid"
                 if tshirt_paid
-                else "Unpaid"
+                else "Unpaid",
+
+            "size":
+                getattr(
+                    participant,
+                    "tshirt_size",
+                    None
+                )
 
         },
 
         # ==================================================
-        # LANYARD
+        # LANYARD SUMMARY
         # ==================================================
+
+        "lanyard_paid":
+            lanyard_paid,
+
+        "lanyard_status":
+            "Paid"
+            if lanyard_paid
+            else "Unpaid",
 
         "lanyard": {
 
@@ -10085,7 +10589,94 @@ def payment_status(
         },
 
         # ==================================================
-        # PAYMENTS
+        # LATEST PAYMENT
+        # ==================================================
+
+        "latest_payment": (
+
+            {
+
+                "payment_id":
+                    latest_payment.id,
+
+                "amount":
+                    latest_payment.amount,
+
+                "amount_display":
+                    f"₱{latest_payment.amount / 100:,.2f}",
+
+                "status":
+                    latest_payment.status,
+
+                "tshirt_selected":
+                    bool(
+                        getattr(
+                            latest_payment,
+                            "tshirt_selected",
+                            False
+                        )
+                    ),
+
+                "lanyard_selected":
+                    bool(
+                        getattr(
+                            latest_payment,
+                            "lanyard_selected",
+                            False
+                        )
+                    ),
+
+                "tshirt_size":
+                    getattr(
+                        latest_payment,
+                        "tshirt_size",
+                        None
+                    ),
+
+                "checkout_url":
+                    getattr(
+                        latest_payment,
+                        "checkout_url",
+                        None
+                    ),
+
+                "paymongo_reference":
+                    getattr(
+                        latest_payment,
+                        "paymongo_reference",
+                        None
+                    ),
+
+                "paymongo_payment_id":
+                    getattr(
+                        latest_payment,
+                        "paymongo_payment_id",
+                        None
+                    ),
+
+                "paymongo_link_id":
+                    getattr(
+                        latest_payment,
+                        "paymongo_link_id",
+                        None
+                    ),
+
+                "created_at":
+                    latest_payment.created_at,
+
+                "paid_at":
+                    latest_payment.paid_at
+
+            }
+
+            if latest_payment
+
+            else None
+
+        ),
+
+        # ==================================================
+        # ALL PAYMENTS
         # ==================================================
 
         "payments": [
@@ -10106,22 +10697,56 @@ def payment_status(
 
                 "tshirt_selected":
                     bool(
-                        p.tshirt_selected
+                        getattr(
+                            p,
+                            "tshirt_selected",
+                            False
+                        )
                     ),
 
                 "lanyard_selected":
                     bool(
-                        p.lanyard_selected
+                        getattr(
+                            p,
+                            "lanyard_selected",
+                            False
+                        )
                     ),
 
                 "tshirt_size":
-                    p.tshirt_size,
+                    getattr(
+                        p,
+                        "tshirt_size",
+                        None
+                    ),
 
                 "checkout_url":
-                    p.checkout_url,
+                    getattr(
+                        p,
+                        "checkout_url",
+                        None
+                    ),
 
                 "paymongo_reference":
-                    p.paymongo_reference,
+                    getattr(
+                        p,
+                        "paymongo_reference",
+                        None
+                    ),
+
+                "paymongo_payment_id":
+                    getattr(
+                        p,
+                        "paymongo_payment_id",
+                        None
+                    ),
+
+                "paymongo_link_id":
+                    getattr(
+                        p,
+                        "paymongo_link_id",
+                        None
+                    ),
 
                 "created_at":
                     p.created_at,
@@ -10136,6 +10761,8 @@ def payment_status(
         ]
 
     }
+
+
     
 
 
@@ -13438,6 +14065,7 @@ async def process_finding_sponsor_queue_logic(
 # ======================================================
 
 
+
 @app.post("/webhooks/paymongo")
 async def paymongo_webhook(
     request: Request,
@@ -13515,7 +14143,7 @@ async def paymongo_webhook(
         )
 
     # ========================================================
-    # 3. VERIFY SIGNATURE
+    # 3. VERIFY PAYMONGO SIGNATURE
     # ========================================================
 
     try:
@@ -13607,6 +14235,12 @@ async def paymongo_webhook(
                     "message": "Webhook secret is not configured."
                 }
             )
+
+        # ----------------------------------------------------
+        # PayMongo signature:
+        #
+        # timestamp + "." + raw body
+        # ----------------------------------------------------
 
         signed_payload = (
             f"{timestamp}."
@@ -13774,11 +14408,19 @@ async def paymongo_webhook(
         )
 
         return {
+
             "received": True,
+
             "processed": False,
-            "event_id": event_id,
-            "event_type": event_type,
-            "message": "Event ignored."
+
+            "event_id":
+                event_id,
+
+            "event_type":
+                event_type,
+
+            "message":
+                "Event ignored."
         }
 
     # ========================================================
@@ -14007,7 +14649,7 @@ async def paymongo_webhook(
     cash_sponsorship = None
 
     # ========================================================
-    # 14. MATCH BY SPONSORSHIP ID
+    # 14. MATCH SPONSORSHIP BY ID
     # ========================================================
 
     if sponsorship_id:
@@ -14033,7 +14675,7 @@ async def paymongo_webhook(
             cash_sponsorship = None
 
     # ========================================================
-    # 15. MATCH BY PAYMONGO REFERENCE
+    # 15. MATCH SPONSORSHIP BY REFERENCE
     # ========================================================
 
     if (
@@ -14062,7 +14704,7 @@ async def paymongo_webhook(
         )
 
     # ========================================================
-    # 16. MATCH BY PAYMONGO PAYMENT ID
+    # 16. MATCH SPONSORSHIP BY PAYMENT ID
     # ========================================================
 
     if (
@@ -14091,7 +14733,7 @@ async def paymongo_webhook(
         )
 
     # ========================================================
-    # 17. MATCH BY PAYMONGO LINK ID
+    # 17. MATCH SPONSORSHIP BY LINK ID
     # ========================================================
 
     if (
@@ -14186,7 +14828,7 @@ async def paymongo_webhook(
             )
 
         # ====================================================
-        # CURRENT PAYMENT STATUS
+        # CURRENT STATUS
         # ====================================================
 
         current_status = str(
@@ -14204,52 +14846,7 @@ async def paymongo_webhook(
         )
 
         # ====================================================
-        # IDEMPOTENCY
-        # ====================================================
-
-        if current_status == "paid":
-
-            print(
-                "Sponsorship already marked as Paid."
-            )
-
-            try:
-
-                db.commit()
-
-            except Exception:
-
-                db.rollback()
-
-            print("=" * 70)
-            print(
-                "DUPLICATE WEBHOOK - ALREADY PROCESSED"
-            )
-            print("=" * 70)
-
-            return {
-
-                "received": True,
-
-                "processed": True,
-
-                "already_processed": True,
-
-                "payment_type":
-                    "sponsor_package",
-
-                "event_id":
-                    event_id,
-
-                "sponsorship_id":
-                    cash_sponsorship.id,
-
-                "payment_status":
-                    cash_sponsorship.payment_status
-            }
-
-        # ====================================================
-        # 19. DATABASE DONATION AMOUNT
+        # DATABASE DONATION AMOUNT
         # ====================================================
 
         try:
@@ -14269,12 +14866,6 @@ async def paymongo_webhook(
         ):
 
             donation_amount = 0
-
-        print(
-            "Sponsorship Amount:",
-            donation_amount,
-            "centavos"
-        )
 
         if donation_amount <= 0:
 
@@ -14301,7 +14892,7 @@ async def paymongo_webhook(
             }
 
         # ====================================================
-        # 20. VERIFY PAYMENT AMOUNT
+        # VERIFY AMOUNT
         # ====================================================
 
         if (
@@ -14341,7 +14932,46 @@ async def paymongo_webhook(
             }
 
         # ====================================================
-        # 21. CONVERT CENTAVOS TO PESOS
+        # IF ALREADY PAID
+        # ====================================================
+
+        if current_status == "paid":
+
+            print(
+                "Sponsorship already marked as Paid."
+            )
+
+            try:
+
+                db.commit()
+
+            except Exception:
+
+                db.rollback()
+
+            return {
+
+                "received": True,
+
+                "processed": True,
+
+                "already_processed": True,
+
+                "payment_type":
+                    "sponsor_package",
+
+                "event_id":
+                    event_id,
+
+                "sponsorship_id":
+                    cash_sponsorship.id,
+
+                "payment_status":
+                    cash_sponsorship.payment_status
+            }
+
+        # ====================================================
+        # CONVERT CENTAVOS TO PESOS
         # ====================================================
 
         donation_pesos = (
@@ -14349,7 +14979,7 @@ async def paymongo_webhook(
         )
 
         # ====================================================
-        # 22. GET CASH DONATION TOTAL
+        # GET DONATION TOTAL
         # ========================================================
 
         donation_total = (
@@ -14362,10 +14992,6 @@ async def paymongo_webhook(
             .first()
         )
 
-        # ====================================================
-        # 23. CREATE TOTAL RECORD IF NEEDED
-        # ========================================================
-
         if not donation_total:
 
             donation_total = CashDonationTotal(
@@ -14377,10 +15003,6 @@ async def paymongo_webhook(
             )
 
             db.flush()
-
-        # ====================================================
-        # 24. CURRENT TOTAL
-        # ========================================================
 
         try:
 
@@ -14401,20 +15023,6 @@ async def paymongo_webhook(
             donation_pesos
         )
 
-        print(
-            "Current Donation Total:",
-            current_total
-        )
-
-        print(
-            "New Donation Total:",
-            new_total
-        )
-
-        # ====================================================
-        # 25. UPDATE DONATION TOTAL
-        # ====================================================
-
         donation_total.total_amount = (
             new_total
         )
@@ -14429,7 +15037,7 @@ async def paymongo_webhook(
             )
 
         # ====================================================
-        # 26. MARK SPONSORSHIP AS PAID
+        # MARK SPONSORSHIP PAID
         # ====================================================
 
         cash_sponsorship.payment_status = (
@@ -14473,7 +15081,7 @@ async def paymongo_webhook(
             )
 
         # ====================================================
-        # 27. COMMIT PAYMENT DATABASE UPDATE
+        # COMMIT SPONSORSHIP
         # ====================================================
 
         try:
@@ -14492,21 +15100,17 @@ async def paymongo_webhook(
             return JSONResponse(
                 status_code=500,
                 content={
-
                     "received": True,
-
                     "processed": False,
-
                     "payment_type":
                         "sponsor_package",
-
                     "message":
                         "Database update failed."
                 }
             )
 
         # ====================================================
-        # 28. SAVE PLAIN VALUES BEFORE EMAIL
+        # SAVE VALUES BEFORE EMAIL
         # ====================================================
 
         saved_sponsorship_id = (
@@ -14521,48 +15125,11 @@ async def paymongo_webhook(
             donation_pesos
         )
 
-        print("=" * 70)
-        print(
-            "SPONSORSHIP DATABASE UPDATE COMPLETE"
-        )
-        print(
-            "Sponsorship ID:",
-            saved_sponsorship_id
-        )
-        print(
-            "Payment Status:",
-            "Paid"
-        )
-        print(
-            "Donation:",
-            f"₱{saved_donation:,.2f}"
-        )
-        print(
-            "New Total:",
-            f"₱{saved_total:,.2f}"
-        )
-        print("=" * 70)
-
         # ====================================================
-        # 29. GMAIL CONFIRMATION
-        # ====================================================
-        #
-        # Current function:
-        #
-        # async def send_cash_sponsorship_confirmation_email(
-        #     sponsorship,
-        #     payment
-        # )
-        #
-        # Therefore we call it DIRECTLY.
-        #
+        # SEND SPONSOR GMAIL
         # ====================================================
 
         gmail_success = False
-
-        print("=" * 70)
-        print("SPONSORSHIP GMAIL PROCESSING")
-        print("=" * 70)
 
         try:
 
@@ -14572,27 +15139,7 @@ async def paymongo_webhook(
                 None
             )
 
-            if not sponsor_email:
-
-                print(
-                    "Gmail skipped: sponsor has no email."
-                )
-
-            else:
-
-                # ------------------------------------------------
-                # The email function expects:
-                #
-                # sponsorship
-                # payment
-                #
-                # For cash sponsorship, the sponsorship object
-                # already contains the PayMongo information.
-                #
-                # We therefore pass the same sponsorship object
-                # as the first argument.
-                #
-                # ------------------------------------------------
+            if sponsor_email:
 
                 print(
                     "Sending sponsorship Gmail..."
@@ -14605,84 +15152,28 @@ async def paymongo_webhook(
                     )
                 )
 
-                if gmail_success:
+                print(
+                    "Sponsorship Gmail result:",
+                    gmail_success
+                )
 
-                    print(
-                        "GMAIL SENT SUCCESSFULLY"
-                    )
+            else:
 
-                else:
-
-                    print(
-                        "GMAIL FUNCTION RETURNED FALSE"
-                    )
+                print(
+                    "Sponsorship Gmail skipped: no email."
+                )
 
         except Exception as e:
 
-            print("=" * 70)
             print(
-                "GMAIL PROCESSING FAILED"
-            )
-            print(
-                "Error Type:",
-                type(e).__name__
-            )
-            print(
-                "Error:",
+                "Sponsorship Gmail failed:",
                 repr(e)
             )
-            print("=" * 70)
 
             gmail_success = False
 
         # ====================================================
-        # 30. WEBHOOK COMPLETE
-        # ====================================================
-        #
-        # IMPORTANT:
-        #
-        # THERE IS NO FINDING SPONSOR QUEUE PROCESSING HERE.
-        #
-        # The webhook ONLY:
-        #
-        # 1. Verifies PayMongo
-        # 2. Finds sponsorship
-        # 3. Marks sponsorship Paid
-        # 4. Updates donation total
-        # 5. Sends Gmail
-        #
-        # ====================================================
-
-        print("=" * 70)
-        print(
-            "SPONSORSHIP WEBHOOK PROCESSING COMPLETE"
-        )
-        print("=" * 70)
-
-        print(
-            "Sponsorship ID:",
-            saved_sponsorship_id
-        )
-
-        print(
-            "Payment Status:",
-            "Paid"
-        )
-
-        print(
-            "Gmail Success:",
-            gmail_success
-        )
-
-        print(
-            "Post-payment queue processing:",
-            "NOT PERFORMED BY WEBHOOK"
-        )
-
-        print("=" * 70)
-
-        # ====================================================
-        # 31. RETURN SUCCESS
+        # SPONSORSHIP COMPLETE
         # ====================================================
 
         return {
@@ -14737,7 +15228,7 @@ async def paymongo_webhook(
     payment = None
 
     # ========================================================
-    # 32. MATCH INTERNAL PAYMENT ID
+    # 19. MATCH BY INTERNAL PAYMENT ID
     # ========================================================
 
     internal_payment_id = metadata.get(
@@ -14767,7 +15258,7 @@ async def paymongo_webhook(
             payment = None
 
     # ========================================================
-    # 33. MATCH PAYMENT BY REFERENCE
+    # 20. MATCH BY PAYMONGO REFERENCE
     # ========================================================
 
     if (
@@ -14778,6 +15269,11 @@ async def paymongo_webhook(
             "paymongo_reference"
         )
     ):
+
+        print(
+            "Searching Payment by Reference:",
+            paymongo_reference
+        )
 
         payment = (
             db.query(
@@ -14791,7 +15287,7 @@ async def paymongo_webhook(
         )
 
     # ========================================================
-    # 34. MATCH PAYMENT BY PAYMONGO PAYMENT ID
+    # 21. MATCH BY PAYMONGO PAYMENT ID
     # ========================================================
 
     if (
@@ -14802,6 +15298,11 @@ async def paymongo_webhook(
             "paymongo_payment_id"
         )
     ):
+
+        print(
+            "Searching Payment by PayMongo Payment ID:",
+            paymongo_payment_id
+        )
 
         payment = (
             db.query(
@@ -14815,7 +15316,7 @@ async def paymongo_webhook(
         )
 
     # ========================================================
-    # 35. MATCH PAYMENT BY LINK ID
+    # 22. MATCH BY PAYMONGO LINK ID
     # ========================================================
 
     if (
@@ -14826,6 +15327,11 @@ async def paymongo_webhook(
             "paymongo_link_id"
         )
     ):
+
+        print(
+            "Searching Payment by PayMongo Link ID:",
+            paymongo_link_id
+        )
 
         payment = (
             db.query(
@@ -14839,14 +15345,14 @@ async def paymongo_webhook(
         )
 
     # ========================================================
-    # 36. PAYMENT NOT FOUND
+    # 23. PAYMENT NOT FOUND
     # ========================================================
 
     if not payment:
 
-        print(
-            "No matching local payment found."
-        )
+        print("=" * 70)
+        print("NO MATCHING LOCAL PAYMENT FOUND")
+        print("=" * 70)
 
         return {
 
@@ -14870,6 +15376,10 @@ async def paymongo_webhook(
                 "No matching local payment found."
         }
 
+    # ========================================================
+    # PAYMENT FOUND
+    # ========================================================
+
     print("=" * 70)
     print("LOCAL PAYMENT FOUND")
     print(
@@ -14887,7 +15397,7 @@ async def paymongo_webhook(
     print("=" * 70)
 
     # ========================================================
-    # 37. SAVE PAYMONGO IDS
+    # 24. SAVE PAYMONGO IDS
     # ========================================================
 
     if (
@@ -14927,7 +15437,7 @@ async def paymongo_webhook(
         )
 
     # ========================================================
-    # 38. PAYMENT TYPE
+    # 25. PAYMENT TYPE
     # ========================================================
 
     payment_type = str(
@@ -14939,11 +15449,26 @@ async def paymongo_webhook(
         or ""
     ).strip().lower()
 
+    print(
+        "Payment Type:",
+        payment_type
+    )
+
     # ========================================================
-    # 39. PARTICIPANT PAYMENT
+    # ========================================================
+    # PARTICIPANT PAYMENT
+    # ========================================================
     # ========================================================
 
     if payment_type == "participant":
+
+        print("=" * 70)
+        print("PROCESSING PARTICIPANT PAYMENT")
+        print("=" * 70)
+
+        # ====================================================
+        # 26. PARTICIPANT ID
+        # ====================================================
 
         participant_id = getattr(
             payment,
@@ -14970,6 +15495,10 @@ async def paymongo_webhook(
                 "message":
                     "Participant ID is missing."
             }
+
+        # ====================================================
+        # 27. FIND PARTICIPANT
+        # ====================================================
 
         participant = (
             db.query(
@@ -14998,9 +15527,67 @@ async def paymongo_webhook(
                 "payment_id":
                     payment.id,
 
+                "participant_id":
+                    participant_id,
+
                 "message":
                     "Participant not found."
             }
+
+        # ====================================================
+        # 28. PARTICIPANT NAME
+        # ====================================================
+
+        fullname = " ".join(
+
+            part
+
+            for part in [
+
+                getattr(
+                    participant,
+                    "fname",
+                    None
+                ),
+
+                getattr(
+                    participant,
+                    "mname",
+                    None
+                ),
+
+                getattr(
+                    participant,
+                    "lname",
+                    None
+                )
+
+            ]
+
+            if part
+            and str(part).strip()
+
+        ).strip()
+
+        participant_email = getattr(
+            participant,
+            "email",
+            None
+        )
+
+        print(
+            "Participant:",
+            fullname
+        )
+
+        print(
+            "Participant Email:",
+            participant_email
+        )
+
+        # ====================================================
+        # 29. CURRENT PAYMENT STATUS
+        # ====================================================
 
         current_status = str(
             getattr(
@@ -15011,57 +15598,67 @@ async def paymongo_webhook(
             or ""
         ).strip().lower()
 
-        if current_status == "paid":
+        print(
+            "Current Payment Status:",
+            current_status
+        )
 
-            try:
+        # ====================================================
+        # IMPORTANT:
+        #
+        # We DO NOT immediately return when already Paid.
+        #
+        # This allows the frontend to safely receive the
+        # successful status and allows the confirmation email
+        # logic to run when needed.
+        # ====================================================
 
-                db.commit()
+        already_paid = (
+            current_status == "paid"
+        )
 
-            except Exception:
+        # ====================================================
+        # 30. MARK PAYMENT PAID
+        # ====================================================
 
-                db.rollback()
+        if not already_paid:
 
-            return {
-
-                "received": True,
-
-                "processed": True,
-
-                "already_processed": True,
-
-                "payment_type":
-                    "participant",
-
-                "payment_id":
-                    payment.id,
-
-                "participant_id":
-                    participant.id,
-
-                "payment_status":
-                    payment.status
-            }
-
-        payment.status = "Paid"
-
-        if hasattr(
-            payment,
-            "paid_at"
-        ):
-
-            payment.paid_at = (
-                datetime.datetime.now()
+            payment.status = (
+                "Paid"
             )
 
+            if hasattr(
+                payment,
+                "paid_at"
+            ):
+
+                payment.paid_at = (
+                    datetime.datetime.now()
+                )
+
         # ====================================================
-        # T-SHIRT
+        # 31. T-SHIRT
         # ====================================================
 
-        if getattr(
+        tshirt_selected = bool(
+            getattr(
+                payment,
+                "tshirt_selected",
+                0
+            )
+        )
+
+        tshirt_size = getattr(
             payment,
-            "tshirt_selected",
-            0
-        ):
+            "tshirt_size",
+            None
+        )
+
+        if tshirt_selected:
+
+            print(
+                "T-Shirt selected."
+            )
 
             if hasattr(
                 participant,
@@ -15071,12 +15668,6 @@ async def paymongo_webhook(
                 participant.tshirt_status = (
                     "Paid"
                 )
-
-            tshirt_size = getattr(
-                payment,
-                "tshirt_size",
-                None
-            )
 
             if (
                 tshirt_size
@@ -15090,15 +15681,28 @@ async def paymongo_webhook(
                     tshirt_size
                 )
 
+                print(
+                    "T-Shirt Size:",
+                    tshirt_size
+                )
+
         # ====================================================
-        # LANYARD
+        # 32. LANYARD
         # ====================================================
 
-        if getattr(
-            payment,
-            "lanyard_selected",
-            0
-        ):
+        lanyard_selected = bool(
+            getattr(
+                payment,
+                "lanyard_selected",
+                0
+            )
+        )
+
+        if lanyard_selected:
+
+            print(
+                "Lanyard selected."
+            )
 
             if hasattr(
                 participant,
@@ -15109,6 +15713,20 @@ async def paymongo_webhook(
                     "Paid"
                 )
 
+        # ====================================================
+        # 33. REGISTRATION STATUS
+        # ====================================================
+        #
+        # If the payment contains either registration item,
+        # mark the participant Confirmed.
+        #
+        # ====================================================
+
+        if (
+            tshirt_selected
+            or lanyard_selected
+        ):
+
             if hasattr(
                 participant,
                 "registration_status"
@@ -15117,6 +15735,15 @@ async def paymongo_webhook(
                 participant.registration_status = (
                     "Confirmed"
                 )
+
+                print(
+                    "Registration Status:",
+                    "Confirmed"
+                )
+
+        # ====================================================
+        # 34. UPDATED AT
+        # ====================================================
 
         if hasattr(
             participant,
@@ -15128,7 +15755,7 @@ async def paymongo_webhook(
             )
 
         # ====================================================
-        # COMMIT PARTICIPANT PAYMENT
+        # 35. COMMIT PARTICIPANT PAYMENT
         # ====================================================
 
         try:
@@ -15139,10 +15766,15 @@ async def paymongo_webhook(
 
             db.rollback()
 
+            print("=" * 70)
             print(
-                "Participant payment commit failed:",
+                "PARTICIPANT PAYMENT COMMIT FAILED"
+            )
+            print(
+                "Error:",
                 repr(e)
             )
+            print("=" * 70)
 
             return JSONResponse(
                 status_code=500,
@@ -15155,14 +15787,159 @@ async def paymongo_webhook(
                     "payment_type":
                         "participant",
 
+                    "payment_id":
+                        payment.id,
+
+                    "participant_id":
+                        participant.id,
+
                     "message":
                         "Database update failed."
                 }
             )
 
+        # ====================================================
+        # 36. PARTICIPANT GMAIL
+        # ====================================================
+
+        participant_gmail_success = False
+
+        print("=" * 70)
+        print("PARTICIPANT GMAIL PROCESSING")
+        print("=" * 70)
+
+        try:
+
+            if not participant_email:
+
+                print(
+                    "Participant Gmail skipped:"
+                    " participant has no email."
+                )
+
+            else:
+
+                print(
+                    "Sending participant payment confirmation..."
+                )
+
+                # =================================================
+                # IMPORTANT:
+                #
+                # This assumes your participant email function is:
+                #
+                # async def send_participant_payment_confirmation_email(
+                #     participant,
+                #     payment
+                # )
+                #
+                # =================================================
+
+                participant_gmail_success = bool(
+
+                    await
+                    send_participant_payment_confirmation_email(
+
+                        participant,
+                        payment
+
+                    )
+
+                )
+
+                if participant_gmail_success:
+
+                    print(
+                        "PARTICIPANT GMAIL SENT SUCCESSFULLY"
+                    )
+
+                else:
+
+                    print(
+                        "PARTICIPANT GMAIL FUNCTION RETURNED FALSE"
+                    )
+
+        except Exception as e:
+
+            print("=" * 70)
+            print(
+                "PARTICIPANT GMAIL FAILED"
+            )
+            print(
+                "Error Type:",
+                type(e).__name__
+            )
+            print(
+                "Error:",
+                repr(e)
+            )
+            print("=" * 70)
+
+            participant_gmail_success = False
+
+        # ====================================================
+        # 37. PARTICIPANT PAYMENT COMPLETE
+        # ====================================================
+
+        print("=" * 70)
         print(
-            "PARTICIPANT PAYMENT COMPLETED"
+            "PARTICIPANT PAYMENT PROCESSING COMPLETE"
         )
+        print("=" * 70)
+
+        print(
+            "Payment ID:",
+            payment.id
+        )
+
+        print(
+            "Participant ID:",
+            participant.id
+        )
+
+        print(
+            "Participant:",
+            fullname
+        )
+
+        print(
+            "T-Shirt:",
+            "Paid"
+            if tshirt_selected
+            else "Not Selected"
+        )
+
+        print(
+            "Lanyard:",
+            "Paid"
+            if lanyard_selected
+            else "Not Selected"
+        )
+
+        print(
+            "Payment Status:",
+            payment.status
+        )
+
+        print(
+            "Registration Status:",
+            getattr(
+                participant,
+                "registration_status",
+                None
+            )
+        )
+
+        print(
+            "Participant Gmail:",
+            participant_gmail_success
+        )
+
+        print("=" * 70)
+
+        # ====================================================
+        # 38. RETURN PARTICIPANT SUCCESS
+        # ====================================================
 
         return {
 
@@ -15170,8 +15947,14 @@ async def paymongo_webhook(
 
             "processed": True,
 
+            "already_processed":
+                already_paid,
+
             "payment_type":
                 "participant",
+
+            "event_id":
+                event_id,
 
             "payment_id":
                 payment.id,
@@ -15179,22 +15962,66 @@ async def paymongo_webhook(
             "participant_id":
                 participant.id,
 
+            "fullname":
+                fullname,
+
             "payment_status":
                 payment.status,
+
+            "tshirt_selected":
+                tshirt_selected,
+
+            "tshirt_size":
+                tshirt_size,
+
+            "tshirt_status":
+                getattr(
+                    participant,
+                    "tshirt_status",
+                    None
+                ),
+
+            "lanyard_selected":
+                lanyard_selected,
+
+            "lanyard_status":
+                getattr(
+                    participant,
+                    "lanyard_status",
+                    None
+                ),
 
             "registration_status":
                 getattr(
                     participant,
                     "registration_status",
                     None
-                )
+                ),
+
+            "paymongo_reference":
+                paymongo_reference,
+
+            "paymongo_payment_id":
+                paymongo_payment_id,
+
+            "paymongo_link_id":
+                paymongo_link_id,
+
+            "gmail_sent":
+                participant_gmail_success
         }
 
     # ========================================================
-    # 40. STORE PAYMENT
+    # ========================================================
+    # STORE PAYMENT
+    # ========================================================
     # ========================================================
 
     elif payment_type == "store":
+
+        print("=" * 70)
+        print("PROCESSING STORE PAYMENT")
+        print("=" * 70)
 
         current_status = str(
             getattr(
@@ -15204,6 +16031,10 @@ async def paymongo_webhook(
             )
             or ""
         ).strip().lower()
+
+        # ====================================================
+        # ALREADY PAID
+        # ====================================================
 
         if current_status == "paid":
 
@@ -15232,6 +16063,10 @@ async def paymongo_webhook(
                 "payment_status":
                     payment.status
             }
+
+        # ====================================================
+        # STORE ITEM ID
+        # ====================================================
 
         store_item_id = getattr(
             payment,
@@ -15258,6 +16093,10 @@ async def paymongo_webhook(
                 "message":
                     "Store item ID is missing."
             }
+
+        # ====================================================
+        # STORE QUANTITY
+        # ====================================================
 
         try:
 
@@ -15297,6 +16136,10 @@ async def paymongo_webhook(
                     "Invalid store quantity."
             }
 
+        # ====================================================
+        # FIND STORE ITEM
+        # ====================================================
+
         store_item = (
             db.query(
                 StoreItem
@@ -15328,6 +16171,10 @@ async def paymongo_webhook(
                     "Store item not found."
             }
 
+        # ====================================================
+        # CHECK INVENTORY
+        # ====================================================
+
         if (
             store_item.quantity <
             store_quantity
@@ -15351,7 +16198,13 @@ async def paymongo_webhook(
                     "Insufficient inventory."
             }
 
-        payment.status = "Paid"
+        # ====================================================
+        # MARK PAID
+        # ====================================================
+
+        payment.status = (
+            "Paid"
+        )
 
         if hasattr(
             payment,
@@ -15361,6 +16214,10 @@ async def paymongo_webhook(
             payment.paid_at = (
                 datetime.datetime.now()
             )
+
+        # ====================================================
+        # UPDATE INVENTORY
+        # ====================================================
 
         store_item.quantity = (
             store_item.quantity -
@@ -15453,11 +16310,20 @@ async def paymongo_webhook(
                 store_item.quantity,
 
             "payment_status":
-                payment.status
+                payment.status,
+
+            "paymongo_reference":
+                paymongo_reference,
+
+            "paymongo_payment_id":
+                paymongo_payment_id,
+
+            "paymongo_link_id":
+                paymongo_link_id
         }
 
     # ========================================================
-    # 41. UNKNOWN PAYMENT TYPE
+    # UNKNOWN PAYMENT TYPE
     # ========================================================
 
     db.rollback()
@@ -15482,6 +16348,8 @@ async def paymongo_webhook(
         "message":
             "Payment type is not supported."
     }
+
+
 
 
 
