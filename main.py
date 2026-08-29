@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Optional
 from pathlib import Path
 import time
+from datetime import datetime
 import asyncio
 from types import SimpleNamespace
 import uuid
@@ -1289,6 +1290,18 @@ class Payment(Base):
     # PayMongo metadata.
     #
 
+
+    # ========================================================
+    # STORE
+    # ========================================================
+
+    store_order_id = Column(
+        String(100),
+        nullable=True,
+        index=True
+    )
+
+    
     store_item_id = Column(
         Integer,
         ForeignKey("store_items.id"),
@@ -2863,6 +2876,57 @@ class CashDonationTotal(Base):
 
 
 
+# ============================================================
+# MIGRATE PAYMENT TABLE
+# ADD STORE ORDER ID
+# ============================================================
+
+def migrate_payment_store_order_id():
+
+    with engine.connect() as connection:
+
+        result = connection.execute(
+            text("PRAGMA table_info(payments)")
+        )
+
+        columns = [
+            row[1]
+            for row in result
+        ]
+
+        # ----------------------------------------------------
+        # STORE ORDER ID
+        # ----------------------------------------------------
+
+        if "store_order_id" not in columns:
+
+            connection.execute(
+                text("""
+                    ALTER TABLE payments
+                    ADD COLUMN store_order_id
+                    VARCHAR(100)
+                """)
+            )
+
+        # ----------------------------------------------------
+        # COMMIT
+        # ----------------------------------------------------
+
+        connection.commit()
+
+
+migrate_payment_store_order_id()
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -3414,19 +3478,31 @@ class StoreItemUpdateSchema(BaseModel):
 
 
 # ============================================================
-# STORE PURCHASE SCHEMA
+# STORE CART ITEM
+# ============================================================
+
+class StorePurchaseItemSchema(BaseModel):
+
+    store_item_id: int
+
+    quantity: int
+
+    size: Optional[str] = None
+
+
+# ============================================================
+# STORE PURCHASE
 # ============================================================
 
 class StorePurchaseSchema(BaseModel):
-    store_item_id: int
-    quantity: int = 1
 
     customer_name: str
+
     customer_contact: str
-    customer_email: str
 
-    size: str | None = None
+    customer_email: EmailStr
 
+    items: List[StorePurchaseItemSchema]
 
 
 # ============================================================
@@ -14469,6 +14545,32 @@ async def process_finding_sponsor_queue_logic(
 
 # ======================================================
 # PAYMONGO WEBHOOK
+#
+# SUPPORTS:
+# - PARTICIPANT PAYMENTS
+# - CASH SPONSORSHIPS
+# - STORE PURCHASES
+#
+# STORE PURCHASES:
+# - 1 item
+# - 2 items
+# - 3 items
+# - 10 items
+# - Up to the cart limit configured in /store/purchase
+#
+# ONE STORE CART = ONE PAYMONGO PAYMENT LINK
+# ONE STORE CART ITEM = ONE PAYMENT DATABASE ROW
+#
+# ALL STORE PAYMENT ROWS SHARE:
+#     store_order_id
+#     paymongo_link_id
+#
+# When the webhook confirms payment:
+#
+#     ALL pending rows belonging to the same
+#     store_order_id are processed.
+#
+# Inventory is reduced for EVERY unpaid cart item.
 # ======================================================
 
 @app.post("/webhooks/paymongo")
@@ -14908,6 +15010,10 @@ async def paymongo_webhook(
     # 9. IDENTIFIERS
     # ========================================================
 
+    # --------------------------------------------------------
+    # SPONSORSHIP ID
+    # --------------------------------------------------------
+
     sponsorship_id = metadata.get(
         "sponsorship_id"
     )
@@ -14916,6 +15022,39 @@ async def paymongo_webhook(
 
         sponsorship_id = str(
             sponsorship_id
+        ).strip()
+
+    # --------------------------------------------------------
+    # STORE ORDER ID
+    # --------------------------------------------------------
+
+    store_order_id = (
+        metadata.get(
+            "store_order_id"
+        )
+        or metadata.get(
+            "order_id"
+        )
+    )
+
+    if store_order_id:
+
+        store_order_id = str(
+            store_order_id
+        ).strip()
+
+    # --------------------------------------------------------
+    # INTERNAL PAYMENT ID
+    # --------------------------------------------------------
+
+    internal_payment_id = metadata.get(
+        "payment_id"
+    )
+
+    if internal_payment_id:
+
+        internal_payment_id = str(
+            internal_payment_id
         ).strip()
 
     # --------------------------------------------------------
@@ -15020,6 +15159,10 @@ async def paymongo_webhook(
 
     print("=" * 70)
     print("PAYMENT IDENTIFIERS")
+    print(
+        "Store Order ID:",
+        store_order_id
+    )
     print(
         "PayMongo Reference:",
         paymongo_reference
@@ -15567,14 +15710,53 @@ async def paymongo_webhook(
     payment = None
 
     # ========================================================
-    # 15. MATCH INTERNAL PAYMENT ID
+    # 15. MATCH STORE ORDER FIRST
+    #
+    # IMPORTANT:
+    #
+    # A STORE CART CAN HAVE MANY Payment ROWS.
+    #
+    # Therefore we DO NOT use .first() here for a store order.
+    #
+    # We first identify the order, then the STORE PAYMENT
+    # section loads ALL rows belonging to that order.
     # ========================================================
 
-    internal_payment_id = metadata.get(
-        "payment_id"
-    )
+    if store_order_id:
 
-    if internal_payment_id:
+        print(
+            "Searching Payment rows by Store Order ID:",
+            store_order_id
+        )
+
+        payment = (
+            db.query(
+                Payment
+            )
+            .filter(
+                Payment.store_order_id ==
+                store_order_id
+            )
+            .order_by(
+                Payment.id.asc()
+            )
+            .first()
+        )
+
+        if payment:
+
+            print(
+                "Store order located by store_order_id."
+            )
+
+    # ========================================================
+    # 16. MATCH INTERNAL PAYMENT ID
+    # ========================================================
+
+    if (
+        not payment
+        and internal_payment_id
+    ):
 
         try:
 
@@ -15599,7 +15781,7 @@ async def paymongo_webhook(
             payment = None
 
     # ========================================================
-    # 16. MATCH BY REFERENCE
+    # 17. MATCH BY REFERENCE
     # ========================================================
 
     if (
@@ -15628,7 +15810,7 @@ async def paymongo_webhook(
         )
 
     # ========================================================
-    # 17. MATCH BY PAYMONGO PAYMENT ID
+    # 18. MATCH BY PAYMONGO PAYMENT ID
     # ========================================================
 
     if (
@@ -15652,7 +15834,7 @@ async def paymongo_webhook(
         )
 
     # ========================================================
-    # 18. MATCH BY LINK ID
+    # 19. MATCH BY LINK ID
     # ========================================================
 
     if (
@@ -15664,6 +15846,11 @@ async def paymongo_webhook(
         )
     ):
 
+        print(
+            "Searching Payment by PayMongo Link ID:",
+            paymongo_link_id
+        )
+
         payment = (
             db.query(
                 Payment
@@ -15672,11 +15859,20 @@ async def paymongo_webhook(
                 Payment.paymongo_link_id ==
                 paymongo_link_id
             )
+            .order_by(
+                Payment.id.asc()
+            )
             .first()
         )
 
+        if payment:
+
+            print(
+                "Payment located by PayMongo Link ID."
+            )
+
     # ========================================================
-    # 19. PAYMENT NOT FOUND
+    # 20. PAYMENT NOT FOUND
     # ========================================================
 
     if not payment:
@@ -15705,13 +15901,16 @@ async def paymongo_webhook(
             "paymongo_link_id":
                 paymongo_link_id,
 
+            "store_order_id":
+                store_order_id,
+
             "message":
                 "No matching local payment found."
 
         }
 
     # ========================================================
-    # 20. PAYMENT FOUND
+    # 21. PAYMENT FOUND
     # ========================================================
 
     print("=" * 70)
@@ -15729,6 +15928,15 @@ async def paymongo_webhook(
         getattr(
             payment,
             "payment_type",
+            None
+        )
+    )
+
+    print(
+        "Store Order ID:",
+        getattr(
+            payment,
+            "store_order_id",
             None
         )
     )
@@ -16010,20 +16218,6 @@ async def paymongo_webhook(
         # ====================================================
         # MANDATORY ITEM CHECK
         # ====================================================
-        #
-        # LANYARD IS MANDATORY.
-        #
-        # T-SHIRT IS OPTIONAL.
-        #
-        # Therefore:
-        #
-        # Lanyard Paid     -> Confirmed
-        # Lanyard Unpaid   -> Pending
-        #
-        # T-shirt status does NOT determine
-        # registration confirmation.
-        #
-        # ====================================================
 
         lanyard_status = str(
             getattr(
@@ -16066,10 +16260,6 @@ async def paymongo_webhook(
 
         # ====================================================
         # REGISTRATION STATUS
-        # ====================================================
-        #
-        # ONLY THE LANYARD CONTROLS CONFIRMATION.
-        #
         # ====================================================
 
         if hasattr(
@@ -16402,19 +16592,11 @@ async def paymongo_webhook(
             "payment_status":
                 payment.status,
 
-            # ------------------------------------------------
-            # T-SHIRT
-            # ------------------------------------------------
-
             "tshirt_selected":
                 tshirt_selected,
 
             "tshirt_status":
                 final_tshirt_status,
-
-            # ------------------------------------------------
-            # LANYARD
-            # ------------------------------------------------
 
             "lanyard_selected":
                 lanyard_selected,
@@ -16425,16 +16607,8 @@ async def paymongo_webhook(
             "lanyard_paid":
                 final_lanyard_paid,
 
-            # ------------------------------------------------
-            # REGISTRATION
-            # ------------------------------------------------
-
             "registration_status":
                 final_registration_status,
-
-            # ------------------------------------------------
-            # PAYMONGO
-            # ------------------------------------------------
 
             "paymongo_reference":
                 paymongo_reference,
@@ -16445,27 +16619,15 @@ async def paymongo_webhook(
             "paymongo_link_id":
                 paymongo_link_id,
 
-            # ------------------------------------------------
-            # EMAIL
-            # ------------------------------------------------
-
             "gmail_sent":
                 gmail_success,
-
-            # ------------------------------------------------
-            # PAYMENT RESULT
-            # ------------------------------------------------
 
             "payment_success":
                 True,
 
-            # This represents the mandatory requirement,
-            # NOT every optional item.
             "mandatory_items_paid":
                 final_lanyard_paid,
 
-            # Kept for compatibility, but now correctly
-            # means the mandatory lanyard requirement.
             "all_required_items_paid":
                 final_lanyard_paid
 
@@ -16485,20 +16647,486 @@ async def paymongo_webhook(
         )
         print("=" * 70)
 
-        current_status = str(
-            getattr(
+        # ====================================================
+        # DETERMINE STORE ORDER ID
+        #
+        # The Payment row found above may already contain it.
+        # ====================================================
+
+        if not store_order_id:
+
+            store_order_id = getattr(
                 payment,
-                "status",
-                ""
+                "store_order_id",
+                None
             )
-            or ""
-        ).strip().lower()
 
-        # ----------------------------------------------------
-        # ALREADY PAID
-        # ----------------------------------------------------
+            if store_order_id:
 
-        if current_status == "paid":
+                store_order_id = str(
+                    store_order_id
+                ).strip()
+
+        print(
+            "Resolved Store Order ID:",
+            store_order_id
+        )
+
+        # ====================================================
+        # FIND ALL PAYMENT ROWS FOR THIS STORE ORDER
+        #
+        # THIS IS THE IMPORTANT MULTI-ITEM PART.
+        #
+        # Example:
+        #
+        # STORE-ABC
+        #
+        # Payment #101 -> Shirt
+        # Payment #102 -> Souvenir
+        # Payment #103 -> Hat
+        # Payment #104 -> Bag
+        #
+        # ALL FOUR ROWS ARE PROCESSED.
+        # ====================================================
+
+        store_payments = []
+
+        if store_order_id:
+
+            store_payments = (
+                db.query(
+                    Payment
+                )
+                .filter(
+                    Payment.store_order_id ==
+                    store_order_id,
+
+                    Payment.payment_type.ilike(
+                        "Store"
+                    )
+                )
+                .order_by(
+                    Payment.id.asc()
+                )
+                .with_for_update()
+                .all()
+            )
+
+        # ====================================================
+        # FALLBACK: MATCH ALL ROWS BY PAYMONGO LINK ID
+        # ====================================================
+
+        if (
+            not store_payments
+            and paymongo_link_id
+            and hasattr(
+                Payment,
+                "paymongo_link_id"
+            )
+        ):
+
+            print(
+                "Falling back to PayMongo Link ID."
+            )
+
+            store_payments = (
+                db.query(
+                    Payment
+                )
+                .filter(
+                    Payment.paymongo_link_id ==
+                    paymongo_link_id,
+
+                    Payment.payment_type.ilike(
+                        "Store"
+                    )
+                )
+                .order_by(
+                    Payment.id.asc()
+                )
+                .with_for_update()
+                .all()
+            )
+
+        # ====================================================
+        # FALLBACK: USE THE FOUND PAYMENT'S ORDER ID
+        # ====================================================
+
+        if (
+            not store_payments
+            and getattr(
+                payment,
+                "store_order_id",
+                None
+            )
+        ):
+
+            store_order_id = str(
+                payment.store_order_id
+            ).strip()
+
+            print(
+                "Retrying Store Order lookup:",
+                store_order_id
+            )
+
+            store_payments = (
+                db.query(
+                    Payment
+                )
+                .filter(
+                    Payment.store_order_id ==
+                    store_order_id
+                )
+                .order_by(
+                    Payment.id.asc()
+                )
+                .with_for_update()
+                .all()
+            )
+
+        # ====================================================
+        # STORE ORDER NOT FOUND
+        # ====================================================
+
+        if not store_payments:
+
+            db.rollback()
+
+            print("=" * 70)
+            print(
+                "STORE ORDER PAYMENTS NOT FOUND"
+            )
+            print("=" * 70)
+
+            return {
+
+                "received": True,
+
+                "processed": False,
+
+                "payment_type":
+                    "store",
+
+                "payment_id":
+                    payment.id,
+
+                "store_order_id":
+                    store_order_id,
+
+                "paymongo_link_id":
+                    paymongo_link_id,
+
+                "message":
+                    "No store payment rows found for this order."
+
+            }
+
+        # ====================================================
+        # PRINT CART
+        # ========================================================
+
+        print("=" * 70)
+        print(
+            "STORE CART PAYMENT ROWS FOUND:",
+            len(store_payments)
+        )
+        print("=" * 70)
+
+        for store_payment in store_payments:
+
+            print(
+                "Payment ID:",
+                store_payment.id,
+                "| Store Item ID:",
+                getattr(
+                    store_payment,
+                    "store_item_id",
+                    None
+                ),
+                "| Quantity:",
+                getattr(
+                    store_payment,
+                    "store_quantity",
+                    None
+                ),
+                "| Status:",
+                getattr(
+                    store_payment,
+                    "status",
+                    None
+                ),
+                "| Amount:",
+                getattr(
+                    store_payment,
+                    "amount",
+                    None
+                )
+            )
+
+        # ====================================================
+        # ENSURE STORE ORDER ID
+        # ====================================================
+
+        if not store_order_id:
+
+            store_order_id = getattr(
+                store_payments[0],
+                "store_order_id",
+                None
+            )
+
+            if store_order_id:
+
+                store_order_id = str(
+                    store_order_id
+                ).strip()
+
+        if not store_order_id:
+
+            db.rollback()
+
+            return {
+
+                "received": True,
+
+                "processed": False,
+
+                "payment_type":
+                    "store",
+
+                "payment_id":
+                    payment.id,
+
+                "message":
+                    "Store order ID is missing."
+
+            }
+
+        # ====================================================
+        # SAVE PAYMONGO IDENTIFIERS TO ALL ROWS
+        #
+        # Because all rows belong to the same PayMongo
+        # payment link, every row receives the identifiers.
+        # ====================================================
+
+        for store_payment in store_payments:
+
+            if (
+                paymongo_link_id
+                and hasattr(
+                    store_payment,
+                    "paymongo_link_id"
+                )
+            ):
+
+                store_payment.paymongo_link_id = (
+                    paymongo_link_id
+                )
+
+            if (
+                paymongo_payment_id
+                and hasattr(
+                    store_payment,
+                    "paymongo_payment_id"
+                )
+            ):
+
+                store_payment.paymongo_payment_id = (
+                    paymongo_payment_id
+                )
+
+            if (
+                paymongo_reference
+                and hasattr(
+                    store_payment,
+                    "paymongo_reference"
+                )
+            ):
+
+                store_payment.paymongo_reference = (
+                    paymongo_reference
+                )
+
+        # ====================================================
+        # CALCULATE EXPECTED CART TOTAL
+        #
+        # Each Payment.amount is stored in CENTAVOS.
+        #
+        # Example:
+        #
+        # Item 1 = ₱500 -> 50000
+        # Item 2 = ₱300 -> 30000
+        # Item 3 = ₱200 -> 20000
+        #
+        # Expected = 100000
+        # ====================================================
+
+        expected_cart_amount = 0
+
+        for store_payment in store_payments:
+
+            try:
+
+                row_amount = int(
+                    getattr(
+                        store_payment,
+                        "amount",
+                        0
+                    )
+                    or 0
+                )
+
+            except (
+                ValueError,
+                TypeError
+            ):
+
+                row_amount = 0
+
+            if row_amount <= 0:
+
+                db.rollback()
+
+                return {
+
+                    "received": True,
+
+                    "processed": False,
+
+                    "payment_type":
+                        "store",
+
+                    "store_order_id":
+                        store_order_id,
+
+                    "payment_id":
+                        store_payment.id,
+
+                    "message":
+                        "Invalid store payment row amount."
+
+                }
+
+            expected_cart_amount += (
+                row_amount
+            )
+
+        print("=" * 70)
+        print(
+            "STORE CART AMOUNT VERIFICATION"
+        )
+        print(
+            "PayMongo Amount:",
+            paymongo_amount
+        )
+        print(
+            "Expected Cart Amount:",
+            expected_cart_amount
+        )
+        print("=" * 70)
+
+        # ====================================================
+        # VERIFY TOTAL PAYMENT AMOUNT
+        #
+        # PayMongo charged ONE payment link for the ENTIRE
+        # cart.
+        #
+        # Therefore:
+        #
+        # PayMongo amount == SUM(all Payment.amount)
+        #
+        # ====================================================
+
+        if (
+            paymongo_amount > 0
+            and
+            paymongo_amount !=
+            expected_cart_amount
+        ):
+
+            print("=" * 70)
+            print(
+                "STORE CART AMOUNT MISMATCH"
+            )
+            print(
+                "PayMongo:",
+                paymongo_amount
+            )
+            print(
+                "Expected:",
+                expected_cart_amount
+            )
+            print("=" * 70)
+
+            db.rollback()
+
+            return {
+
+                "received": True,
+
+                "processed": False,
+
+                "payment_type":
+                    "store",
+
+                "store_order_id":
+                    store_order_id,
+
+                "item_count":
+                    len(
+                        store_payments
+                    ),
+
+                "paymongo_amount":
+                    paymongo_amount,
+
+                "expected_amount":
+                    expected_cart_amount,
+
+                "message":
+                    "Payment amount does not match the store cart total."
+
+            }
+
+        # ====================================================
+        # CHECK IF ENTIRE ORDER IS ALREADY PAID
+        #
+        # This prevents duplicate webhook deliveries from
+        # reducing inventory a second time.
+        # ====================================================
+
+        all_already_paid = all(
+
+            str(
+                getattr(
+                    store_payment,
+                    "status",
+                    ""
+                )
+                or ""
+            ).strip().lower()
+            == "paid"
+
+            for store_payment
+            in store_payments
+        )
+
+        if all_already_paid:
+
+            print("=" * 70)
+            print(
+                "STORE ORDER ALREADY FULLY PAID"
+            )
+            print(
+                "Store Order ID:",
+                store_order_id
+            )
+            print(
+                "Item Count:",
+                len(store_payments)
+            )
+            print("=" * 70)
 
             try:
 
@@ -16519,204 +17147,486 @@ async def paymongo_webhook(
                 "payment_type":
                     "store",
 
+                "store_order_id":
+                    store_order_id,
+
                 "payment_id":
                     payment.id,
 
+                "payment_ids":
+                    [
+                        p.id
+                        for p in store_payments
+                    ],
+
+                "item_count":
+                    len(store_payments),
+
                 "payment_status":
-                    payment.status,
+                    "Paid",
 
                 "payment_success":
                     True
 
             }
 
-        # ----------------------------------------------------
-        # STORE ITEM
-        # ----------------------------------------------------
+        # ====================================================
+        # PREPARE UNPAID ITEMS
+        # ====================================================
 
-        store_item_id = getattr(
-            payment,
-            "store_item_id",
-            None
-        )
+        unpaid_payments = [
 
-        if not store_item_id:
+            p
 
-            db.rollback()
+            for p in store_payments
 
-            return {
-
-                "received": True,
-
-                "processed": False,
-
-                "payment_type":
-                    "store",
-
-                "payment_id":
-                    payment.id,
-
-                "message":
-                    "Store item ID is missing."
-
-            }
-
-        # ----------------------------------------------------
-        # QUANTITY
-        # ----------------------------------------------------
-
-        try:
-
-            store_quantity = int(
+            if str(
                 getattr(
-                    payment,
-                    "store_quantity",
-                    1
+                    p,
+                    "status",
+                    ""
                 )
-                or 1
-            )
+                or ""
+            ).strip().lower()
+            != "paid"
 
-        except (
-            ValueError,
-            TypeError
-        ):
+        ]
 
-            store_quantity = 1
-
-        if store_quantity <= 0:
-
-            db.rollback()
-
-            return {
-
-                "received": True,
-
-                "processed": False,
-
-                "payment_type":
-                    "store",
-
-                "payment_id":
-                    payment.id,
-
-                "message":
-                    "Invalid store quantity."
-
-            }
-
-        # ----------------------------------------------------
-        # FIND STORE ITEM
-        # ----------------------------------------------------
-
-        store_item = (
-            db.query(
-                StoreItem
-            )
-            .filter(
-                StoreItem.id ==
-                store_item_id
-            )
-            .first()
+        print("=" * 70)
+        print(
+            "STORE ITEMS ALREADY PAID:",
+            len(store_payments) -
+            len(unpaid_payments)
         )
-
-        if not store_item:
-
-            db.rollback()
-
-            return {
-
-                "received": True,
-
-                "processed": False,
-
-                "payment_type":
-                    "store",
-
-                "payment_id":
-                    payment.id,
-
-                "message":
-                    "Store item not found."
-
-            }
-
-        # ----------------------------------------------------
-        # INVENTORY
-        # ----------------------------------------------------
-
-        if (
-            store_item.quantity <
-            store_quantity
-        ):
-
-            db.rollback()
-
-            return {
-
-                "received": True,
-
-                "processed": False,
-
-                "payment_type":
-                    "store",
-
-                "payment_id":
-                    payment.id,
-
-                "message":
-                    "Insufficient inventory."
-
-            }
-
-        # ----------------------------------------------------
-        # MARK PAID
-        # ----------------------------------------------------
-
-        payment.status = "Paid"
-
-        if hasattr(
-            payment,
-            "paid_at"
-        ):
-
-            payment.paid_at = (
-                datetime.datetime.now()
-            )
-
-        # ----------------------------------------------------
-        # REDUCE INVENTORY
-        # ----------------------------------------------------
-
-        store_item.quantity = (
-            store_item.quantity -
-            store_quantity
+        print(
+            "STORE ITEMS STILL TO PROCESS:",
+            len(unpaid_payments)
         )
+        print("=" * 70)
 
-        if hasattr(
-            store_item,
-            "updated_at"
-        ):
+        # ====================================================
+        # PROCESS EVERY UNPAID CART ITEM
+        #
+        # We first validate ALL inventory.
+        #
+        # This is important:
+        #
+        # If a 10-item cart has one item unavailable,
+        # we do NOT mark the first 9 as paid and leave
+        # the 10th unpaid.
+        #
+        # The transaction is rolled back instead.
+        # ====================================================
 
-            store_item.updated_at = (
-                datetime.datetime.now()
+        store_items_to_update = []
+
+        for store_payment in unpaid_payments:
+
+            # ------------------------------------------------
+            # STORE ITEM ID
+            # ------------------------------------------------
+
+            store_item_id = getattr(
+                store_payment,
+                "store_item_id",
+                None
             )
 
-        # ----------------------------------------------------
-        # COMMIT
-        # ----------------------------------------------------
+            if not store_item_id:
+
+                db.rollback()
+
+                return {
+
+                    "received": True,
+
+                    "processed": False,
+
+                    "payment_type":
+                        "store",
+
+                    "store_order_id":
+                        store_order_id,
+
+                    "payment_id":
+                        store_payment.id,
+
+                    "message":
+                        "Store item ID is missing."
+
+                }
+
+            # ------------------------------------------------
+            # QUANTITY
+            # ------------------------------------------------
+
+            try:
+
+                store_quantity = int(
+                    getattr(
+                        store_payment,
+                        "store_quantity",
+                        1
+                    )
+                    or 1
+                )
+
+            except (
+                ValueError,
+                TypeError
+            ):
+
+                store_quantity = 0
+
+            if store_quantity <= 0:
+
+                db.rollback()
+
+                return {
+
+                    "received": True,
+
+                    "processed": False,
+
+                    "payment_type":
+                        "store",
+
+                    "store_order_id":
+                        store_order_id,
+
+                    "payment_id":
+                        store_payment.id,
+
+                    "store_item_id":
+                        store_item_id,
+
+                    "message":
+                        "Invalid store quantity."
+
+                }
+
+            # ------------------------------------------------
+            # FIND STORE ITEM
+            #
+            # with_for_update() locks the inventory row while
+            # this order is being processed.
+            # ------------------------------------------------
+
+            store_item = (
+                db.query(
+                    StoreItem
+                )
+                .filter(
+                    StoreItem.id ==
+                    store_item_id
+                )
+                .with_for_update()
+                .first()
+            )
+
+            if not store_item:
+
+                db.rollback()
+
+                return {
+
+                    "received": True,
+
+                    "processed": False,
+
+                    "payment_type":
+                        "store",
+
+                    "store_order_id":
+                        store_order_id,
+
+                    "payment_id":
+                        store_payment.id,
+
+                    "store_item_id":
+                        store_item_id,
+
+                    "message":
+                        "Store item not found."
+
+                }
+
+            # ------------------------------------------------
+            # INVENTORY
+            # ------------------------------------------------
+
+            try:
+
+                current_inventory = int(
+                    store_item.quantity or 0
+                )
+
+            except (
+                ValueError,
+                TypeError
+            ):
+
+                current_inventory = 0
+
+            if current_inventory < store_quantity:
+
+                print("=" * 70)
+                print(
+                    "INSUFFICIENT INVENTORY"
+                )
+                print(
+                    "Store Order:",
+                    store_order_id
+                )
+                print(
+                    "Item:",
+                    store_item.item_name
+                )
+                print(
+                    "Requested:",
+                    store_quantity
+                )
+                print(
+                    "Available:",
+                    current_inventory
+                )
+                print("=" * 70)
+
+                db.rollback()
+
+                return {
+
+                    "received": True,
+
+                    "processed": False,
+
+                    "payment_type":
+                        "store",
+
+                    "store_order_id":
+                        store_order_id,
+
+                    "payment_id":
+                        store_payment.id,
+
+                    "store_item_id":
+                        store_item.id,
+
+                    "item_name":
+                        store_item.item_name,
+
+                    "requested_quantity":
+                        store_quantity,
+
+                    "available_quantity":
+                        current_inventory,
+
+                    "message":
+                        "Insufficient inventory."
+
+                }
+
+            # ------------------------------------------------
+            # STORE FOR LATER UPDATE
+            # ------------------------------------------------
+
+            store_items_to_update.append({
+
+                "payment":
+                    store_payment,
+
+                "store_item":
+                    store_item,
+
+                "quantity":
+                    store_quantity
+
+            })
+
+        # ====================================================
+        # ALL INVENTORY VALIDATED
+        #
+        # Now safely process every cart item.
+        # ====================================================
+
+        processed_items = []
+
+        now = datetime.datetime.now()
+
+        for entry in store_items_to_update:
+
+            store_payment = entry[
+                "payment"
+            ]
+
+            store_item = entry[
+                "store_item"
+            ]
+
+            store_quantity = entry[
+                "quantity"
+            ]
+
+            # ------------------------------------------------
+            # MARK PAYMENT PAID
+            # ------------------------------------------------
+
+            store_payment.status = (
+                "Paid"
+            )
+
+            if hasattr(
+                store_payment,
+                "paid_at"
+            ):
+
+                store_payment.paid_at = (
+                    now
+                )
+
+            # ------------------------------------------------
+            # SAVE PAYMONGO DATA
+            # ------------------------------------------------
+
+            if (
+                paymongo_link_id
+                and hasattr(
+                    store_payment,
+                    "paymongo_link_id"
+                )
+            ):
+
+                store_payment.paymongo_link_id = (
+                    paymongo_link_id
+                )
+
+            if (
+                paymongo_payment_id
+                and hasattr(
+                    store_payment,
+                    "paymongo_payment_id"
+                )
+            ):
+
+                store_payment.paymongo_payment_id = (
+                    paymongo_payment_id
+                )
+
+            if (
+                paymongo_reference
+                and hasattr(
+                    store_payment,
+                    "paymongo_reference"
+                )
+            ):
+
+                store_payment.paymongo_reference = (
+                    paymongo_reference
+                )
+
+            # ------------------------------------------------
+            # REDUCE INVENTORY
+            # ------------------------------------------------
+
+            old_inventory = int(
+                store_item.quantity or 0
+            )
+
+            store_item.quantity = (
+                old_inventory -
+                store_quantity
+            )
+
+            if hasattr(
+                store_item,
+                "updated_at"
+            ):
+
+                store_item.updated_at = (
+                    now
+                )
+
+            # ------------------------------------------------
+            # RESULT
+            # ------------------------------------------------
+
+            processed_items.append({
+
+                "payment_id":
+                    store_payment.id,
+
+                "store_item_id":
+                    store_item.id,
+
+                "item_name":
+                    store_item.item_name,
+
+                "quantity":
+                    store_quantity,
+
+                "remaining_inventory":
+                    store_item.quantity,
+
+                "payment_status":
+                    store_payment.status
+
+            })
+
+            print(
+                "STORE ITEM PAID:",
+                store_item.item_name,
+                "x",
+                store_quantity,
+                "| Remaining:",
+                store_item.quantity
+            )
+
+        # ====================================================
+        # COMMIT ENTIRE CART AS ONE TRANSACTION
+        #
+        # Either every pending cart item is processed,
+        # or the transaction is rolled back.
+        # ====================================================
 
         try:
 
             db.commit()
 
+            print("=" * 70)
+            print(
+                "STORE CART DATABASE UPDATE SUCCESSFUL"
+            )
+            print(
+                "Store Order ID:",
+                store_order_id
+            )
+            print(
+                "Total Cart Items:",
+                len(store_payments)
+            )
+            print(
+                "Items Processed:",
+                len(processed_items)
+            )
+            print("=" * 70)
+
         except Exception as e:
 
             db.rollback()
 
+            print("=" * 70)
             print(
-                "Store payment commit failed:",
+                "STORE CART DATABASE COMMIT FAILED"
+            )
+            print(
+                "Error Type:",
+                type(e).__name__
+            )
+            print(
+                "Error:",
                 repr(e)
             )
+            print("=" * 70)
 
             return JSONResponse(
                 status_code=500,
@@ -16729,15 +17639,191 @@ async def paymongo_webhook(
                     "payment_type":
                         "store",
 
+                    "store_order_id":
+                        store_order_id,
+
                     "message":
-                        "Store database update failed."
+                        "Store cart database update failed."
 
                 }
             )
 
+        # ====================================================
+        # REFRESH ALL PAYMENT ROWS
+        # ====================================================
+
+        for store_payment in store_payments:
+
+            try:
+
+                db.refresh(
+                    store_payment
+                )
+
+            except Exception as e:
+
+                print(
+                    "Payment refresh failed:",
+                    repr(e)
+                )
+
+        # ====================================================
+        # FINAL ITEM INFORMATION
+        # ====================================================
+
+        final_items = []
+
+        for store_payment in store_payments:
+
+            store_item_id = getattr(
+                store_payment,
+                "store_item_id",
+                None
+            )
+
+            store_item = (
+                db.query(
+                    StoreItem
+                )
+                .filter(
+                    StoreItem.id ==
+                    store_item_id
+                )
+                .first()
+            )
+
+            try:
+
+                final_quantity = int(
+                    getattr(
+                        store_payment,
+                        "store_quantity",
+                        1
+                    )
+                    or 1
+                )
+
+            except (
+                ValueError,
+                TypeError
+            ):
+
+                final_quantity = 1
+
+            final_items.append({
+
+                "payment_id":
+                    store_payment.id,
+
+                "store_item_id":
+                    store_item_id,
+
+                "item_name":
+                    (
+                        store_item.item_name
+                        if store_item
+                        else None
+                    ),
+
+                "quantity":
+                    final_quantity,
+
+                "size":
+                    getattr(
+                        store_payment,
+                        "store_size",
+                        None
+                    ),
+
+                "amount":
+                    getattr(
+                        store_payment,
+                        "amount",
+                        None
+                    ),
+
+                "payment_status":
+                    getattr(
+                        store_payment,
+                        "status",
+                        None
+                    ),
+
+                "remaining_inventory":
+                    (
+                        getattr(
+                            store_item,
+                            "quantity",
+                            None
+                        )
+                        if store_item
+                        else None
+                    )
+
+            })
+
+        # ====================================================
+        # FINAL ORDER STATUS
+        # ====================================================
+
+        all_paid = all(
+
+            str(
+                getattr(
+                    p,
+                    "status",
+                    ""
+                )
+                or ""
+            ).strip().lower()
+            == "paid"
+
+            for p in store_payments
+        )
+
+        final_order_status = (
+            "Paid"
+            if all_paid
+            else "Pending"
+        )
+
+        print("=" * 70)
+        print(
+            "FINAL STORE ORDER STATUS"
+        )
+        print(
+            "Store Order ID:",
+            store_order_id
+        )
+        print(
+            "Item Count:",
+            len(store_payments)
+        )
+        print(
+            "All Items Paid:",
+            all_paid
+        )
+        print(
+            "Order Status:",
+            final_order_status
+        )
+        print("=" * 70)
+
+        # ====================================================
+        # STORE SUCCESS
+        # ====================================================
+
         print("=" * 70)
         print(
             "STORE PAYMENT COMPLETED"
+        )
+        print(
+            "STORE CART ITEM COUNT:",
+            len(store_payments)
+        )
+        print(
+            "STORE ORDER:",
+            store_order_id
         )
         print("=" * 70)
 
@@ -16750,26 +17836,80 @@ async def paymongo_webhook(
             "payment_type":
                 "store",
 
+            "event_id":
+                event_id,
+
+            "store_order_id":
+                store_order_id,
+
+            # ------------------------------------------------
+            # ORIGINAL PAYMENT
+            # ------------------------------------------------
+
             "payment_id":
                 payment.id,
 
-            "store_item_id":
-                store_item.id,
+            # ------------------------------------------------
+            # ALL PAYMENT ROWS
+            # ------------------------------------------------
 
-            "item_name":
-                store_item.item_name,
+            "payment_ids":
+                [
+                    p.id
+                    for p in store_payments
+                ],
 
-            "quantity":
-                store_quantity,
+            # ------------------------------------------------
+            # CART COUNT
+            # ------------------------------------------------
 
-            "remaining_inventory":
-                store_item.quantity,
+            "item_count":
+                len(store_payments),
+
+            # ------------------------------------------------
+            # ITEMS
+            # ------------------------------------------------
+
+            "items":
+                final_items,
+
+            # ------------------------------------------------
+            # TOTAL
+            # ------------------------------------------------
+
+            "paymongo_amount":
+                paymongo_amount,
+
+            "expected_cart_amount":
+                expected_cart_amount,
+
+            "total_amount":
+                (
+                    expected_cart_amount / 100
+                ),
+
+            # ------------------------------------------------
+            # STATUS
+            # ------------------------------------------------
 
             "payment_status":
-                payment.status,
+                final_order_status,
 
             "payment_success":
-                True
+                all_paid,
+
+            # ------------------------------------------------
+            # PAYMONGO
+            # ------------------------------------------------
+
+            "paymongo_reference":
+                paymongo_reference,
+
+            "paymongo_payment_id":
+                paymongo_payment_id,
+
+            "paymongo_link_id":
+                paymongo_link_id
 
         }
 
@@ -16805,6 +17945,7 @@ async def paymongo_webhook(
             "Payment type is not supported."
 
     }
+
 
 
 
@@ -18666,6 +19807,15 @@ def delete_store_item(
 
 # ============================================================
 # CREATE STORE PURCHASE PAYMENT
+#
+# SUPPORTS:
+# - ONE ITEM
+# - MULTIPLE ITEMS
+# - 1 TO 50 CART ITEMS
+#
+# ONE CART = ONE PAYMONGO PAYMENT LINK
+# ONE CART ITEM = ONE PAYMENT DATABASE ROW
+# ALL PAYMENT ROWS SHARE THE SAME store_order_id
 # ============================================================
 
 @app.post("/store/purchase")
@@ -18675,7 +19825,7 @@ def create_store_purchase(
 ):
 
     # ========================================================
-    # VALIDATE CUSTOMER INFORMATION
+    # VALIDATE CUSTOMER
     # ========================================================
 
     customer_name = (
@@ -18691,49 +19841,54 @@ def create_store_purchase(
     ).strip()
 
     if not customer_name:
+
         raise HTTPException(
             status_code=400,
             detail="Customer name is required."
         )
 
     if not customer_contact:
+
         raise HTTPException(
             status_code=400,
             detail="Customer contact number is required."
         )
 
     if not customer_email:
+
         raise HTTPException(
             status_code=400,
             detail="Customer email is required."
         )
 
     # ========================================================
-    # FIND STORE ITEM
+    # VALIDATE CART
     # ========================================================
 
-    item = (
-        db.query(StoreItem)
-        .filter(
-            StoreItem.id == data.store_item_id,
-            StoreItem.is_archived == False
-        )
-        .first()
-    )
+    if not data.items:
 
-    if not item:
         raise HTTPException(
-            status_code=404,
-            detail="Store item not found."
+            status_code=400,
+            detail="Your cart is empty."
         )
 
     # ========================================================
-    # NORMALIZE CATEGORY
+    # MAXIMUM CART ITEMS
+    #
+    # Supports 1 to 50 items.
+    # Change 50 if you want a different maximum.
     # ========================================================
 
-    category = (
-        item.category or "others"
-    ).strip().lower()
+    if len(data.items) > 50:
+
+        raise HTTPException(
+            status_code=400,
+            detail="Too many items in the cart."
+        )
+
+    # ========================================================
+    # ALLOWED CATEGORIES
+    # ========================================================
 
     allowed_categories = {
         "clothes",
@@ -18741,177 +19896,263 @@ def create_store_purchase(
         "others"
     }
 
-    if category not in allowed_categories:
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                "Invalid store item category. "
-                "Allowed categories are: "
-                "clothes, souvenir, others."
-            )
-        )
+    default_clothing_sizes = [
+        "S",
+        "M",
+        "L",
+        "XL",
+        "2XL"
+    ]
 
     # ========================================================
-    # CHECK INVENTORY
+    # PREPARE
     # ========================================================
 
-    if item.quantity <= 0:
-        raise HTTPException(
-            status_code=400,
-            detail="This item is currently out of stock."
-        )
+    validated_items = []
+
+    total_php = 0.0
 
     # ========================================================
-    # CHECK PURCHASE QUANTITY
+    # VALIDATE EVERY CART ITEM
     # ========================================================
 
-    if data.quantity <= 0:
-        raise HTTPException(
-            status_code=400,
-            detail="Quantity must be at least 1."
-        )
+    for cart_item in data.items:
 
-    if data.quantity > item.quantity:
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                f"Only {item.quantity} "
-                f"item(s) remaining."
-            )
-        )
+        # ----------------------------------------------------
+        # QUANTITY
+        # ----------------------------------------------------
 
-    # ========================================================
-    # SIZE VALIDATION
-    #
-    # CLOTHES REQUIRE A SIZE.
-    #
-    # Default:
-    # S
-    # M
-    # L
-    # XL
-    # 2XL
-    # ========================================================
+        if cart_item.quantity <= 0:
 
-    selected_size = None
-
-    if category == "clothes":
-
-        if not data.size:
             raise HTTPException(
                 status_code=400,
                 detail=(
-                    "Please select a size "
-                    "for this clothing item."
+                    f"Invalid quantity for "
+                    f"store item #{cart_item.store_item_id}."
                 )
             )
 
-        selected_size = (
-            str(data.size)
-            .strip()
-            .upper()
+        # ----------------------------------------------------
+        # FIND ITEM
+        # ----------------------------------------------------
+
+        item = (
+            db.query(StoreItem)
+            .filter(
+                StoreItem.id == cart_item.store_item_id,
+                StoreItem.is_archived == False
+            )
+            .first()
         )
 
-        default_clothing_sizes = [
-            "S",
-            "M",
-            "L",
-            "XL",
-            "2XL"
-        ]
+        if not item:
 
-        available_sizes = []
-
-        # ----------------------------------------------------
-        # READ SIZES FROM DATABASE
-        # ----------------------------------------------------
-
-        if item.sizes:
-
-            try:
-
-                parsed_sizes = json.loads(
-                    item.sizes
+            raise HTTPException(
+                status_code=404,
+                detail=(
+                    f"Store item "
+                    f"#{cart_item.store_item_id} "
+                    f"was not found."
                 )
+            )
 
-                if isinstance(
-                    parsed_sizes,
-                    list
-                ):
+        # ----------------------------------------------------
+        # CATEGORY
+        # ----------------------------------------------------
 
-                    available_sizes = [
-                        str(size)
-                        .strip()
-                        .upper()
-                        for size in parsed_sizes
-                        if str(size).strip()
-                    ]
+        category = (
+            item.category or "others"
+        ).strip().lower()
 
-            except Exception:
+        if category not in allowed_categories:
+
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Invalid category for "
+                    f"{item.item_name}."
+                )
+            )
+
+        # ----------------------------------------------------
+        # INVENTORY
+        # ----------------------------------------------------
+
+        current_quantity = int(
+            item.quantity or 0
+        )
+
+        if current_quantity <= 0:
+
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"{item.item_name} "
+                    f"is currently out of stock."
+                )
+            )
+
+        if cart_item.quantity > current_quantity:
+
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Only {current_quantity} "
+                    f"item(s) of "
+                    f"{item.item_name} "
+                    f"remaining."
+                )
+            )
+
+        # ----------------------------------------------------
+        # SIZE
+        # ----------------------------------------------------
+
+        selected_size = None
+
+        if category == "clothes":
+
+            if not cart_item.size:
 
                 raise HTTPException(
-                    status_code=500,
+                    status_code=400,
                     detail=(
-                        "The clothing item's "
-                        "size configuration is invalid."
+                        f"Please select a size "
+                        f"for {item.item_name}."
+                    )
+                )
+
+            selected_size = (
+                str(cart_item.size)
+                .strip()
+                .upper()
+            )
+
+            available_sizes = []
+
+            if item.sizes:
+
+                try:
+
+                    parsed_sizes = json.loads(
+                        item.sizes
+                    )
+
+                    if isinstance(
+                        parsed_sizes,
+                        list
+                    ):
+
+                        available_sizes = [
+                            str(size)
+                            .strip()
+                            .upper()
+                            for size in parsed_sizes
+                            if str(size).strip()
+                        ]
+
+                except Exception:
+
+                    raise HTTPException(
+                        status_code=500,
+                        detail=(
+                            f"The size configuration "
+                            f"for {item.item_name} "
+                            f"is invalid."
+                        )
+                    )
+
+            if not available_sizes:
+
+                available_sizes = (
+                    default_clothing_sizes
+                )
+
+            if selected_size not in available_sizes:
+
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"Invalid size "
+                        f"'{selected_size}' "
+                        f"for {item.item_name}. "
+                        f"Available sizes: "
+                        f"{', '.join(available_sizes)}."
                     )
                 )
 
         # ----------------------------------------------------
-        # USE DEFAULT SIZES IF NONE SAVED
+        # NON-CLOTHING
         # ----------------------------------------------------
 
-        if not available_sizes:
+        else:
 
-            available_sizes = (
-                default_clothing_sizes
-            )
+            selected_size = None
 
         # ----------------------------------------------------
-        # CHECK SELECTED SIZE
+        # PRICE
         # ----------------------------------------------------
 
-        if selected_size not in available_sizes:
+        unit_price = float(
+            item.price or 0
+        )
+
+        if unit_price <= 0:
 
             raise HTTPException(
                 status_code=400,
                 detail=(
-                    f"Invalid size '{selected_size}'. "
-                    f"Available sizes: "
-                    f"{', '.join(available_sizes)}."
+                    f"Invalid price for "
+                    f"{item.item_name}."
                 )
             )
 
-    else:
+        item_total = (
+            unit_price *
+            int(cart_item.quantity)
+        )
 
-        # Non-clothing items do not use sizes.
-        selected_size = None
+        total_php += item_total
+
+        # ----------------------------------------------------
+        # STORE VALIDATED ITEM
+        # ----------------------------------------------------
+
+        validated_items.append({
+
+            "item": item,
+
+            "store_item_id": item.id,
+
+            "item_name": item.item_name,
+
+            "category": category,
+
+            "quantity": int(
+                cart_item.quantity
+            ),
+
+            "size": selected_size,
+
+            "unit_price": unit_price,
+
+            "item_total": item_total
+
+        })
 
     # ========================================================
-    # CALCULATE TOTAL
+    # TOTAL
     # ========================================================
-
-    total_php = (
-        float(item.price) *
-        int(data.quantity)
-    )
 
     if total_php <= 0:
+
         raise HTTPException(
             status_code=400,
-            detail="Invalid payment amount."
+            detail="Invalid total payment amount."
         )
 
     # ========================================================
     # PAYMONGO AMOUNT
-    #
-    # Example:
-    #
-    # ₱350.00
-    #
-    # becomes:
-    #
-    # 35000 centavos
     # ========================================================
 
     paymongo_amount = int(
@@ -18921,89 +20162,165 @@ def create_store_purchase(
     )
 
     if paymongo_amount <= 0:
+
         raise HTTPException(
             status_code=400,
             detail="Invalid PayMongo payment amount."
         )
 
     # ========================================================
+    # GENERATE STORE ORDER ID
+    #
+    # ONE ID FOR THE ENTIRE CART.
+    #
+    # Example:
+    #
+    # STORE-20260829153045-ABC12345
+    #
+    # Whether the cart has:
+    #
+    # 1 item
+    # 2 items
+    # 3 items
+    # 10 items
+    # 50 items
+    #
+    # they all use ONE store_order_id.
+    # ========================================================
+
+    store_order_id = (
+        "STORE-"
+        + datetime.now().strftime("%Y%m%d%H%M%S")
+        + "-"
+        + uuid.uuid4().hex[:8].upper()
+    )
+
+    # ========================================================
     # PAYMENT DESCRIPTION
     # ========================================================
 
-    if selected_size:
+    description_parts = []
 
-        payment_description = (
-            f"{item.item_name} "
-            f"x {data.quantity} "
-            f"({selected_size})"
-        )
+    for validated in validated_items:
 
-    else:
+        if validated["size"]:
 
-        payment_description = (
-            f"{item.item_name} "
-            f"x {data.quantity}"
-        )
+            description_parts.append(
+                f'{validated["item_name"]} '
+                f'x{validated["quantity"]} '
+                f'({validated["size"]})'
+            )
+
+        else:
+
+            description_parts.append(
+                f'{validated["item_name"]} '
+                f'x{validated["quantity"]}'
+            )
+
+    payment_description = (
+        "Store Order "
+        + store_order_id
+        + ": "
+        + ", ".join(description_parts)
+    )
 
     # ========================================================
-    # CREATE PAYMENT RECORD
+    # CREATE PAYMENT RECORDS
     #
-    # Store customers are NOT participants.
+    # ONE PAYMENT ROW PER CART ITEM.
     #
-    # participant_id = None
+    # Example 10-item cart:
+    #
+    # Payment 1  -> STORE-ABC
+    # Payment 2  -> STORE-ABC
+    # Payment 3  -> STORE-ABC
+    # ...
+    # Payment 10 -> STORE-ABC
+    #
+    # ALL ROWS BELONG TO THE SAME CART.
     # ========================================================
 
-    payment = Payment(
+    payments = []
 
-    # ==================================================
-    # STORE PAYMENT
-    # ==================================================
+    try:
 
-    participant_id=None,
+        for validated in validated_items:
 
-    payment_type="Store",
+            payment = Payment(
 
-    # ==================================================
-    # STORE PURCHASE INFORMATION
-    # ==================================================
+                participant_id=None,
 
-    store_item_id=item.id,
+                payment_type="Store",
 
-    store_quantity=data.quantity,
+                # ------------------------------------------------
+                # STORE ORDER
+                # ------------------------------------------------
 
-    store_size=selected_size,
+                store_order_id=store_order_id,
 
-    # Keep this field too for compatibility with
-    # existing participant/t-shirt logic.
-    tshirt_size=selected_size,
+                # ------------------------------------------------
+                # ITEM
+                # ------------------------------------------------
 
-    # ==================================================
-    # PAYMENT
-    # ==================================================
+                store_item_id=validated["store_item_id"],
 
-    amount=paymongo_amount,
+                store_quantity=validated["quantity"],
 
-    currency="PHP",
+                store_size=validated["size"],
 
-    status="Pending",
+                tshirt_size=validated["size"],
 
-    description=payment_description,
+                # ------------------------------------------------
+                # PAYMENT
+                # ------------------------------------------------
 
-    # ==================================================
-    # CUSTOMER
-    # ==================================================
+                amount=int(
+                    round(
+                        validated["item_total"] * 100
+                    )
+                ),
 
-    customer_name=customer_name,
+                currency="PHP",
 
-    customer_contact=customer_contact,
+                status="Pending",
 
-    customer_email=customer_email
-)
-    db.add(payment)
+                description=payment_description,
 
-    db.commit()
+                # ------------------------------------------------
+                # CUSTOMER
+                # ------------------------------------------------
 
-    db.refresh(payment)
+                customer_name=customer_name,
+
+                customer_contact=customer_contact,
+
+                customer_email=customer_email
+            )
+
+            db.add(payment)
+
+            payments.append(
+                payment
+            )
+
+        db.commit()
+
+        for payment in payments:
+
+            db.refresh(payment)
+
+    except Exception as e:
+
+        db.rollback()
+
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Unable to create "
+                f"store order: {str(e)}"
+            )
+        )
 
     # ========================================================
     # PAYMONGO CONFIG
@@ -19013,7 +20330,9 @@ def create_store_purchase(
 
     if not secret_key:
 
-        db.delete(payment)
+        for payment in payments:
+
+            db.delete(payment)
 
         db.commit()
 
@@ -19026,77 +20345,73 @@ def create_store_purchase(
         )
 
     # ========================================================
-    # PAYMONGO PAYMENT LINK
-    #
-    # IMPORTANT:
-    #
-    # DO NOT USE:
-    #
-    # {
-    #     "data": {
-    #         "attributes": {
-    #             ...
-    #         }
-    #     }
-    # }
-    #
-    # amount, currency and description are sent
-    # directly in the request body.
+    # PAYMONGO METADATA
+    # ========================================================
+
+    metadata_items = []
+
+    for validated in validated_items:
+
+        metadata_items.append({
+
+            "store_item_id": str(
+                validated["store_item_id"]
+            ),
+
+            "item_name": validated["item_name"],
+
+            "category": validated["category"],
+
+            "quantity": str(
+                validated["quantity"]
+            ),
+
+            "size": validated["size"] or ""
+
+        })
+
+    # ========================================================
+    # PAYMONGO PAYLOAD
     # ========================================================
 
     payload = {
 
-        "amount":
-            paymongo_amount,
+        "amount": paymongo_amount,
 
-        "currency":
-            "PHP",
+        "currency": "PHP",
 
-        "description":
-            payment_description,
+        "description": payment_description,
 
-        "remarks":
-            (
-                f"Store purchase "
-                f"#{payment.id}"
-            ),
+        "remarks": (
+            f"Store Order {store_order_id}"
+        ),
 
         "metadata": {
 
-            "type":
-                "store_purchase",
+            "type": "store_purchase",
 
-            "payment_id":
-                str(payment.id),
+            "store_order_id": store_order_id,
 
-            "store_item_id":
-                str(item.id),
+            "customer_name": customer_name,
 
-            "item_name":
-                item.item_name,
+            "customer_contact": customer_contact,
 
-            "category":
-                category,
+            "customer_email": customer_email,
 
-            "quantity":
-                str(data.quantity),
+            "item_count": str(
+                len(validated_items)
+            ),
 
-            "size":
-                selected_size or "",
+            "items": json.dumps(
+                metadata_items
+            )
 
-            "customer_name":
-                customer_name,
-
-            "customer_contact":
-                customer_contact,
-
-            "customer_email":
-                customer_email
         }
+
     }
 
     # ========================================================
-    # SEND PAYMENT LINK TO PAYMONGO
+    # CREATE PAYMONGO PAYMENT LINK
     # ========================================================
 
     try:
@@ -19112,32 +20427,30 @@ def create_store_purchase(
 
             headers={
 
-                "Content-Type":
-                    "application/json",
+                "Content-Type": "application/json",
 
-                "Idempotency-Key":
-                    (
-                        f"store-payment-"
-                        f"{payment.id}-"
-                        f"{uuid.uuid4()}"
-                    )
+                "Idempotency-Key": (
+                    f"store-order-{store_order_id}"
+                )
+
             },
 
             json=payload,
 
             timeout=30
+
         )
 
     except Exception as e:
 
-        db.delete(payment)
+        for payment in payments:
+
+            db.delete(payment)
 
         db.commit()
 
         raise HTTPException(
-
             status_code=502,
-
             detail=(
                 "Unable to connect to "
                 f"PayMongo: {str(e)}"
@@ -19163,26 +20476,25 @@ def create_store_purchase(
                 "detail": response.text
             }
 
-        db.delete(payment)
+        for payment in payments:
+
+            db.delete(payment)
 
         db.commit()
 
         raise HTTPException(
-
             status_code=502,
-
             detail={
-                "message":
+                "message": (
                     "PayMongo rejected "
-                    "the payment.",
-
-                "paymongo":
-                    error_data
+                    "the payment."
+                ),
+                "paymongo": error_data
             }
         )
 
     # ========================================================
-    # READ PAYMONGO RESPONSE
+    # READ RESPONSE
     # ========================================================
 
     try:
@@ -19191,14 +20503,14 @@ def create_store_purchase(
 
     except Exception as exc:
 
-        db.delete(payment)
+        for payment in payments:
+
+            db.delete(payment)
 
         db.commit()
 
         raise HTTPException(
-
             status_code=502,
-
             detail=(
                 "PayMongo returned "
                 "invalid JSON: "
@@ -19207,74 +20519,56 @@ def create_store_purchase(
         )
 
     # ========================================================
-    # GET PAYMENT DATA
+    # PAYMENT DATA
     # ========================================================
 
-    payment_data = (
-        result.get(
-            "data",
-            {}
-        )
+    payment_data = result.get(
+        "data",
+        {}
     )
 
-    payment_link_id = (
-        payment_data.get(
-            "id"
-        )
+    payment_link_id = payment_data.get(
+        "id"
     )
 
-    # ========================================================
-    # PAYMENT URL
-    #
-    # The URL can be returned directly.
-    # ========================================================
-
-    payment_url = (
-        payment_data.get(
-            "url"
-        )
+    payment_url = payment_data.get(
+        "url"
     )
 
-    reference_number = (
-        payment_data.get(
-            "reference_number"
-        )
+    reference_number = payment_data.get(
+        "reference_number"
     )
 
     # ========================================================
-    # CHECK PAYMENT LINK ID
+    # VALIDATE PAYMONGO RESPONSE
     # ========================================================
 
     if not payment_link_id:
 
-        db.delete(payment)
+        for payment in payments:
+
+            db.delete(payment)
 
         db.commit()
 
         raise HTTPException(
-
             status_code=502,
-
             detail=(
                 "PayMongo did not return "
                 "a payment link ID."
             )
         )
 
-    # ========================================================
-    # CHECK PAYMENT URL
-    # ========================================================
-
     if not payment_url:
 
-        db.delete(payment)
+        for payment in payments:
+
+            db.delete(payment)
 
         db.commit()
 
         raise HTTPException(
-
             status_code=502,
-
             detail=(
                 "PayMongo did not return "
                 "a payment URL."
@@ -19283,95 +20577,130 @@ def create_store_purchase(
 
     # ========================================================
     # SAVE PAYMONGO INFORMATION
+    #
+    # EVERY PAYMENT ROW GETS THE SAME:
+    #
+    # - payment link ID
+    # - reference
+    # - checkout URL
+    # - store order ID
+    #
     # ========================================================
 
-    payment.paymongo_link_id = (
-        payment_link_id
-    )
+    for payment in payments:
 
-    payment.paymongo_reference = (
-        reference_number
-    )
+        payment.paymongo_link_id = (
+            payment_link_id
+        )
 
-    payment.checkout_url = (
-        payment_url
-    )
+        payment.paymongo_reference = (
+            reference_number
+        )
 
-    payment.description = (
-        payment_description
-    )
+        payment.checkout_url = (
+            payment_url
+        )
 
-    payment.tshirt_size = (
-        selected_size
-    )
+        payment.description = (
+            payment_description
+        )
 
     db.commit()
 
-    db.refresh(payment)
-
     # ========================================================
-    # IMPORTANT
-    #
-    # DO NOT REDUCE INVENTORY HERE.
-    #
-    # Inventory is reduced ONLY after the
-    # PayMongo webhook confirms successful payment.
+    # RESPONSE
     # ========================================================
 
     return {
 
-        "success":
-            True,
+        "success": True,
 
-        "message":
-            "Payment created successfully.",
+        "message": (
+            "Store order created successfully."
+        ),
 
-        "payment_id":
-            payment.id,
+        "store_order_id": store_order_id,
 
-        "store_item_id":
-            item.id,
+        "payment_id": payments[0].id,
 
-        "item_name":
-            item.item_name,
+        "payment_ids": [
+            payment.id
+            for payment in payments
+        ],
 
-        "category":
-            category,
+        "item_count": len(
+            validated_items
+        ),
 
-        "quantity":
-            data.quantity,
+        "items": [
 
-        "size":
-            selected_size,
+            {
 
-        "unit_price":
-            float(item.price),
+                "payment_id": payment.id,
 
-        "total_amount":
-            float(total_php),
+                "store_item_id":
+                    validated["store_item_id"],
 
-        "checkout_url":
-            payment_url,
+                "item_name":
+                    validated["item_name"],
 
-        "payment_status":
-            "Pending"
+                "quantity":
+                    validated["quantity"],
+
+                "size":
+                    validated["size"],
+
+                "unit_price":
+                    validated["unit_price"],
+
+                "item_total":
+                    validated["item_total"]
+
+            }
+
+            for payment, validated
+            in zip(
+                payments,
+                validated_items
+            )
+
+        ],
+
+        "total_amount": float(
+            total_php
+        ),
+
+        "checkout_url": payment_url,
+
+        "payment_status": "Pending"
+
     }
     
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # ============================================================
-# CHECK STORE PURCHASE PAYMENT STATUS
+# STORE PURCHASE STATUS
 # ============================================================
 
 @app.get("/store/purchase/status/{payment_id}")
-def get_store_purchase_status(
+def store_purchase_status(
     payment_id: int,
     db: Session = Depends(get_db)
 ):
-
-    # --------------------------------------------------------
-    # FIND PAYMENT
-    # --------------------------------------------------------
 
     payment = (
         db.query(Payment)
@@ -19389,53 +20718,120 @@ def get_store_purchase_status(
             detail="Store payment not found."
         )
 
-    # --------------------------------------------------------
-    # RETURN PAYMENT STATUS
-    # --------------------------------------------------------
+    # ========================================================
+    # GET WHOLE STORE ORDER
+    # ========================================================
 
-    status = (
-        payment.status or "Pending"
-    ).strip()
+    if payment.store_order_id:
+
+        order_payments = (
+            db.query(Payment)
+            .filter(
+                Payment.store_order_id ==
+                    payment.store_order_id,
+
+                Payment.payment_type ==
+                    "Store"
+            )
+            .all()
+        )
+
+    else:
+
+        order_payments = [
+            payment
+        ]
+
+    # ========================================================
+    # DETERMINE ORDER STATUS
+    # ========================================================
+
+    statuses = [
+        str(
+            p.status or "Pending"
+        ).lower()
+        for p in order_payments
+    ]
+
+    if all(
+        status in (
+            "paid",
+            "success",
+            "successful",
+            "completed"
+        )
+        for status in statuses
+    ):
+
+        order_status = "Paid"
+
+    elif any(
+        status in (
+            "failed",
+            "cancelled",
+            "canceled"
+        )
+        for status in statuses
+    ):
+
+        order_status = "Failed"
+
+    else:
+
+        order_status = "Pending"
+
+    # ========================================================
+    # RETURN
+    # ========================================================
 
     return {
 
-        "success": True,
+        "success":
+            True,
 
         "payment_id":
             payment.id,
 
-        "payment_type":
-            payment.payment_type,
+        "store_order_id":
+            payment.store_order_id,
 
         "status":
-            status,
+            order_status,
 
         "payment_status":
-            status,
-
-        "customer_name":
-            payment.customer_name,
-
-        "customer_contact":
-            payment.customer_contact,
-
-        "customer_email":
-            payment.customer_email,
-
-        "description":
-            payment.description,
-
-        "checkout_url":
-            payment.checkout_url,
+            order_status,
 
         "paymongo_reference":
             payment.paymongo_reference,
 
-        "size":
-            payment.tshirt_size,
+        "item_count":
+            len(order_payments),
 
-        "paid_at":
-            payment.paid_at
+        "items": [
+
+            {
+
+                "payment_id":
+                    p.id,
+
+                "store_item_id":
+                    p.store_item_id,
+
+                "quantity":
+                    p.store_quantity,
+
+                "size":
+                    p.store_size,
+
+                "status":
+                    p.status
+
+            }
+
+            for p in order_payments
+
+        ]
+
     }
 
 
