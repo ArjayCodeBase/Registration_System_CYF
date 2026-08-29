@@ -54,8 +54,8 @@ import hashlib
 import time
 import uuid
 import os
+import smtplib
 from dotenv import load_dotenv
-import resend
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
@@ -3104,20 +3104,183 @@ CONTACT_RECEIVER = (
 
 
 # ==========================================================
-# RESEND EMAIL CONFIGURATION
+# GMAIL SMTP EMAIL CONFIGURATION
 # ==========================================================
 
-RESEND_API_KEY = os.getenv(
-    "RESEND_API_KEY"
+# The Gmail account configured here is the account the
+# registration system uses to SEND all system emails.
+#
+# GMAIL_APP_PASSWORD must be a Google App Password.
+# Do NOT use the normal Gmail account password.
+
+CONTACT_RECEIVER_EMAIL = (
+    os.getenv("CONTACT_RECEIVER_EMAIL")
+    or GMAIL_USERNAME
 )
 
-CONTACT_RECEIVER_EMAIL = os.getenv(
-    "CONTACT_RECEIVER_EMAIL"
-)
+
+# ==========================================================
+# GMAIL SMTP SENDER
+# ==========================================================
+
+def send_gmail_smtp(
+    recipient_email,
+    subject,
+    text_body=None,
+    html_body=None,
+    reply_to=None
+):
+    """
+    Send an email through Gmail SMTP.
+
+    Sender:
+        GMAIL_USERNAME
+
+    Recipient:
+        recipient_email
+
+    Authentication:
+        GMAIL_APP_PASSWORD
+
+    This function is synchronous so it can also be used by
+    normal/synchronous FastAPI code such as the Contact API.
+    """
+
+    if not GMAIL_USERNAME:
+        raise RuntimeError(
+            "GMAIL_USERNAME is not configured."
+        )
+
+    if not GMAIL_APP_PASSWORD:
+        raise RuntimeError(
+            "GMAIL_APP_PASSWORD is not configured."
+        )
+
+    if not recipient_email:
+        raise RuntimeError(
+            "Recipient email is empty."
+        )
+
+    recipient_email = str(
+        recipient_email
+    ).strip()
+
+    subject = str(
+        subject or ""
+    ).replace(
+        "\r",
+        " "
+    ).replace(
+        "\n",
+        " "
+    ).strip()
+
+    if not subject:
+        raise RuntimeError(
+            "Email subject is empty."
+        )
+
+    # --------------------------------------------------------
+    # CREATE EMAIL
+    # --------------------------------------------------------
+
+    message = EmailMessage()
+
+    message["From"] = (
+        f"{GMAIL_FROM_NAME} "
+        f"<{GMAIL_USERNAME}>"
+    )
+
+    message["To"] = recipient_email
+
+    message["Subject"] = subject
+
+    if reply_to:
+        message["Reply-To"] = str(
+            reply_to
+        ).strip()
+
+    # --------------------------------------------------------
+    # TEXT BODY
+    # --------------------------------------------------------
+
+    if text_body is None:
+        text_body = ""
+
+    message.set_content(
+        str(text_body)
+    )
+
+    # --------------------------------------------------------
+    # OPTIONAL HTML BODY
+    # --------------------------------------------------------
+
+    if html_body:
+        message.add_alternative(
+            str(html_body),
+            subtype="html"
+        )
+
+    # --------------------------------------------------------
+    # SEND THROUGH GMAIL SMTP
+    # --------------------------------------------------------
+
+    with smtplib.SMTP(
+        "smtp.gmail.com",
+        587,
+        timeout=30
+    ) as smtp:
+
+        smtp.ehlo()
+
+        smtp.starttls()
+
+        smtp.ehlo()
+
+        smtp.login(
+            GMAIL_USERNAME,
+            GMAIL_APP_PASSWORD
+        )
+
+        smtp.send_message(
+            message
+        )
+
+    return {
+        "success": True,
+        "provider": "gmail_smtp",
+        "sender": GMAIL_USERNAME,
+        "recipient": recipient_email,
+        "subject": subject
+    }
 
 
-if RESEND_API_KEY:
-    resend.api_key = RESEND_API_KEY
+# ==========================================================
+# ASYNC GMAIL SMTP SENDER
+# ==========================================================
+
+async def send_gmail_smtp_async(
+    recipient_email,
+    subject,
+    text_body=None,
+    html_body=None,
+    reply_to=None
+):
+    """
+    Async wrapper around the Gmail SMTP sender.
+
+    SMTP itself is blocking, so run it in a worker thread
+    instead of blocking the FastAPI event loop.
+    """
+
+    return await asyncio.to_thread(
+        send_gmail_smtp,
+        recipient_email,
+        subject,
+        text_body,
+        html_body,
+        reply_to
+    )
 
 
 # ==========================================================
@@ -3129,12 +3292,17 @@ def send_contact_email(
 ):
 
     # ------------------------------------------------------
-    # Check Resend configuration
+    # Check Gmail configuration
     # ------------------------------------------------------
 
-    if not RESEND_API_KEY:
+    if not GMAIL_USERNAME:
         raise RuntimeError(
-            "RESEND_API_KEY is not configured."
+            "GMAIL_USERNAME is not configured."
+        )
+
+    if not GMAIL_APP_PASSWORD:
+        raise RuntimeError(
+            "GMAIL_APP_PASSWORD is not configured."
         )
 
     if not CONTACT_RECEIVER_EMAIL:
@@ -3223,28 +3391,27 @@ def send_contact_email(
 
 
     # ------------------------------------------------------
-    # Send email through Resend
+    # Send email through Gmail SMTP
     # ------------------------------------------------------
 
-    response = resend.Emails.send({
+    # ------------------------------------------------------
+    # SEND THROUGH GMAIL SMTP
+    # ------------------------------------------------------
 
-        "from": (
-            "CYF Registration System "
-            "<onboarding@resend.dev>"
+    response = send_gmail_smtp(
+        CONTACT_RECEIVER_EMAIL,
+        f"Contact Us Message - {subject}",
+        text_body=(
+            f"Name: {name}\n"
+            f"Email: {sender_email}\n"
+            f"Subject: {subject}\n\n"
+            f"Message:\n{message}\n\n"
+            "This message was submitted through the "
+            "CYF Registration System Contact Us form."
         ),
-
-        "to": [
-            CONTACT_RECEIVER_EMAIL
-        ],
-
-        "subject": (
-            f"Contact Us Message - {subject}"
-        ),
-
-        "html": email_html,
-
-        "reply_to": sender_email
-    })
+        html_body=email_html,
+        reply_to=sender_email
+    )
 
 
     # ------------------------------------------------------
@@ -4657,24 +4824,18 @@ CYF Registration System
 
 
         # ----------------------------------------------------
-        # SEND THROUGH RESEND
+        # SEND THROUGH GMAIL SMTP
         # ----------------------------------------------------
 
-        response = resend.Emails.send({
+        # ----------------------------------------------------
+        # SEND THROUGH GMAIL SMTP
+        # ----------------------------------------------------
 
-            "from": (
-                "CYF Registration System "
-                "<onboarding@resend.dev>"
-            ),
-
-            "to": [
-                recipient_email
-            ],
-
-            "subject": subject,
-
-            "text": body
-        })
+        response = await send_gmail_smtp_async(
+            recipient_email,
+            subject,
+            text_body=body
+        )
 
 
         # ----------------------------------------------------
@@ -4687,7 +4848,7 @@ CYF Registration System
         )
 
         print(
-            "Resend response:",
+            "Gmail SMTP response:",
             response
         )
 
@@ -5337,24 +5498,18 @@ CYF Registration System
 """
 
         # --------------------------------------------------
-        # SEND THROUGH RESEND
+        # SEND THROUGH GMAIL SMTP
         # --------------------------------------------------
 
-        response = resend.Emails.send({
+        # --------------------------------------------------
+        # SEND THROUGH GMAIL SMTP
+        # --------------------------------------------------
 
-            "from": (
-                "CYF Registration System "
-                "<onboarding@resend.dev>"
-            ),
-
-            "to": [
-                sponsor_email
-            ],
-
-            "subject": subject,
-
-            "text": body
-        })
+        response = await send_gmail_smtp_async(
+            sponsor_email,
+            subject,
+            text_body=body
+        )
 
         print(
             "Sponsor confirmation email sent to:",
@@ -5362,7 +5517,7 @@ CYF Registration System
         )
 
         print(
-            "Resend response:",
+            "Gmail SMTP response:",
             response
         )
 
@@ -5594,24 +5749,18 @@ CYF Registration System
 """
 
         # ----------------------------------------------------
-        # SEND THROUGH RESEND
+        # SEND THROUGH GMAIL SMTP
         # ----------------------------------------------------
 
-        response = resend.Emails.send({
+        # ----------------------------------------------------
+        # SEND THROUGH GMAIL SMTP
+        # ----------------------------------------------------
 
-            "from": (
-                "CYF Registration System "
-                "<onboarding@resend.dev>"
-            ),
-
-            "to": [
-                recipient_email
-            ],
-
-            "subject": subject,
-
-            "text": body
-        })
+        response = await send_gmail_smtp_async(
+            recipient_email,
+            subject,
+            text_body=body
+        )
 
         print("=" * 70)
         print(
@@ -5630,7 +5779,7 @@ CYF Registration System
             f"₱{amount:,.2f}"
         )
         print(
-            "Resend Response:",
+            "Gmail SMTP Response:",
             response
         )
         print("=" * 70)
@@ -5855,24 +6004,18 @@ CYF Registration System
 
 
         # --------------------------------------------------
-        # SEND THROUGH RESEND
+        # SEND THROUGH GMAIL SMTP
         # --------------------------------------------------
 
-        response = resend.Emails.send({
+        # --------------------------------------------------
+        # SEND THROUGH GMAIL SMTP
+        # --------------------------------------------------
 
-            "from": (
-                "CYF Registration System "
-                "<onboarding@resend.dev>"
-            ),
-
-            "to": [
-                sponsor_email
-            ],
-
-            "subject": subject,
-
-            "text": body
-        })
+        response = await send_gmail_smtp_async(
+            sponsor_email,
+            subject,
+            text_body=body
+        )
 
 
         # --------------------------------------------------
@@ -5885,7 +6028,7 @@ CYF Registration System
         )
 
         print(
-            "Resend response:",
+            "Gmail SMTP response:",
             response
         )
 
