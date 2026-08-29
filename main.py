@@ -3471,7 +3471,7 @@ CONTACT_RECEIVER = (
 
 CONTACT_RECEIVER_EMAIL = (
     os.getenv("CONTACT_RECEIVER_EMAIL")
-    or GMAIL_USERNAME
+    or GMAIL_SENDER_EMAIL
 )
 
 
@@ -3536,9 +3536,9 @@ def send_contact_email(
     # Check Gmail configuration
     # ------------------------------------------------------
 
-    if not GMAIL_USERNAME:
+    if not GMAIL_SENDER_EMAIL:
         raise RuntimeError(
-            "GMAIL_USERNAME is not configured."
+            "GMAIL_SENDER_EMAIL is not configured."
         )
 
     if not CONTACT_RECEIVER_EMAIL:
