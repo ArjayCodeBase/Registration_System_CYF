@@ -1,1119 +1,1121 @@
 <!DOCTYPE html>
+
 <html lang="en">
 
 <head>
 
-    <meta charset="UTF-8">
+```
+<meta charset="UTF-8">
 
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
+<meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+>
 
-    <title>
-        Registration Payment
-    </title>
+<title>
+    Registration Payment
+</title>
 
-    <style>
+<style>
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
+
+    :root {
+        --primary: #9d2b20;
+        --primary-dark: #7f2118;
+        --primary-light: #fdf0ee;
+        --primary-border: #e8bbb6;
+    }
+
+    body {
+        font-family:
+            Arial,
+            Helvetica,
+            sans-serif;
+
+        background: #f4f6f9;
+        color: #222;
+        min-height: 100vh;
+    }
+
+    /* =====================================================
+       HEADER
+       ===================================================== */
+
+    .header {
+        background: var(--primary);
+        color: white;
+
+        padding: 18px 30px;
+
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+
+        box-shadow:
+            0 2px 8px rgba(
+                0,
+                0,
+                0,
+                0.15
+            );
+    }
+
+    .header-title {
+        font-size: 22px;
+        font-weight: 700;
+    }
+
+    .header-subtitle {
+        font-size: 13px;
+        opacity: 0.9;
+        margin-top: 4px;
+    }
+
+    /* =====================================================
+       MAIN
+       ===================================================== */
+
+    .container {
+        width: min(
+            1100px,
+            calc(100% - 30px)
+        );
+
+        margin: 30px auto 50px;
+    }
+
+    /* =====================================================
+       LOADING
+       ===================================================== */
+
+    .loading {
+        background: white;
+        border-radius: 12px;
+
+        padding: 50px 20px;
+
+        text-align: center;
+
+        box-shadow:
+            0 2px 12px rgba(
+                0,
+                0,
+                0,
+                0.08
+            );
+    }
+
+    .spinner {
+        width: 42px;
+        height: 42px;
+
+        border:
+            4px solid #e5e7eb;
+
+        border-top:
+            4px solid var(--primary);
+
+        border-radius: 50%;
+
+        animation:
+            spin 0.8s linear infinite;
+
+        margin: 0 auto 15px;
+    }
+
+    @keyframes spin {
+
+        from {
+            transform: rotate(0deg);
         }
 
-        :root {
-            --primary: #9d2b20;
-            --primary-dark: #7f2118;
-            --primary-light: #fdf0ee;
-            --primary-border: #e8bbb6;
+        to {
+            transform: rotate(360deg);
         }
 
-        body {
-            font-family:
-                Arial,
-                Helvetica,
-                sans-serif;
+    }
 
-            background: #f4f6f9;
-            color: #222;
-            min-height: 100vh;
-        }
+    /* =====================================================
+       ERROR
+       ===================================================== */
 
-        /* =====================================================
-           HEADER
-           ===================================================== */
+    .error-box {
+        background: #fff0f0;
+
+        border:
+            1px solid #ffcaca;
+
+        color: #b42318;
+
+        padding: 18px;
+
+        border-radius: 10px;
+
+        display: none;
+
+        margin-bottom: 20px;
+    }
+
+    /* =====================================================
+       CARDS
+       ===================================================== */
+
+    .participant-card,
+    .payment-card {
+        background: white;
+
+        border-radius: 12px;
+
+        padding: 25px;
+
+        margin-bottom: 20px;
+
+        box-shadow:
+            0 2px 12px rgba(
+                0,
+                0,
+                0,
+                0.08
+            );
+    }
+
+    .participant-title,
+    .section-title {
+        font-size: 20px;
+        font-weight: 700;
+
+        margin-bottom: 20px;
+    }
+
+    .participant-title {
+        color: var(--primary);
+    }
+
+    /* =====================================================
+       PARTICIPANT
+       ===================================================== */
+
+    .participant-grid {
+        display: grid;
+
+        grid-template-columns:
+            repeat(
+                2,
+                minmax(
+                    0,
+                    1fr
+                )
+            );
+
+        gap: 18px;
+    }
+
+    .info-label {
+        font-size: 12px;
+        color: #777;
+
+        margin-bottom: 5px;
+
+        text-transform: uppercase;
+
+        letter-spacing: 0.4px;
+    }
+
+    .info-value {
+        font-size: 16px;
+        font-weight: 600;
+        color: #222;
+    }
+
+    /* =====================================================
+       ITEMS
+       ===================================================== */
+
+    .item-list {
+        display: flex;
+        flex-direction: column;
+
+        gap: 14px;
+    }
+
+    .item {
+        border:
+            2px solid #e3e7eb;
+
+        border-radius: 10px;
+
+        padding: 18px;
+
+        display: flex;
+
+        align-items: center;
+
+        justify-content: space-between;
+
+        gap: 20px;
+
+        transition:
+            border-color 0.2s,
+            background 0.2s,
+            box-shadow 0.2s,
+            opacity 0.2s;
+    }
+
+    .item.selectable {
+        cursor: pointer;
+    }
+
+    .item.selectable:hover {
+        border-color:
+            var(--primary-border);
+
+        background:
+            var(--primary-light);
+    }
+
+    .item.selected {
+        border-color:
+            var(--primary);
+
+        background:
+            var(--primary-light);
+
+        box-shadow:
+            0 0 0 2px rgba(
+                157,
+                43,
+                32,
+                0.08
+            );
+    }
+
+    .item.paid {
+        background: #f8faf9;
+        border-color: #dcefe4;
+    }
+
+    .item.locked {
+        background: #f5f5f5;
+
+        border-color: #dedede;
+
+        opacity: 0.65;
+
+        cursor: not-allowed;
+    }
+
+    .item-left {
+        display: flex;
+
+        align-items: center;
+
+        gap: 14px;
+
+        min-width: 0;
+    }
+
+    .checkbox-wrapper {
+        width: 24px;
+        height: 24px;
+
+        flex-shrink: 0;
+    }
+
+    .checkbox-wrapper input {
+        width: 21px;
+        height: 21px;
+
+        cursor: pointer;
+
+        accent-color:
+            var(--primary);
+    }
+
+    .checkbox-wrapper input:disabled {
+        cursor: not-allowed;
+    }
+
+    .item-icon {
+        width: 45px;
+        height: 45px;
+
+        flex-shrink: 0;
+
+        border-radius: 10px;
+
+        background: #f5e4e1;
+
+        color: var(--primary);
+
+        display: flex;
+
+        align-items: center;
+
+        justify-content: center;
+
+        font-weight: 700;
+
+        font-size: 15px;
+    }
+
+    .item.paid .item-icon {
+        background: #e8f7ee;
+        color: #16834b;
+    }
+
+    .item.locked .item-icon {
+        background: #e8e8e8;
+        color: #777;
+    }
+
+    .item-name {
+        font-weight: 700;
+        font-size: 16px;
+    }
+
+    .item-price {
+        margin-top: 4px;
+
+        font-size: 14px;
+
+        color: #666;
+    }
+
+    .item-right {
+        display: flex;
+
+        align-items: center;
+
+        gap: 15px;
+    }
+
+    /* =====================================================
+       STATUS
+       ===================================================== */
+
+    .status {
+        display: inline-flex;
+
+        align-items: center;
+
+        justify-content: center;
+
+        padding: 7px 13px;
+
+        border-radius: 20px;
+
+        font-size: 12px;
+
+        font-weight: 700;
+
+        white-space: nowrap;
+    }
+
+    .status-paid {
+        background: #e8f7ee;
+        color: #16834b;
+    }
+
+    .status-unpaid {
+        background: #fff3e0;
+        color: #c56a00;
+    }
+
+    .status-pending {
+        background: #fff8d9;
+        color: #8a6d00;
+    }
+
+    /* =====================================================
+       T-SHIRT SIZE
+       ===================================================== */
+
+    .size-section {
+        display: none;
+
+        margin-top: 18px;
+
+        padding: 18px;
+
+        background: #f7f9fc;
+
+        border:
+            1px solid #e2e7ee;
+
+        border-radius: 10px;
+    }
+
+    .size-section.visible {
+        display: block;
+    }
+
+    .size-label {
+        display: block;
+
+        font-size: 13px;
+
+        font-weight: 700;
+
+        margin-bottom: 8px;
+    }
+
+    .size-select {
+        width: 100%;
+
+        max-width: 250px;
+
+        padding: 11px 12px;
+
+        border:
+            1px solid #cfd6df;
+
+        border-radius: 8px;
+
+        background: white;
+
+        font-size: 14px;
+
+        outline: none;
+    }
+
+    .size-select:focus {
+        border-color:
+            var(--primary);
+
+        box-shadow:
+            0 0 0 3px rgba(
+                157,
+                43,
+                32,
+                0.1
+            );
+    }
+
+    /* =====================================================
+       TOTAL
+       ===================================================== */
+
+    .total-row {
+        border-top:
+            1px solid #e5e7eb;
+
+        margin-top: 20px;
+
+        padding-top: 20px;
+
+        display: flex;
+
+        justify-content:
+            space-between;
+
+        align-items: center;
+    }
+
+    .total-label {
+        font-size: 17px;
+        font-weight: 700;
+    }
+
+    .total-amount {
+        font-size: 25px;
+        font-weight: 800;
+
+        color: var(--primary);
+    }
+
+    /* =====================================================
+       MESSAGE
+       ===================================================== */
+
+    .selection-message {
+        margin-top: 15px;
+
+        padding: 12px 15px;
+
+        background: #fafafa;
+
+        border:
+            1px solid #e3e3e3;
+
+        border-radius: 8px;
+
+        color: #555;
+
+        font-size: 13px;
+
+        display: none;
+    }
+
+    /* =====================================================
+       SUCCESS
+       ===================================================== */
+
+    .success-message {
+        display: none;
+
+        background: #eaf8ef;
+
+        border:
+            1px solid #b9e8c9;
+
+        color: #176b3a;
+
+        border-radius: 10px;
+
+        padding: 20px;
+
+        margin-bottom: 20px;
+
+        text-align: center;
+    }
+
+    .success-message h3 {
+        margin-bottom: 7px;
+        font-size: 19px;
+    }
+
+    /* =====================================================
+       CHECKOUT
+       ===================================================== */
+
+    .checkout-section {
+        margin-top: 25px;
+
+        text-align: center;
+    }
+
+    .pay-button {
+        border: none;
+
+        background:
+            var(--primary);
+
+        color: white;
+
+        padding: 14px 30px;
+
+        border-radius: 8px;
+
+        font-size: 16px;
+
+        font-weight: 700;
+
+        cursor: pointer;
+
+        transition: 0.2s;
+    }
+
+    .pay-button:hover {
+        background:
+            var(--primary-dark);
+
+        transform:
+            translateY(-1px);
+    }
+
+    .pay-button:disabled {
+        opacity: 0.6;
+
+        cursor: not-allowed;
+
+        transform: none;
+    }
+
+    /* =====================================================
+       WAITING
+       ===================================================== */
+
+    .payment-waiting {
+        display: none;
+
+        margin-top: 15px;
+
+        padding: 14px 16px;
+
+        background: #fff8e8;
+
+        border:
+            1px solid #f1dca8;
+
+        color: #7a5a00;
+
+        border-radius: 9px;
+
+        font-size: 13px;
+
+        text-align: center;
+    }
+
+    .spinner-small {
+        width: 18px;
+        height: 18px;
+
+        display: inline-block;
+
+        vertical-align: middle;
+
+        margin-right: 8px;
+
+        border:
+            2px solid #eadfbf;
+
+        border-top:
+            2px solid #9d2b20;
+
+        border-radius: 50%;
+
+        animation:
+            spin 0.8s linear infinite;
+    }
+
+    /* =====================================================
+       HISTORY
+       ===================================================== */
+
+    .history-table-wrapper {
+        overflow-x: auto;
+    }
+
+    table {
+        width: 100%;
+
+        border-collapse:
+            collapse;
+
+        min-width: 700px;
+    }
+
+    th {
+        background: #f5f7fa;
+
+        text-align: left;
+
+        padding: 13px;
+
+        font-size: 13px;
+
+        color: #555;
+
+        border-bottom:
+            1px solid #ddd;
+    }
+
+    td {
+        padding: 13px;
+
+        border-bottom:
+            1px solid #eee;
+
+        font-size: 14px;
+    }
+
+    .empty {
+        text-align: center;
+
+        padding: 30px;
+
+        color: #777;
+    }
+
+    /* =====================================================
+       BACK
+       ===================================================== */
+
+    .back-button {
+        background: transparent;
+
+        border:
+            1px solid rgba(
+                255,
+                255,
+                255,
+                0.6
+            );
+
+        color: white;
+
+        padding: 8px 16px;
+
+        border-radius: 7px;
+
+        cursor: pointer;
+
+        font-size: 13px;
+    }
+
+    .back-button:hover {
+        background:
+            rgba(
+                255,
+                255,
+                255,
+                0.12
+            );
+    }
+
+    /* =====================================================
+       MOBILE
+       ===================================================== */
+
+    @media (
+        max-width: 700px
+    ) {
 
         .header {
-            background: var(--primary);
-            color: white;
-
-            padding: 18px 30px;
-
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-
-            box-shadow:
-                0 2px 8px rgba(
-                    0,
-                    0,
-                    0,
-                    0.15
-                );
+            padding: 15px;
         }
 
         .header-title {
-            font-size: 22px;
-            font-weight: 700;
+            font-size: 18px;
         }
-
-        .header-subtitle {
-            font-size: 13px;
-            opacity: 0.9;
-            margin-top: 4px;
-        }
-
-        /* =====================================================
-           MAIN
-           ===================================================== */
 
         .container {
-            width: min(
-                1100px,
-                calc(100% - 30px)
-            );
-
-            margin: 30px auto 50px;
-        }
-
-        /* =====================================================
-           LOADING
-           ===================================================== */
-
-        .loading {
-            background: white;
-            border-radius: 12px;
-
-            padding: 50px 20px;
-
-            text-align: center;
-
-            box-shadow:
-                0 2px 12px rgba(
-                    0,
-                    0,
-                    0,
-                    0.08
+            width:
+                calc(
+                    100% - 20px
                 );
+
+            margin-top: 20px;
         }
-
-        .spinner {
-            width: 42px;
-            height: 42px;
-
-            border:
-                4px solid #e5e7eb;
-
-            border-top:
-                4px solid var(--primary);
-
-            border-radius: 50%;
-
-            animation:
-                spin 0.8s linear infinite;
-
-            margin: 0 auto 15px;
-        }
-
-        @keyframes spin {
-
-            from {
-                transform: rotate(0deg);
-            }
-
-            to {
-                transform: rotate(360deg);
-            }
-
-        }
-
-        /* =====================================================
-           ERROR
-           ===================================================== */
-
-        .error-box {
-            background: #fff0f0;
-
-            border:
-                1px solid #ffcaca;
-
-            color: #b42318;
-
-            padding: 18px;
-
-            border-radius: 10px;
-
-            display: none;
-
-            margin-bottom: 20px;
-        }
-
-        /* =====================================================
-           CARDS
-           ===================================================== */
-
-        .participant-card,
-        .payment-card {
-            background: white;
-
-            border-radius: 12px;
-
-            padding: 25px;
-
-            margin-bottom: 20px;
-
-            box-shadow:
-                0 2px 12px rgba(
-                    0,
-                    0,
-                    0,
-                    0.08
-                );
-        }
-
-        .participant-title,
-        .section-title {
-            font-size: 20px;
-            font-weight: 700;
-
-            margin-bottom: 20px;
-        }
-
-        .participant-title {
-            color: var(--primary);
-        }
-
-        /* =====================================================
-           PARTICIPANT
-           ===================================================== */
 
         .participant-grid {
-            display: grid;
-
-            grid-template-columns:
-                repeat(
-                    2,
-                    minmax(
-                        0,
-                        1fr
-                    )
-                );
-
-            gap: 18px;
-        }
-
-        .info-label {
-            font-size: 12px;
-            color: #777;
-
-            margin-bottom: 5px;
-
-            text-transform: uppercase;
-
-            letter-spacing: 0.4px;
-        }
-
-        .info-value {
-            font-size: 16px;
-            font-weight: 600;
-            color: #222;
-        }
-
-        /* =====================================================
-           ITEMS
-           ===================================================== */
-
-        .item-list {
-            display: flex;
-            flex-direction: column;
-
-            gap: 14px;
+            grid-template-columns: 1fr;
         }
 
         .item {
-            border:
-                2px solid #e3e7eb;
-
-            border-radius: 10px;
-
-            padding: 18px;
-
-            display: flex;
-
-            align-items: center;
-
-            justify-content: space-between;
-
-            gap: 20px;
-
-            transition:
-                border-color 0.2s,
-                background 0.2s,
-                box-shadow 0.2s,
-                opacity 0.2s;
-        }
-
-        .item.selectable {
-            cursor: pointer;
-        }
-
-        .item.selectable:hover {
-            border-color:
-                var(--primary-border);
-
-            background:
-                var(--primary-light);
-        }
-
-        .item.selected {
-            border-color:
-                var(--primary);
-
-            background:
-                var(--primary-light);
-
-            box-shadow:
-                0 0 0 2px rgba(
-                    157,
-                    43,
-                    32,
-                    0.08
-                );
-        }
-
-        .item.paid {
-            background: #f8faf9;
-            border-color: #dcefe4;
-        }
-
-        .item.locked {
-            background: #f5f5f5;
-
-            border-color: #dedede;
-
-            opacity: 0.65;
-
-            cursor: not-allowed;
-        }
-
-        .item-left {
-            display: flex;
-
-            align-items: center;
-
-            gap: 14px;
-
-            min-width: 0;
-        }
-
-        .checkbox-wrapper {
-            width: 24px;
-            height: 24px;
-
-            flex-shrink: 0;
-        }
-
-        .checkbox-wrapper input {
-            width: 21px;
-            height: 21px;
-
-            cursor: pointer;
-
-            accent-color:
-                var(--primary);
-        }
-
-        .checkbox-wrapper input:disabled {
-            cursor: not-allowed;
-        }
-
-        .item-icon {
-            width: 45px;
-            height: 45px;
-
-            flex-shrink: 0;
-
-            border-radius: 10px;
-
-            background: #f5e4e1;
-
-            color: var(--primary);
-
-            display: flex;
-
-            align-items: center;
-
-            justify-content: center;
-
-            font-weight: 700;
-
-            font-size: 15px;
-        }
-
-        .item.paid .item-icon {
-            background: #e8f7ee;
-            color: #16834b;
-        }
-
-        .item.locked .item-icon {
-            background: #e8e8e8;
-            color: #777;
-        }
-
-        .item-name {
-            font-weight: 700;
-            font-size: 16px;
-        }
-
-        .item-price {
-            margin-top: 4px;
-
-            font-size: 14px;
-
-            color: #666;
+            align-items:
+                flex-start;
         }
 
         .item-right {
-            display: flex;
-
-            align-items: center;
-
-            gap: 15px;
+            flex-shrink: 0;
         }
 
-        /* =====================================================
-           STATUS
-           ===================================================== */
-
-        .status {
-            display: inline-flex;
-
-            align-items: center;
-
-            justify-content: center;
-
-            padding: 7px 13px;
-
-            border-radius: 20px;
-
-            font-size: 12px;
-
-            font-weight: 700;
-
-            white-space: nowrap;
-        }
-
-        .status-paid {
-            background: #e8f7ee;
-            color: #16834b;
-        }
-
-        .status-unpaid {
-            background: #fff3e0;
-            color: #c56a00;
-        }
-
-        .status-pending {
-            background: #fff8d9;
-            color: #8a6d00;
-        }
-
-        /* =====================================================
-           T-SHIRT SIZE
-           ===================================================== */
-
-        .size-section {
-            display: none;
-
-            margin-top: 18px;
-
+        .participant-card,
+        .payment-card {
             padding: 18px;
-
-            background: #f7f9fc;
-
-            border:
-                1px solid #e2e7ee;
-
-            border-radius: 10px;
         }
 
-        .size-section.visible {
-            display: block;
+        .item-left {
+            flex: 1;
         }
 
-        .size-label {
-            display: block;
+    }
 
-            font-size: 13px;
-
-            font-weight: 700;
-
-            margin-bottom: 8px;
-        }
-
-        .size-select {
-            width: 100%;
-
-            max-width: 250px;
-
-            padding: 11px 12px;
-
-            border:
-                1px solid #cfd6df;
-
-            border-radius: 8px;
-
-            background: white;
-
-            font-size: 14px;
-
-            outline: none;
-        }
-
-        .size-select:focus {
-            border-color:
-                var(--primary);
-
-            box-shadow:
-                0 0 0 3px rgba(
-                    157,
-                    43,
-                    32,
-                    0.1
-                );
-        }
-
-        /* =====================================================
-           TOTAL
-           ===================================================== */
-
-        .total-row {
-            border-top:
-                1px solid #e5e7eb;
-
-            margin-top: 20px;
-
-            padding-top: 20px;
-
-            display: flex;
-
-            justify-content:
-                space-between;
-
-            align-items: center;
-        }
-
-        .total-label {
-            font-size: 17px;
-            font-weight: 700;
-        }
-
-        .total-amount {
-            font-size: 25px;
-            font-weight: 800;
-
-            color: var(--primary);
-        }
-
-        /* =====================================================
-           MESSAGE
-           ===================================================== */
-
-        .selection-message {
-            margin-top: 15px;
-
-            padding: 12px 15px;
-
-            background: #fafafa;
-
-            border:
-                1px solid #e3e3e3;
-
-            border-radius: 8px;
-
-            color: #555;
-
-            font-size: 13px;
-
-            display: none;
-        }
-
-        /* =====================================================
-           SUCCESS
-           ===================================================== */
-
-        .success-message {
-            display: none;
-
-            background: #eaf8ef;
-
-            border:
-                1px solid #b9e8c9;
-
-            color: #176b3a;
-
-            border-radius: 10px;
-
-            padding: 20px;
-
-            margin-bottom: 20px;
-
-            text-align: center;
-        }
-
-        .success-message h3 {
-            margin-bottom: 7px;
-            font-size: 19px;
-        }
-
-        /* =====================================================
-           CHECKOUT
-           ===================================================== */
-
-        .checkout-section {
-            margin-top: 25px;
-
-            text-align: center;
-        }
-
-        .pay-button {
-            border: none;
-
-            background:
-                var(--primary);
-
-            color: white;
-
-            padding: 14px 30px;
-
-            border-radius: 8px;
-
-            font-size: 16px;
-
-            font-weight: 700;
-
-            cursor: pointer;
-
-            transition: 0.2s;
-        }
-
-        .pay-button:hover {
-            background:
-                var(--primary-dark);
-
-            transform:
-                translateY(-1px);
-        }
-
-        .pay-button:disabled {
-            opacity: 0.6;
-
-            cursor: not-allowed;
-
-            transform: none;
-        }
-
-        /* =====================================================
-           WAITING
-           ===================================================== */
-
-        .payment-waiting {
-            display: none;
-
-            margin-top: 15px;
-
-            padding: 14px 16px;
-
-            background: #fff8e8;
-
-            border:
-                1px solid #f1dca8;
-
-            color: #7a5a00;
-
-            border-radius: 9px;
-
-            font-size: 13px;
-
-            text-align: center;
-        }
-
-        .spinner-small {
-            width: 18px;
-            height: 18px;
-
-            display: inline-block;
-
-            vertical-align: middle;
-
-            margin-right: 8px;
-
-            border:
-                2px solid #eadfbf;
-
-            border-top:
-                2px solid #9d2b20;
-
-            border-radius: 50%;
-
-            animation:
-                spin 0.8s linear infinite;
-        }
-
-        /* =====================================================
-           HISTORY
-           ===================================================== */
-
-        .history-table-wrapper {
-            overflow-x: auto;
-        }
-
-        table {
-            width: 100%;
-
-            border-collapse:
-                collapse;
-
-            min-width: 700px;
-        }
-
-        th {
-            background: #f5f7fa;
-
-            text-align: left;
-
-            padding: 13px;
-
-            font-size: 13px;
-
-            color: #555;
-
-            border-bottom:
-                1px solid #ddd;
-        }
-
-        td {
-            padding: 13px;
-
-            border-bottom:
-                1px solid #eee;
-
-            font-size: 14px;
-        }
-
-        .empty {
-            text-align: center;
-
-            padding: 30px;
-
-            color: #777;
-        }
-
-        /* =====================================================
-           BACK
-           ===================================================== */
-
-        .back-button {
-            background: transparent;
-
-            border:
-                1px solid rgba(
-                    255,
-                    255,
-                    255,
-                    0.6
-                );
-
-            color: white;
-
-            padding: 8px 16px;
-
-            border-radius: 7px;
-
-            cursor: pointer;
-
-            font-size: 13px;
-        }
-
-        .back-button:hover {
-            background:
-                rgba(
-                    255,
-                    255,
-                    255,
-                    0.12
-                );
-        }
-
-        /* =====================================================
-           MOBILE
-           ===================================================== */
-
-        @media (
-            max-width: 700px
-        ) {
-
-            .header {
-                padding: 15px;
-            }
-
-            .header-title {
-                font-size: 18px;
-            }
-
-            .container {
-                width:
-                    calc(
-                        100% - 20px
-                    );
-
-                margin-top: 20px;
-            }
-
-            .participant-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .item {
-                align-items:
-                    flex-start;
-            }
-
-            .item-right {
-                flex-shrink: 0;
-            }
-
-            .participant-card,
-            .payment-card {
-                padding: 18px;
-            }
-
-            .item-left {
-                flex: 1;
-            }
-
-        }
-
-    </style>
+</style>
+```
 
 </head>
 
-
 <body>
-
 
 <header class="header">
 
-    <div>
+```
+<div>
 
-        <div class="header-title">
-            Registration Payment
-        </div>
-
-        <div class="header-subtitle">
-            Event Registration Merchandise
-        </div>
-
+    <div class="header-title">
+        Registration Payment
     </div>
 
-    <button
-        class="back-button"
-        onclick="goHome()"
-    >
-        Back
-    </button>
+    <div class="header-subtitle">
+        Event Registration Merchandise
+    </div>
+
+</div>
+
+<button
+    class="back-button"
+    onclick="goHome()"
+>
+    Back
+</button>
+```
 
 </header>
 
-
 <main class="container">
 
+```
+<div
+    id="loading"
+    class="loading"
+>
+
+    <div class="spinner"></div>
+
+    <p>
+        Loading payment information...
+    </p>
+
+</div>
+
+
+<div
+    id="errorBox"
+    class="error-box"
+></div>
+
+
+<div
+    id="content"
+    style="display:none;"
+>
+
+
+    <!-- =================================================
+         PARTICIPANT
+         ================================================= -->
+
+    <section class="participant-card">
+
+        <div class="participant-title">
+            Participant Information
+        </div>
+
+        <div class="participant-grid">
+
+            <div>
+
+                <div class="info-label">
+                    Name
+                </div>
+
+                <div
+                    class="info-value"
+                    id="participantName"
+                >
+                    —
+                </div>
+
+            </div>
+
+
+            <div>
+
+                <div class="info-label">
+                    Registration Number
+                </div>
+
+                <div
+                    class="info-value"
+                    id="registrationNumber"
+                >
+                    —
+                </div>
+
+            </div>
+
+
+            <div>
+
+                <div class="info-label">
+                    Participant Type
+                </div>
+
+                <div
+                    class="info-value"
+                    id="participantType"
+                >
+                    —
+                </div>
+
+            </div>
+
+
+            <div>
+
+                <div class="info-label">
+                    Participant ID
+                </div>
+
+                <div
+                    class="info-value"
+                    id="participantId"
+                >
+                    —
+                </div>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- =================================================
+         SUCCESS
+         ================================================= -->
 
     <div
-        id="loading"
-        class="loading"
+        id="successMessage"
+        class="success-message"
     >
 
-        <div class="spinner"></div>
+        <h3>
+            Registration Payment Complete
+        </h3>
 
         <p>
-            Loading payment information...
+            Your mandatory Lanyard payment has been confirmed.
+            The T-shirt is optional and may be purchased separately.
         </p>
 
     </div>
 
 
-    <div
-        id="errorBox"
-        class="error-box"
-    ></div>
+    <!-- =================================================
+         ITEMS
+         ================================================= -->
 
+    <section class="payment-card">
 
-    <div
-        id="content"
-        style="display:none;"
-    >
+        <div class="section-title">
+            Select Registration Items
+        </div>
 
-
-        <!-- =================================================
-             PARTICIPANT
-             ================================================= -->
-
-        <section class="participant-card">
-
-            <div class="participant-title">
-                Participant Information
-            </div>
-
-            <div class="participant-grid">
-
-                <div>
-
-                    <div class="info-label">
-                        Name
-                    </div>
-
-                    <div
-                        class="info-value"
-                        id="participantName"
-                    >
-                        —
-                    </div>
-
-                </div>
-
-
-                <div>
-
-                    <div class="info-label">
-                        Registration Number
-                    </div>
-
-                    <div
-                        class="info-value"
-                        id="registrationNumber"
-                    >
-                        —
-                    </div>
-
-                </div>
-
-
-                <div>
-
-                    <div class="info-label">
-                        Participant Type
-                    </div>
-
-                    <div
-                        class="info-value"
-                        id="participantType"
-                    >
-                        —
-                    </div>
-
-                </div>
-
-
-                <div>
-
-                    <div class="info-label">
-                        Participant ID
-                    </div>
-
-                    <div
-                        class="info-value"
-                        id="participantId"
-                    >
-                        —
-                    </div>
-
-                </div>
-
-            </div>
-
-        </section>
-
-
-        <!-- =================================================
-             SUCCESS
-             ================================================= -->
 
         <div
-            id="successMessage"
-            class="success-message"
+            id="itemList"
+            class="item-list"
+        ></div>
+
+
+        <!-- T-SHIRT SIZE -->
+
+        <div
+            id="sizeSection"
+            class="size-section"
         >
 
-            <h3>
-                Registration Payment Complete
-            </h3>
+            <label
+                class="size-label"
+                for="tshirtSize"
+            >
+                T-Shirt Size
+            </label>
 
-            <p>
-                Your mandatory Lanyard payment has been confirmed.
-                The T-shirt is optional and may be purchased separately.
-            </p>
+            <select
+                id="tshirtSize"
+                class="size-select"
+            >
+
+                <option value="">
+                    Select T-Shirt Size
+                </option>
+
+                <option value="M">
+                    M
+                </option>
+
+                <option value="L">
+                    L
+                </option>
+
+                <option value="XL">
+                    XL
+                </option>
+
+            </select>
 
         </div>
 
 
-        <!-- =================================================
-             ITEMS
-             ================================================= -->
+        <!-- MESSAGE -->
 
-        <section class="payment-card">
+        <div
+            id="selectionMessage"
+            class="selection-message"
+        ></div>
 
-            <div class="section-title">
-                Select Registration Items
+
+        <!-- TOTAL -->
+
+        <div class="total-row">
+
+            <div class="total-label">
+                Amount Due
             </div>
 
+            <div
+                class="total-amount"
+                id="totalAmount"
+            >
+                ₱0.00
+            </div>
+
+        </div>
+
+
+        <!-- CHECKOUT -->
+
+        <div
+            id="checkoutSection"
+            class="checkout-section"
+            style="display:none;"
+        >
+
+            <button
+                id="payButton"
+                class="pay-button"
+                type="button"
+                onclick="proceedToPayment()"
+            >
+                Proceed to Payment
+            </button>
+
 
             <div
-                id="itemList"
-                class="item-list"
-            ></div>
-
-
-            <!-- T-SHIRT SIZE -->
-
-            <div
-                id="sizeSection"
-                class="size-section"
+                id="paymentWaiting"
+                class="payment-waiting"
             >
 
-                <label
-                    class="size-label"
-                    for="tshirtSize"
-                >
-                    T-Shirt Size
-                </label>
+                <span
+                    class="spinner-small"
+                ></span>
 
-                <select
-                    id="tshirtSize"
-                    class="size-select"
-                >
-
-                    <option value="">
-                        Select T-Shirt Size
-                    </option>
-
-                    <option value="M">
-                        M
-                    </option>
-
-                    <option value="L">
-                        L
-                    </option>
-
-                    <option value="XL">
-                        XL
-                    </option>
-
-                </select>
+                Waiting for payment confirmation...
 
             </div>
 
+        </div>
 
-            <!-- MESSAGE -->
-
-            <div
-                id="selectionMessage"
-                class="selection-message"
-            ></div>
+    </section>
 
 
-            <!-- TOTAL -->
+    <!-- =================================================
+         HISTORY
+         ================================================= -->
 
-            <div class="total-row">
+    <section class="payment-card">
 
-                <div class="total-label">
-                    Amount Due
-                </div>
+        <div class="section-title">
+            Payment History
+        </div>
 
-                <div
-                    class="total-amount"
-                    id="totalAmount"
-                >
-                    ₱0.00
-                </div>
+        <div
+            id="historyContainer"
+            class="history-table-wrapper"
+        >
 
+            <div class="empty">
+                No payment history found.
             </div>
 
+        </div>
 
-            <!-- CHECKOUT -->
-
-            <div
-                id="checkoutSection"
-                class="checkout-section"
-                style="display:none;"
-            >
-
-                <button
-                    id="payButton"
-                    class="pay-button"
-                    type="button"
-                    onclick="proceedToPayment()"
-                >
-                    Proceed to Payment
-                </button>
+    </section>
 
 
-                <div
-                    id="paymentWaiting"
-                    class="payment-waiting"
-                >
-
-                    <span
-                        class="spinner-small"
-                    ></span>
-
-                    Waiting for payment confirmation...
-
-                </div>
-
-            </div>
-
-        </section>
-
-
-        <!-- =================================================
-             HISTORY
-             ================================================= -->
-
-        <section class="payment-card">
-
-            <div class="section-title">
-                Payment History
-            </div>
-
-            <div
-                id="historyContainer"
-                class="history-table-wrapper"
-            >
-
-                <div class="empty">
-                    No payment history found.
-                </div>
-
-            </div>
-
-        </section>
-
-
-    </div>
+</div>
+```
 
 </main>
-
 
 <script>
 
@@ -1153,20 +1155,8 @@ let paymentWindow = null;
 
 let paymentCreated = false;
 
-
-/*
- * Prevent multiple create-payment
- * requests at the same time.
- */
 let creatingPayment = false;
 
-
-/*
- * Stores the current checkout payment.
- *
- * This is intentionally kept separate from
- * the mandatory Lanyard payment state.
- */
 let currentPaymentRequest = null;
 
 
@@ -1322,6 +1312,20 @@ function getStatusText(status) {
 
 function isPaid(item) {
 
+    /*
+     * Prefer the explicit "paid" boolean
+     * returned by the backend.
+     */
+    if (
+        item &&
+        typeof item.paid === "boolean"
+    ) {
+
+        return item.paid;
+
+    }
+
+
     const status =
         String(
             item?.status || ""
@@ -1338,12 +1342,66 @@ function isPaid(item) {
 
 
 /* =========================================================
+   MANDATORY PAYMENT COMPLETE
+   ========================================================= */
+
+function isMandatoryPaymentComplete(data) {
+
+    /*
+     * Backend is the source of truth.
+     *
+     * New preferred field:
+     *
+     *     mandatory_payment_complete
+     *
+     * Existing field:
+     *
+     *     payment_success
+     *
+     * Fallback:
+     *
+     *     Lanyard is paid
+     */
+
+    if (
+        typeof data?.mandatory_payment_complete ===
+        "boolean"
+    ) {
+
+        return data.mandatory_payment_complete;
+
+    }
+
+
+    if (
+        typeof data?.payment_success ===
+        "boolean"
+    ) {
+
+        return data.payment_success;
+
+    }
+
+
+    return Boolean(
+        data?.lanyard &&
+        isPaid(
+            data.lanyard
+        )
+    );
+
+}
+
+
+/* =========================================================
    GO HOME
    ========================================================= */
 
 function goHome() {
 
     stopPaymentPolling();
+
+    closePaymentWindow();
 
     window.location.href =
         "/home.html";
@@ -1455,6 +1513,25 @@ async function loadPaymentStatus(
 
 
         renderPage();
+
+
+        /*
+         * If the mandatory payment is already
+         * complete on initial page load,
+         * there is no reason to poll.
+         */
+        if (
+            isMandatoryPaymentComplete(
+                data
+            )
+        ) {
+
+            stopPaymentPolling();
+
+            paymentCreated =
+                false;
+
+        }
 
 
     } catch (error) {
@@ -1593,8 +1670,8 @@ function renderItems() {
     /*
      * Lanyard is mandatory.
      *
-     * T-shirt is locked only while
-     * Lanyard remains unpaid.
+     * T-shirt becomes available once
+     * Lanyard is paid.
      */
     const lockTshirt =
         hasLanyard &&
@@ -1646,11 +1723,26 @@ function renderItems() {
 
 
     /*
-     * Mandatory Lanyard has been paid.
+     * =====================================================
+     * MANDATORY PAYMENT COMPLETE
+     * =====================================================
+     *
+     * IMPORTANT:
+     *
+     * T-shirt is OPTIONAL.
+     *
+     * Therefore we show success as soon as
+     * the mandatory Lanyard payment is complete.
      */
+
+    const mandatoryPaymentComplete =
+        isMandatoryPaymentComplete(
+            paymentData
+        );
+
+
     if (
-        !hasLanyard ||
-        lanyardPaid
+        mandatoryPaymentComplete
     ) {
 
         successMessage.style.display =
@@ -1670,10 +1762,9 @@ function renderItems() {
 
 
         /*
-         * IMPORTANT:
+         * T-shirt is still unpaid.
          *
-         * Do not hide checkout merely because
-         * the mandatory payment is already complete.
+         * Allow optional purchase.
          */
         if (
             hasTshirt &&
@@ -1688,11 +1779,6 @@ function renderItems() {
                 "block";
 
 
-            /*
-             * Don't overwrite a useful selection
-             * message if the user already selected
-             * the T-shirt.
-             */
             const tshirtCheckbox =
                 document.getElementById(
                     "tshirtCheckbox"
@@ -1719,16 +1805,13 @@ function renderItems() {
             checkoutSection.style.display =
                 "none";
 
+
             selectionMessage.style.display =
                 "none";
 
         }
 
 
-        /*
-         * Do not display the size section
-         * until T-shirt is selected.
-         */
         updateSelectionUI();
 
         return;
@@ -1737,7 +1820,9 @@ function renderItems() {
 
 
     /*
-     * Lanyard still unpaid.
+     * =====================================================
+     * MANDATORY PAYMENT NOT COMPLETE
+     * =====================================================
      */
 
     successMessage.style.display =
@@ -1778,7 +1863,7 @@ function createItemHtml(
 
     const status =
         item?.status ||
-        "Unpaid";
+        (paid ? "Paid" : "Unpaid");
 
 
     const statusClass =
@@ -2107,7 +2192,7 @@ function updateSelectionUI() {
 
 
     /*
-     * Lanyard unpaid.
+     * Mandatory Lanyard unpaid.
      */
     if (
         paymentData?.lanyard &&
@@ -2123,6 +2208,35 @@ function updateSelectionUI() {
             "The Lanyard must be paid first. The T-shirt cannot be selected until the Lanyard payment is completed.";
 
         return;
+
+    }
+
+
+    /*
+     * Mandatory payment is complete.
+     *
+     * T-shirt is optional.
+     */
+    if (
+        isMandatoryPaymentComplete(
+            paymentData
+        )
+    ) {
+
+        if (
+            !tshirtSelected &&
+            !lanyardSelected
+        ) {
+
+            message.style.display =
+                "block";
+
+            message.textContent =
+                "Your Lanyard is paid. The T-shirt is optional and is now available for purchase.";
+
+            return;
+
+        }
 
     }
 
@@ -2154,8 +2268,26 @@ function updateSelectionUI() {
         message.style.display =
             "block";
 
-        message.textContent =
-            "T-shirt selected. Please choose a size, then proceed to payment.";
+        const sizeElement =
+            document.getElementById(
+                "tshirtSize"
+            );
+
+
+        if (
+            sizeElement &&
+            sizeElement.value
+        ) {
+
+            message.textContent =
+                `T-shirt selected — Size ${sizeElement.value}. Click Proceed to Payment.`;
+
+        } else {
+
+            message.textContent =
+                "T-shirt selected. Please choose a size, then proceed to payment.";
+
+        }
 
         return;
 
@@ -2487,10 +2619,6 @@ function resetPaymentButton() {
         "none";
 
 
-    /*
-     * Do not leave an old window reference
-     * around.
-     */
     paymentWindow =
         null;
 
@@ -2568,7 +2696,7 @@ async function proceedToPayment() {
 
 
     /*
-     * At least one item.
+     * At least one unpaid item.
      */
     if (
         !tshirtSelected &&
@@ -2686,12 +2814,6 @@ async function proceedToPayment() {
 
     try {
 
-        /*
-         * =================================================
-         * REQUEST BODY
-         * =================================================
-         */
-
         const requestBody = {
 
             participant_id:
@@ -2718,12 +2840,6 @@ async function proceedToPayment() {
             requestBody
         );
 
-
-        /*
-         * =================================================
-         * CREATE PAYMENT
-         * =================================================
-         */
 
         const response =
             await fetch(
@@ -2812,12 +2928,6 @@ async function proceedToPayment() {
         }
 
 
-        /*
-         * =================================================
-         * CHECKOUT URL
-         * =================================================
-         */
-
         const checkoutUrl =
             data?.checkout_url ||
             data?.payment_url ||
@@ -2833,10 +2943,6 @@ async function proceedToPayment() {
         }
 
 
-        /*
-         * Save information about the payment
-         * that was just created.
-         */
         currentPaymentRequest = {
 
             paymentId:
@@ -2860,14 +2966,7 @@ async function proceedToPayment() {
 
 
         /*
-         * =================================================
-         * OPEN PAYMONGO
-         * =================================================
-         *
-         * IMPORTANT:
-         *
-         * We open the checkout only after the
-         * backend successfully created it.
+         * Open PayMongo.
          */
         paymentWindow =
             window.open(
@@ -2876,9 +2975,6 @@ async function proceedToPayment() {
             );
 
 
-        /*
-         * Popup blocked.
-         */
         if (!paymentWindow) {
 
             alert(
@@ -2888,14 +2984,14 @@ async function proceedToPayment() {
 
             resetPaymentButton();
 
+            creatingPayment =
+                false;
+
             return;
 
         }
 
 
-        /*
-         * Mark payment as active.
-         */
         paymentCreated =
             true;
 
@@ -2920,22 +3016,16 @@ async function proceedToPayment() {
             "Payment Window Opened";
 
 
-        /*
-         * Release the create lock.
-         */
         creatingPayment =
             false;
 
 
         /*
-         * Start polling.
+         * Start backend polling.
          */
         startPaymentPolling();
 
 
-        /*
-         * Focus PayMongo window when possible.
-         */
         try {
 
             paymentWindow.focus();
@@ -2947,10 +3037,6 @@ async function proceedToPayment() {
         }
 
 
-        /*
-         * Monitor whether the PayMongo tab
-         * was closed.
-         */
         monitorPaymentWindow();
 
 
@@ -2985,9 +3071,6 @@ async function proceedToPayment() {
 
 function monitorPaymentWindow() {
 
-    /*
-     * Stop if there is no current window.
-     */
     if (!paymentWindow) {
         return;
     }
@@ -2997,10 +3080,8 @@ function monitorPaymentWindow() {
         setInterval(
             async function () {
 
-                /*
-                 * Window was closed.
-                 */
                 if (
+                    paymentWindow &&
                     paymentWindow.closed
                 ) {
 
@@ -3014,31 +3095,29 @@ function monitorPaymentWindow() {
 
 
                     /*
-                     * The user closed PayMongo.
+                     * Do not assume payment succeeded.
                      *
-                     * Do NOT assume payment succeeded.
-                     *
-                     * First check the backend.
+                     * Check the backend first.
                      */
                     await checkPaymentStatus();
 
 
                     /*
-                     * If payment was not completed,
-                     * unlock the button so the user
-                     * can try again.
+                     * IMPORTANT:
+                     *
+                     * If the backend already says the
+                     * mandatory payment is complete,
+                     * checkPaymentStatus() will have
+                     * stopped paymentCreated.
+                     *
+                     * Otherwise allow the user to
+                     * try again.
                      */
                     if (
                         paymentCreated
                     ) {
 
                         resetPaymentButton();
-
-                        /*
-                         * Keep selection intact.
-                         * The user can simply click
-                         * Proceed to Payment again.
-                         */
 
                         updateSelectionUI();
 
@@ -3054,7 +3133,7 @@ function monitorPaymentWindow() {
 
 
 /* =========================================================
-   START POLLING
+   START PAYMENT POLLING
    ========================================================= */
 
 function startPaymentPolling() {
@@ -3081,7 +3160,7 @@ function startPaymentPolling() {
 
 
 /* =========================================================
-   STOP POLLING
+   STOP PAYMENT POLLING
    ========================================================= */
 
 function stopPaymentPolling() {
@@ -3121,7 +3200,7 @@ function closePaymentWindow() {
 
     } catch {
 
-        // Ignore.
+        // Ignore browser restrictions.
 
     }
 
@@ -3173,7 +3252,7 @@ async function checkPaymentStatus() {
 
         /*
          * =================================================
-         * CHECK MANDATORY LANYARD
+         * READ BACKEND PAYMENT STATE
          * =================================================
          */
 
@@ -3186,12 +3265,6 @@ async function checkPaymentStatus() {
             );
 
 
-        /*
-         * =================================================
-         * CHECK T-SHIRT
-         * =================================================
-         */
-
         const tshirtPaid =
             Boolean(
                 data?.tshirt &&
@@ -3202,52 +3275,60 @@ async function checkPaymentStatus() {
 
 
         /*
-         * If the current payment contained
-         * a T-shirt and the T-shirt is now paid,
-         * payment is complete.
+         * =================================================
+         * MANDATORY PAYMENT
+         * =================================================
+         *
+         * The Lanyard is mandatory.
+         *
+         * Therefore the frontend must NOT wait
+         * for the T-shirt.
          */
-        const currentTshirtPaid =
-            Boolean(
-                currentPaymentRequest?.tshirtSelected &&
-                tshirtPaid
+        const mandatoryPaymentComplete =
+            isMandatoryPaymentComplete(
+                data
             );
 
 
-        /*
-         * If the current payment contained
-         * the Lanyard and the Lanyard is now paid,
-         * payment is complete.
-         */
-        const currentLanyardPaid =
-            Boolean(
-                currentPaymentRequest?.lanyardSelected &&
-                lanyardPaid
-            );
+        console.log(
+            "PAYMENT STATUS:",
+            {
+                lanyardPaid,
+                tshirtPaid,
+                paymentSuccess:
+                    data?.payment_success,
+                mandatoryPaymentComplete:
+                    data?.mandatory_payment_complete,
+                finalMandatoryPayment:
+                    mandatoryPaymentComplete
+            }
+        );
 
 
         /*
          * =================================================
-         * PAYMENT SUCCESS
+         * PAYMENT CONFIRMED
          * =================================================
          */
 
         if (
-            currentTshirtPaid ||
-            currentLanyardPaid
+            mandatoryPaymentComplete
         ) {
 
             console.log(
-                "PAYMENT CONFIRMED",
-                {
-                    lanyardPaid,
-                    tshirtPaid
-                }
+                "MANDATORY PAYMENT CONFIRMED"
             );
 
 
+            /*
+             * Stop polling immediately.
+             */
             stopPaymentPolling();
 
 
+            /*
+             * Payment creation is finished.
+             */
             paymentCreated =
                 false;
 
@@ -3256,18 +3337,28 @@ async function checkPaymentStatus() {
                 false;
 
 
+            /*
+             * Close PayMongo window.
+             */
             closePaymentWindow();
 
 
             /*
-             * Clear current payment.
+             * Clear current payment request.
              */
             currentPaymentRequest =
                 null;
 
 
             /*
-             * Reload/render current backend state.
+             * Render latest backend state.
+             *
+             * Example:
+             *
+             * Lanyard: Paid
+             * T-Shirt: Unpaid
+             *
+             * This is SUCCESS.
              */
             renderPage();
 
@@ -3279,14 +3370,39 @@ async function checkPaymentStatus() {
 
         /*
          * =================================================
-         * NO CURRENT PAYMENT
+         * PAYMENT STILL PENDING
          * =================================================
-         *
-         * This can happen when the user simply
-         * returns to the page after navigation.
          */
 
-        if (!paymentCreated) {
+        if (
+            paymentCreated
+        ) {
+
+            const waiting =
+                document.getElementById(
+                    "paymentWaiting"
+                );
+
+
+            if (waiting) {
+
+                waiting.style.display =
+                    "block";
+
+
+                waiting.innerHTML = `
+
+                    <span
+                        class="spinner-small"
+                    ></span>
+
+                    Waiting for payment confirmation...
+                    You may complete payment in the PayMongo tab.
+
+                `;
+
+            }
+
 
             renderPage();
 
@@ -3296,8 +3412,11 @@ async function checkPaymentStatus() {
 
 
         /*
-         * Payment still pending.
+         * =================================================
+         * NORMAL PAGE LOAD
+         * =================================================
          */
+
         renderPage();
 
 
@@ -3326,10 +3445,6 @@ document.addEventListener(
             "visible"
         ) {
 
-            /*
-             * Whenever user returns to this
-             * page, ask backend for latest state.
-             */
             checkPaymentStatus();
 
         }
@@ -3346,11 +3461,6 @@ window.addEventListener(
     "focus",
     function () {
 
-        /*
-         * Returning from PayMongo can trigger
-         * window focus instead of visibilitychange
-         * on some mobile browsers.
-         */
         checkPaymentStatus();
 
     }
@@ -3436,4 +3546,3 @@ window.addEventListener(
 </body>
 
 </html>
-
