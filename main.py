@@ -10461,10 +10461,7 @@ def payment_status(
 
     print("=" * 70)
     print("PAYMENT STATUS CHECK")
-    print(
-        "Participant ID:",
-        participant_id
-    )
+    print("Participant ID:", participant_id)
     print("=" * 70)
 
     # ==================================================
@@ -10472,9 +10469,7 @@ def payment_status(
     # ==================================================
 
     participant = (
-        db.query(
-            Participant
-        )
+        db.query(Participant)
         .filter(
             Participant.id == participant_id,
             Participant.is_archived == 0
@@ -10508,9 +10503,7 @@ def payment_status(
     # ==================================================
 
     registration_items = (
-        db.query(
-            RegistrationItem
-        )
+        db.query(RegistrationItem)
         .filter(
             RegistrationItem.is_active == True
         )
@@ -10564,13 +10557,11 @@ def payment_status(
     )
 
     # ==================================================
-    # 7. GET PAYMENTS
+    # 7. GET ALL PAYMENTS
     # ==================================================
 
     payments = (
-        db.query(
-            Payment
-        )
+        db.query(Payment)
         .filter(
             Payment.participant_id ==
             participant.id
@@ -10582,7 +10573,7 @@ def payment_status(
     )
 
     # ==================================================
-    # 8. SUCCESSFUL STATUSES
+    # 8. SUCCESSFUL PAYMENT STATUSES
     # ==================================================
 
     successful_statuses = {
@@ -10593,11 +10584,10 @@ def payment_status(
     }
 
     # ==================================================
-    # 9. CHECK T-SHIRT
+    # 9. CHECK T-SHIRT PAYMENT
     # ==================================================
 
     tshirt_paid = any(
-
         bool(
             getattr(
                 p,
@@ -10605,8 +10595,8 @@ def payment_status(
                 False
             )
         )
-
-        and str(
+        and
+        str(
             getattr(
                 p,
                 "status",
@@ -10620,11 +10610,10 @@ def payment_status(
     )
 
     # ==================================================
-    # 10. CHECK LANYARD
+    # 10. CHECK LANYARD PAYMENT
     # ==================================================
 
     lanyard_paid = any(
-
         bool(
             getattr(
                 p,
@@ -10632,8 +10621,8 @@ def payment_status(
                 False
             )
         )
-
-        and str(
+        and
+        str(
             getattr(
                 p,
                 "status",
@@ -10647,33 +10636,37 @@ def payment_status(
     )
 
     # ==================================================
-    # 11. FALLBACK TO PARTICIPANT STATUS
+    # 11. FALLBACK TO PARTICIPANT ITEM STATUS
     # ==================================================
 
-    if str(
+    participant_tshirt_status = str(
         getattr(
             participant,
             "tshirt_status",
             ""
         )
         or ""
-    ).strip().lower() == "paid":
+    ).strip().lower()
 
-        tshirt_paid = True
-
-    if str(
+    participant_lanyard_status = str(
         getattr(
             participant,
             "lanyard_status",
             ""
         )
         or ""
-    ).strip().lower() == "paid":
+    ).strip().lower()
+
+    if participant_tshirt_status == "paid":
+
+        tshirt_paid = True
+
+    if participant_lanyard_status == "paid":
 
         lanyard_paid = True
 
     # ==================================================
-    # 12. UPDATE PARTICIPANT STATUS
+    # 12. UPDATE ITEM STATUS
     # ==================================================
 
     if hasattr(
@@ -10698,6 +10691,45 @@ def payment_status(
             else "Unpaid"
         )
 
+    # ==================================================
+    # 13. MANDATORY PAYMENT STATUS
+    #
+    # IMPORTANT:
+    #
+    # The Lanyard is mandatory.
+    #
+    # Therefore:
+    #
+    #     Lanyard Paid = mandatory payment complete
+    #
+    # The T-shirt does NOT affect this.
+    # ==================================================
+
+    mandatory_payment_complete = (
+        lanyard_paid
+        if lanyard_item
+        else True
+    )
+
+    # ==================================================
+    # 14. REGISTRATION STATUS
+    # ==================================================
+
+    if mandatory_payment_complete:
+
+        if hasattr(
+            participant,
+            "registration_status"
+        ):
+
+            participant.registration_status = (
+                "Confirmed"
+            )
+
+    # ==================================================
+    # 15. UPDATED TIMESTAMP
+    # ==================================================
+
     if hasattr(
         participant,
         "updated_at"
@@ -10710,7 +10742,7 @@ def payment_status(
     db.commit()
 
     # ==================================================
-    # 13. PAYMENT SUCCESS
+    # 16. PAID ITEMS
     # ==================================================
 
     paid_items = []
@@ -10727,12 +10759,8 @@ def payment_status(
             "Lanyard"
         )
 
-    payment_success = (
-        len(paid_items) > 0
-    )
-
     # ==================================================
-    # 14. ALL REQUESTED ITEMS PAID
+    # 17. REQUESTED ITEMS
     # ==================================================
 
     requested_items = []
@@ -10769,6 +10797,20 @@ def payment_status(
         )
     )
 
+    # ==================================================
+    # 18. ALL REQUESTED ITEMS PAID
+    #
+    # This is NOT the same as mandatory payment complete.
+    #
+    # Example:
+    #
+    # Lanyard = Paid
+    # T-Shirt  = Unpaid
+    #
+    # mandatory_payment_complete = True
+    # all_items_paid = False
+    # ==================================================
+
     all_items_paid = (
         len(requested_items) > 0
         and
@@ -10779,7 +10821,32 @@ def payment_status(
     )
 
     # ==================================================
-    # 15. RETURN
+    # 19. PAYMENT SUCCESS
+    #
+    # IMPORTANT:
+    #
+    # Payment success for registration is based on
+    # the mandatory Lanyard.
+    #
+    # T-shirt is optional.
+    # ==================================================
+
+    payment_success = (
+        mandatory_payment_complete
+    )
+
+    # ==================================================
+    # 20. REGISTRATION STATUS
+    # ==================================================
+
+    registration_status = getattr(
+        participant,
+        "registration_status",
+        None
+    )
+
+    # ==================================================
+    # 21. DEBUG LOGGING
     # ==================================================
 
     print(
@@ -10811,6 +10878,11 @@ def payment_status(
     )
 
     print(
+        "Mandatory Payment Complete:",
+        mandatory_payment_complete
+    )
+
+    print(
         "Payment Success:",
         payment_success
     )
@@ -10820,7 +10892,16 @@ def payment_status(
         all_items_paid
     )
 
+    print(
+        "Registration Status:",
+        registration_status
+    )
+
     print("=" * 70)
+
+    # ==================================================
+    # 22. RETURN RESPONSE
+    # ==================================================
 
     return {
 
@@ -10841,12 +10922,19 @@ def payment_status(
             participant.participant_type,
 
         # ==================================================
-        # IMPORTANT FRONTEND FLAGS
+        # MAIN PAYMENT FLAGS
         # ==================================================
 
+        # Mandatory Lanyard payment is complete.
+        "mandatory_payment_complete":
+            mandatory_payment_complete,
+
+        # Registration payment is successful when
+        # the mandatory Lanyard is paid.
         "payment_success":
             payment_success,
 
+        # True only when every requested item is paid.
         "all_items_paid":
             all_items_paid,
 
@@ -10855,6 +10943,20 @@ def payment_status(
 
         "requested_items":
             requested_items,
+
+        # ==================================================
+        # EXPLICIT LANYARD FLAG
+        # ==================================================
+
+        "lanyard_paid":
+            lanyard_paid,
+
+        # ==================================================
+        # EXPLICIT T-SHIRT FLAG
+        # ==================================================
+
+        "tshirt_paid":
+            tshirt_paid,
 
         # ==================================================
         # T-SHIRT
@@ -10921,7 +11023,7 @@ def payment_status(
         },
 
         # ==================================================
-        # PARTICIPANT STATUS
+        # PARTICIPANT ITEM STATUS
         # ==================================================
 
         "tshirt_status":
@@ -10938,15 +11040,15 @@ def payment_status(
                 None
             ),
 
+        # ==================================================
+        # REGISTRATION STATUS
+        # ==================================================
+
         "registration_status":
-            getattr(
-                participant,
-                "registration_status",
-                None
-            ),
+            registration_status,
 
         # ==================================================
-        # PAYMENTS
+        # PAYMENT HISTORY
         # ==================================================
 
         "payments": [
@@ -11034,6 +11136,8 @@ def payment_status(
 
         ]
     }
+
+
 
 
     
