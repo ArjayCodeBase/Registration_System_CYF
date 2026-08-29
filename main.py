@@ -54,7 +54,6 @@ import hashlib
 import time
 import uuid
 import os
-import smtplib
 from dotenv import load_dotenv
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -96,13 +95,7 @@ app.add_middleware(
 import httpx
 import base64
 
-from fastapi_mail import (
-    FastMail,
-    MessageSchema,
-    ConnectionConfig
-)
 
-from pydantic import EmailStr
 
 load_dotenv()
 
@@ -131,46 +124,352 @@ PAYMONGO_WEBHOOK_SECRET = os.getenv(
 
 
 # ======================================================
-# GMAIL CONFIGURATION
+# GMAIL API CONFIGURATION
+# ======================================================
+#
+# Gmail API is used for ALL system emails.
+#
+# Required:
+#   - credentials.json
+#   - OAuth token generated from the Gmail account that
+#     should send system emails.
+#
+# Production/Railway:
+#   Set GMAIL_TOKEN_JSON to the contents of token.json,
+#   or deploy token.json as a protected file.
+#
+# The Gmail account authorized by token.json is the sender.
+# No custom domain is required.
 # ======================================================
 
-GMAIL_USERNAME = os.getenv(
-    "GMAIL_USERNAME"
-)
+load_dotenv()
 
-GMAIL_APP_PASSWORD = os.getenv(
-    "GMAIL_APP_PASSWORD"
-)
+GMAIL_USERNAME = os.getenv("GMAIL_USERNAME", "").strip()
 
 GMAIL_FROM_NAME = os.getenv(
     "GMAIL_FROM_NAME",
     "Event Registration System"
+).strip()
+
+GMAIL_CREDENTIALS_FILE = os.getenv(
+    "GMAIL_CREDENTIALS_FILE",
+    "credentials.json"
 )
 
-
-
-
-
-
-
-
-mail_conf = ConnectionConfig(
-    MAIL_USERNAME=GMAIL_USERNAME,
-    MAIL_PASSWORD=GMAIL_APP_PASSWORD,
-    MAIL_FROM=GMAIL_USERNAME,
-    MAIL_PORT=587,
-    MAIL_SERVER="smtp.gmail.com",
-    MAIL_STARTTLS=True,
-    MAIL_SSL_TLS=False,
-    USE_CREDENTIALS=True,
-    VALIDATE_CERTS=True
+GMAIL_TOKEN_FILE = os.getenv(
+    "GMAIL_TOKEN_FILE",
+    "token.json"
 )
 
+# Optional: paste the complete token.json contents into this
+# environment variable for Railway/production deployments.
+GMAIL_TOKEN_JSON = os.getenv(
+    "GMAIL_TOKEN_JSON"
+)
+
+GMAIL_ALLOW_LOCAL_AUTH = (
+    os.getenv(
+        "GMAIL_ALLOW_LOCAL_AUTH",
+        "true"
+    ).strip().lower()
+    in ("1", "true", "yes", "on")
+)
+
+GMAIL_SCOPES = [
+    "https://www.googleapis.com/auth/gmail.send"
+]
 
 
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from google.oauth2.credentials import Credentials
+from google.auth.transport.requests import Request as GoogleRequest
+from google_auth_oauthlib.flow import InstalledAppFlow
+from googleapiclient.discovery import build
 
 
+def _load_gmail_credentials():
+    """
+    Load Gmail OAuth credentials.
 
+    Priority:
+      1. GMAIL_TOKEN_JSON environment variable
+      2. token.json file
+      3. Local browser OAuth flow (only when
+         GMAIL_ALLOW_LOCAL_AUTH=true)
+
+    Railway should use option 1 or 2.
+    """
+
+    creds = None
+
+    # --------------------------------------------------
+    # 1. TOKEN FROM ENVIRONMENT VARIABLE
+    # --------------------------------------------------
+
+    if GMAIL_TOKEN_JSON:
+        try:
+            token_data = json.loads(
+                GMAIL_TOKEN_JSON
+            )
+
+            creds = Credentials.from_authorized_user_info(
+                token_data,
+                GMAIL_SCOPES
+            )
+
+        except Exception as exc:
+            raise RuntimeError(
+                "GMAIL_TOKEN_JSON is invalid. "
+                "Paste the complete contents of token.json "
+                "into the Railway variable GMAIL_TOKEN_JSON."
+            ) from exc
+
+    # --------------------------------------------------
+    # 2. TOKEN FROM FILE
+    # --------------------------------------------------
+
+    elif os.path.exists(GMAIL_TOKEN_FILE):
+        try:
+            creds = Credentials.from_authorized_user_file(
+                GMAIL_TOKEN_FILE,
+                GMAIL_SCOPES
+            )
+        except Exception as exc:
+            raise RuntimeError(
+                f"Unable to read Gmail token file: "
+                f"{GMAIL_TOKEN_FILE}"
+            ) from exc
+
+    # --------------------------------------------------
+    # 3. REFRESH TOKEN
+    # --------------------------------------------------
+
+    if creds and creds.expired and creds.refresh_token:
+        creds.refresh(
+            Request()
+        )
+
+        # Save refreshed token when a token file is available.
+        try:
+            with open(
+                GMAIL_TOKEN_FILE,
+                "w",
+                encoding="utf-8"
+            ) as token_file:
+                token_file.write(
+                    creds.to_json()
+                )
+        except Exception:
+            # On Railway the filesystem may be ephemeral.
+            # The access token can still be used for this
+            # process because the refresh was successful.
+            pass
+
+    # --------------------------------------------------
+    # 4. FIRST-TIME LOCAL AUTHORIZATION
+    # --------------------------------------------------
+
+    if not creds or not creds.valid:
+
+        if not GMAIL_ALLOW_LOCAL_AUTH:
+            raise RuntimeError(
+                "Gmail OAuth token is not configured. "
+                "Set GMAIL_TOKEN_JSON in Railway using the "
+                "contents of token.json generated locally."
+            )
+
+        if not os.path.exists(
+            GMAIL_CREDENTIALS_FILE
+        ):
+            raise RuntimeError(
+                f"Gmail OAuth credentials file not found: "
+                f"{GMAIL_CREDENTIALS_FILE}"
+            )
+
+        flow = InstalledAppFlow.from_client_secrets_file(
+            GMAIL_CREDENTIALS_FILE,
+            GMAIL_SCOPES
+        )
+
+        creds = flow.run_local_server(
+            port=0,
+            access_type="offline",
+            prompt="consent"
+        )
+
+        try:
+            with open(
+                GMAIL_TOKEN_FILE,
+                "w",
+                encoding="utf-8"
+            ) as token_file:
+                token_file.write(
+                    creds.to_json()
+                )
+        except Exception:
+            pass
+
+    return creds
+
+
+def get_gmail_service():
+    """
+    Return an authenticated Gmail API service.
+    """
+
+    creds = _load_gmail_credentials()
+
+    return build(
+        "gmail",
+        "v1",
+        credentials=creds,
+        cache_discovery=False
+    )
+
+
+def send_gmail(
+    recipient_email: str,
+    subject: str,
+    html_body: str | None = None,
+    plain_body: str | None = None,
+    reply_to: str | None = None
+):
+    """
+    Send an email through the Gmail API.
+
+    The authorized Gmail account is the sender.
+    No email service account or custom domain is required.
+    """
+
+    recipient_email = str(
+        recipient_email or ""
+    ).strip()
+
+    subject = str(
+        subject or ""
+    ).replace("\r", " ").replace("\n", " ").strip()
+
+    if not recipient_email:
+        raise ValueError(
+            "Recipient email is empty."
+        )
+
+    if not subject:
+        raise ValueError(
+            "Email subject is empty."
+        )
+
+    if not GMAIL_USERNAME:
+        raise RuntimeError(
+            "GMAIL_USERNAME is not configured. "
+            "Set it to the Gmail address that authorized the "
+            "Gmail API."
+        )
+
+    if html_body is None:
+        html_body = ""
+
+    if plain_body is None:
+        plain_body = (
+            "This email contains HTML content. "
+            "Please use an HTML-compatible email client."
+        )
+
+    # --------------------------------------------------
+    # MIME MESSAGE
+    # --------------------------------------------------
+
+    message = MIMEMultipart(
+        "alternative"
+    )
+
+    message["To"] = recipient_email
+
+    message["From"] = (
+        f"{GMAIL_FROM_NAME} "
+        f"<{GMAIL_USERNAME}>"
+        if GMAIL_USERNAME
+        else GMAIL_FROM_NAME
+    )
+
+    message["Subject"] = subject
+
+    if reply_to:
+        message["Reply-To"] = str(
+            reply_to
+        ).strip()
+
+    message.attach(
+        MIMEText(
+            str(plain_body),
+            "plain",
+            "utf-8"
+        )
+    )
+
+    if html_body:
+        message.attach(
+            MIMEText(
+                str(html_body),
+                "html",
+                "utf-8"
+            )
+        )
+
+    # --------------------------------------------------
+    # GMAIL API SEND
+    # --------------------------------------------------
+
+    raw_message = base64.urlsafe_b64encode(
+        message.as_bytes()
+    ).decode("utf-8")
+
+    result = (
+        get_gmail_service()
+        .users()
+        .messages()
+        .send(
+            userId="me",
+            body={
+                "raw": raw_message
+            }
+        )
+        .execute()
+    )
+
+    return {
+        "success": True,
+        "provider": "gmail_api",
+        "sender": GMAIL_USERNAME,
+        "recipient": recipient_email,
+        "subject": subject,
+        "message_id": result.get("id")
+    }
+
+
+async def send_gmail_async(
+    recipient_email: str,
+    subject: str,
+    html_body: str | None = None,
+    plain_body: str | None = None,
+    reply_to: str | None = None
+):
+    """
+    Async Gmail API sender.
+
+    Gmail's Python client is synchronous, so execute it in a
+    worker thread to avoid blocking FastAPI.
+    """
+
+    return await asyncio.to_thread(
+        send_gmail,
+        recipient_email,
+        subject,
+        html_body,
+        plain_body,
+        reply_to
+    )
 
 
 # ======================================================
@@ -1552,437 +1851,437 @@ class CashDonationTotal(Base):
 
 
 
-def migrate_cash_sponsorship_cash_total_added():
-
-    with engine.connect() as connection:
-
-        # ====================================================
-        # CHECK EXISTING COLUMNS
-        # ====================================================
-
-        result = connection.execute(
-            text("""
-                PRAGMA table_info(cash_sponsorships)
-            """)
-        )
-
-        columns = {
-            row[1]: row
-            for row in result
-        }
-
-        # ====================================================
-        # COLUMN DOES NOT EXIST
-        # ====================================================
-        #
-        # If the column does not exist at all, simply create
-        # it as INTEGER.
-        #
-        # ====================================================
-
-        if "cash_total_added" not in columns:
-
-            connection.execute(
-                text("""
-                    ALTER TABLE cash_sponsorships
-                    ADD COLUMN cash_total_added
-                    INTEGER NOT NULL DEFAULT 0
-                """)
-            )
-
-            connection.commit()
-
-            print(
-                "Created cash_total_added INTEGER column."
-            )
-
-            return
-
-        # ====================================================
-        # EXISTING COLUMN
-        #
-        # SQLite cannot directly change BOOLEAN -> INTEGER.
-        #
-        # Rename the old column first.
-        # ====================================================
-
-        old_column = columns[
-            "cash_total_added"
-        ]
-
-        old_type = str(
-            old_column[2] or ""
-        ).upper()
-
-        print(
-            "Existing cash_total_added type:",
-            old_type
-        )
-
-        # ====================================================
-        # ALREADY INTEGER
-        # ====================================================
-
-        if old_type in [
-            "INTEGER",
-            "INT",
-            "BIGINT"
-        ]:
-
-            print(
-                "cash_total_added is already INTEGER."
-            )
-
-            connection.commit()
-
-            return
-
-        # ====================================================
-        # RENAME OLD BOOLEAN COLUMN
-        # ====================================================
-
-        connection.execute(
-            text("""
-                ALTER TABLE cash_sponsorships
-                RENAME COLUMN cash_total_added
-                TO cash_total_added_old
-            """)
-        )
-
-        # ====================================================
-        # CREATE CORRECT INTEGER COLUMN
-        # ====================================================
-
-        connection.execute(
-            text("""
-                ALTER TABLE cash_sponsorships
-                ADD COLUMN cash_total_added
-                INTEGER NOT NULL DEFAULT 0
-            """)
-        )
-
-        # ====================================================
-        # BACKFILL OLD PAID CASH SPONSORSHIPS
-        # ====================================================
-        #
-        # Old records did not have cash_total_added.
-        #
-        # If an old sponsorship is already Paid, assume its
-        # donation amount has already been received.
-        #
-        # donation_amount is stored in centavos.
-        #
-        # Example:
-        #
-        # donation_amount = 50000
-        # cash_total_added = 500
-        #
-        # This prevents old paid sponsorships from being added
-        # again when the webhook is triggered.
-        #
-        # ====================================================
-
-        connection.execute(
-            text("""
-                UPDATE cash_sponsorships
-                SET cash_total_added =
-                    CAST(
-                        COALESCE(
-                            donation_amount,
-                            0
-                        ) / 100
-                        AS INTEGER
-                    )
-                WHERE LOWER(
-                    COALESCE(
-                        payment_status,
-                        ''
-                    )
-                ) = 'paid'
-            """)
-        )
-
-        # ====================================================
-        # OLD PENDING / FAILED RECORDS
-        #
-        # These should remain 0 because their donation has not
-        # been added to CashDonationTotal.
-        # ====================================================
-
-        connection.execute(
-            text("""
-                UPDATE cash_sponsorships
-                SET cash_total_added = 0
-                WHERE LOWER(
-                    COALESCE(
-                        payment_status,
-                        ''
-                    )
-                ) != 'paid'
-            """)
-        )
-
-        # ====================================================
-        # DROP OLD BOOLEAN COLUMN
-        # ====================================================
-        #
-        # SQLite versions supporting DROP COLUMN can remove it.
-        #
-        # ====================================================
-
-        try:
-
-            connection.execute(
-                text("""
-                    ALTER TABLE cash_sponsorships
-                    DROP COLUMN cash_total_added_old
-                """)
-            )
-
-        except Exception as e:
-
-            print(
-                "WARNING: Could not drop old "
-                "cash_total_added_old column:",
-                repr(e)
-            )
-
-            print(
-                "The old column can remain temporarily."
-            )
-
-        # ====================================================
-        # COMMIT
-        # ====================================================
-
-        connection.commit()
-
-        print(
-            "cash_total_added successfully migrated "
-            "to INTEGER."
-        )
-
-
-
-
-
-
-
-def migrate_staff_table():
-    inspector = inspect(engine)
-
-    columns = {
-        column["name"]
-        for column in inspector.get_columns("staff")
-    }
-
-    with engine.begin() as conn:
-
-        if "position" not in columns:
-            conn.execute(
-                text("ALTER TABLE staff ADD COLUMN position VARCHAR")
-            )
-
-        if "sex" in columns:
-            pass
-
-        if "birthday" in columns:
-            pass
-
-        if "contact" in columns:
-            pass
-
-        if "local_church" in columns:
-            pass
-
-        if "sector" in columns:
-            pass
-
-
-# ============================================================
-# MIGRATE CASH SPONSORSHIP COLUMNS
-# ============================================================
-
-def migrate_cash_sponsorship_columns():
-
-    with engine.connect() as connection:
-
-        # ----------------------------------------------------
-        # CHECK EXISTING COLUMNS
-        # ----------------------------------------------------
-
-        result = connection.execute(
-            text(
-                "PRAGMA table_info(cash_sponsorships)"
-            )
-        )
-
-        columns = [
-            row[1]
-            for row in result
-        ]
-
-        # ----------------------------------------------------
-        # ADD CASH TOTAL ADDED
-        # ----------------------------------------------------
-
-        if "cash_total_added" not in columns:
-
-            connection.execute(
-                text("""
-                    ALTER TABLE cash_sponsorships
-                    ADD COLUMN cash_total_added
-                    BOOLEAN
-                    DEFAULT 0
-                    NOT NULL
-                """)
-            )
-
-            connection.commit()
-
-        # ----------------------------------------------------
-        # IMPORTANT:
-        #
-        # OLD PAID SPONSORSHIPS
-        #
-        # These records existed before
-        # cash_total_added was created.
-        #
-        # Mark them as already added so the new
-        # sponsorship logic does NOT add them again.
-        # ----------------------------------------------------
-
-        connection.execute(
-            text("""
-                UPDATE cash_sponsorships
-
-                SET cash_total_added = 1
-
-                WHERE
-                    LOWER(
-                        TRIM(
-                            COALESCE(
-                                payment_status,
-                                ''
-                            )
-                        )
-                    )
-
-                    IN (
-                        'paid',
-                        'success',
-                        'succeeded',
-                        'completed'
-                    )
-            """)
-        )
-
-        # ----------------------------------------------------
-        # OLD PENDING / FAILED RECORDS
-        #
-        # These should NOT be added to the cash total.
-        # ----------------------------------------------------
-
-        connection.execute(
-            text("""
-                UPDATE cash_sponsorships
-
-                SET cash_total_added = 0
-
-                WHERE
-                    LOWER(
-                        TRIM(
-                            COALESCE(
-                                payment_status,
-                                ''
-                            )
-                        )
-                    )
-
-                    NOT IN (
-                        'paid',
-                        'success',
-                        'succeeded',
-                        'completed'
-                    )
-            """)
-        )
-
-        # ----------------------------------------------------
-        # COMMIT
-        # ----------------------------------------------------
-
-        connection.commit()
-
-
-
-
-# ============================================================
-# MIGRATE STORE ITEM TABLE
-# ============================================================
-
-def migrate_store_item_columns():
-
-    with engine.connect() as connection:
-
-        result = connection.execute(
-            text("PRAGMA table_info(store_items)")
-        )
-
-        columns = [
-            row[1]
-            for row in result
-        ]
-
-        # ----------------------------------------------------
-        # CATEGORY
-        # ----------------------------------------------------
-
-        if "category" not in columns:
-
-            connection.execute(
-                text("""
-                    ALTER TABLE store_items
-                    ADD COLUMN category
-                    VARCHAR(50)
-                    NOT NULL
-                    DEFAULT 'others'
-                """)
-            )
-
-        # ----------------------------------------------------
-        # SIZES
-        # ----------------------------------------------------
-
-        if "sizes" not in columns:
-
-            connection.execute(
-                text("""
-                    ALTER TABLE store_items
-                    ADD COLUMN sizes
-                    TEXT
-                """)
-            )
-
-        # ----------------------------------------------------
-        # IMAGE
-        # ----------------------------------------------------
-
-        if "image_url" not in columns:
-
-            connection.execute(
-                text("""
-                    ALTER TABLE store_items
-                    ADD COLUMN image_url
-                    TEXT
-                """)
-            )
-
-        # ----------------------------------------------------
-        # COMMIT
-        # ----------------------------------------------------
-
-        connection.commit()
+# def migrate_cash_sponsorship_cash_total_added():
+
+#     with engine.connect() as connection:
+
+#         # ====================================================
+#         # CHECK EXISTING COLUMNS
+#         # ====================================================
+
+#         result = connection.execute(
+#             text("""
+#                 PRAGMA table_info(cash_sponsorships)
+#             """)
+#         )
+
+#         columns = {
+#             row[1]: row
+#             for row in result
+#         }
+
+#         # ====================================================
+#         # COLUMN DOES NOT EXIST
+#         # ====================================================
+#         #
+#         # If the column does not exist at all, simply create
+#         # it as INTEGER.
+#         #
+#         # ====================================================
+
+#         if "cash_total_added" not in columns:
+
+#             connection.execute(
+#                 text("""
+#                     ALTER TABLE cash_sponsorships
+#                     ADD COLUMN cash_total_added
+#                     INTEGER NOT NULL DEFAULT 0
+#                 """)
+#             )
+
+#             connection.commit()
+
+#             print(
+#                 "Created cash_total_added INTEGER column."
+#             )
+
+#             return
+
+#         # ====================================================
+#         # EXISTING COLUMN
+#         #
+#         # SQLite cannot directly change BOOLEAN -> INTEGER.
+#         #
+#         # Rename the old column first.
+#         # ====================================================
+
+#         old_column = columns[
+#             "cash_total_added"
+#         ]
+
+#         old_type = str(
+#             old_column[2] or ""
+#         ).upper()
+
+#         print(
+#             "Existing cash_total_added type:",
+#             old_type
+#         )
+
+#         # ====================================================
+#         # ALREADY INTEGER
+#         # ====================================================
+
+#         if old_type in [
+#             "INTEGER",
+#             "INT",
+#             "BIGINT"
+#         ]:
+
+#             print(
+#                 "cash_total_added is already INTEGER."
+#             )
+
+#             connection.commit()
+
+#             return
+
+#         # ====================================================
+#         # RENAME OLD BOOLEAN COLUMN
+#         # ====================================================
+
+#         connection.execute(
+#             text("""
+#                 ALTER TABLE cash_sponsorships
+#                 RENAME COLUMN cash_total_added
+#                 TO cash_total_added_old
+#             """)
+#         )
+
+#         # ====================================================
+#         # CREATE CORRECT INTEGER COLUMN
+#         # ====================================================
+
+#         connection.execute(
+#             text("""
+#                 ALTER TABLE cash_sponsorships
+#                 ADD COLUMN cash_total_added
+#                 INTEGER NOT NULL DEFAULT 0
+#             """)
+#         )
+
+#         # ====================================================
+#         # BACKFILL OLD PAID CASH SPONSORSHIPS
+#         # ====================================================
+#         #
+#         # Old records did not have cash_total_added.
+#         #
+#         # If an old sponsorship is already Paid, assume its
+#         # donation amount has already been received.
+#         #
+#         # donation_amount is stored in centavos.
+#         #
+#         # Example:
+#         #
+#         # donation_amount = 50000
+#         # cash_total_added = 500
+#         #
+#         # This prevents old paid sponsorships from being added
+#         # again when the webhook is triggered.
+#         #
+#         # ====================================================
+
+#         connection.execute(
+#             text("""
+#                 UPDATE cash_sponsorships
+#                 SET cash_total_added =
+#                     CAST(
+#                         COALESCE(
+#                             donation_amount,
+#                             0
+#                         ) / 100
+#                         AS INTEGER
+#                     )
+#                 WHERE LOWER(
+#                     COALESCE(
+#                         payment_status,
+#                         ''
+#                     )
+#                 ) = 'paid'
+#             """)
+#         )
+
+#         # ====================================================
+#         # OLD PENDING / FAILED RECORDS
+#         #
+#         # These should remain 0 because their donation has not
+#         # been added to CashDonationTotal.
+#         # ====================================================
+
+#         connection.execute(
+#             text("""
+#                 UPDATE cash_sponsorships
+#                 SET cash_total_added = 0
+#                 WHERE LOWER(
+#                     COALESCE(
+#                         payment_status,
+#                         ''
+#                     )
+#                 ) != 'paid'
+#             """)
+#         )
+
+#         # ====================================================
+#         # DROP OLD BOOLEAN COLUMN
+#         # ====================================================
+#         #
+#         # SQLite versions supporting DROP COLUMN can remove it.
+#         #
+#         # ====================================================
+
+#         try:
+
+#             connection.execute(
+#                 text("""
+#                     ALTER TABLE cash_sponsorships
+#                     DROP COLUMN cash_total_added_old
+#                 """)
+#             )
+
+#         except Exception as e:
+
+#             print(
+#                 "WARNING: Could not drop old "
+#                 "cash_total_added_old column:",
+#                 repr(e)
+#             )
+
+#             print(
+#                 "The old column can remain temporarily."
+#             )
+
+#         # ====================================================
+#         # COMMIT
+#         # ====================================================
+
+#         connection.commit()
+
+#         print(
+#             "cash_total_added successfully migrated "
+#             "to INTEGER."
+#         )
+
+
+
+
+
+
+
+# def migrate_staff_table():
+#     inspector = inspect(engine)
+
+#     columns = {
+#         column["name"]
+#         for column in inspector.get_columns("staff")
+#     }
+
+#     with engine.begin() as conn:
+
+#         if "position" not in columns:
+#             conn.execute(
+#                 text("ALTER TABLE staff ADD COLUMN position VARCHAR")
+#             )
+
+#         if "sex" in columns:
+#             pass
+
+#         if "birthday" in columns:
+#             pass
+
+#         if "contact" in columns:
+#             pass
+
+#         if "local_church" in columns:
+#             pass
+
+#         if "sector" in columns:
+#             pass
+
+
+# # ============================================================
+# # MIGRATE CASH SPONSORSHIP COLUMNS
+# # ============================================================
+
+# def migrate_cash_sponsorship_columns():
+
+#     with engine.connect() as connection:
+
+#         # ----------------------------------------------------
+#         # CHECK EXISTING COLUMNS
+#         # ----------------------------------------------------
+
+#         result = connection.execute(
+#             text(
+#                 "PRAGMA table_info(cash_sponsorships)"
+#             )
+#         )
+
+#         columns = [
+#             row[1]
+#             for row in result
+#         ]
+
+#         # ----------------------------------------------------
+#         # ADD CASH TOTAL ADDED
+#         # ----------------------------------------------------
+
+#         if "cash_total_added" not in columns:
+
+#             connection.execute(
+#                 text("""
+#                     ALTER TABLE cash_sponsorships
+#                     ADD COLUMN cash_total_added
+#                     BOOLEAN
+#                     DEFAULT 0
+#                     NOT NULL
+#                 """)
+#             )
+
+#             connection.commit()
+
+#         # ----------------------------------------------------
+#         # IMPORTANT:
+#         #
+#         # OLD PAID SPONSORSHIPS
+#         #
+#         # These records existed before
+#         # cash_total_added was created.
+#         #
+#         # Mark them as already added so the new
+#         # sponsorship logic does NOT add them again.
+#         # ----------------------------------------------------
+
+#         connection.execute(
+#             text("""
+#                 UPDATE cash_sponsorships
+
+#                 SET cash_total_added = 1
+
+#                 WHERE
+#                     LOWER(
+#                         TRIM(
+#                             COALESCE(
+#                                 payment_status,
+#                                 ''
+#                             )
+#                         )
+#                     )
+
+#                     IN (
+#                         'paid',
+#                         'success',
+#                         'succeeded',
+#                         'completed'
+#                     )
+#             """)
+#         )
+
+#         # ----------------------------------------------------
+#         # OLD PENDING / FAILED RECORDS
+#         #
+#         # These should NOT be added to the cash total.
+#         # ----------------------------------------------------
+
+#         connection.execute(
+#             text("""
+#                 UPDATE cash_sponsorships
+
+#                 SET cash_total_added = 0
+
+#                 WHERE
+#                     LOWER(
+#                         TRIM(
+#                             COALESCE(
+#                                 payment_status,
+#                                 ''
+#                             )
+#                         )
+#                     )
+
+#                     NOT IN (
+#                         'paid',
+#                         'success',
+#                         'succeeded',
+#                         'completed'
+#                     )
+#             """)
+#         )
+
+#         # ----------------------------------------------------
+#         # COMMIT
+#         # ----------------------------------------------------
+
+#         connection.commit()
+
+
+
+
+# # ============================================================
+# # MIGRATE STORE ITEM TABLE
+# # ============================================================
+
+# def migrate_store_item_columns():
+
+#     with engine.connect() as connection:
+
+#         result = connection.execute(
+#             text("PRAGMA table_info(store_items)")
+#         )
+
+#         columns = [
+#             row[1]
+#             for row in result
+#         ]
+
+#         # ----------------------------------------------------
+#         # CATEGORY
+#         # ----------------------------------------------------
+
+#         if "category" not in columns:
+
+#             connection.execute(
+#                 text("""
+#                     ALTER TABLE store_items
+#                     ADD COLUMN category
+#                     VARCHAR(50)
+#                     NOT NULL
+#                     DEFAULT 'others'
+#                 """)
+#             )
+
+#         # ----------------------------------------------------
+#         # SIZES
+#         # ----------------------------------------------------
+
+#         if "sizes" not in columns:
+
+#             connection.execute(
+#                 text("""
+#                     ALTER TABLE store_items
+#                     ADD COLUMN sizes
+#                     TEXT
+#                 """)
+#             )
+
+#         # ----------------------------------------------------
+#         # IMAGE
+#         # ----------------------------------------------------
+
+#         if "image_url" not in columns:
+
+#             connection.execute(
+#                 text("""
+#                     ALTER TABLE store_items
+#                     ADD COLUMN image_url
+#                     TEXT
+#                 """)
+#             )
+
+#         # ----------------------------------------------------
+#         # COMMIT
+#         # ----------------------------------------------------
+
+#         connection.commit()
 
 
 
@@ -1992,500 +2291,500 @@ def migrate_store_item_columns():
 
     
     
-# ======================================================
-# MIGRATE PAYMENT TABLE
-# ======================================================
-
-def migrate_payment_columns():
-
-    with engine.connect() as connection:
-
-        result = connection.execute(
-            text("PRAGMA table_info(payments)")
-        )
-
-        columns = [
-            row[1]
-            for row in result
-        ]
-
-        # ----------------------------------------------
-        # PAYMENT TYPE
-        # ----------------------------------------------
-
-        if "payment_type" not in columns:
-
-            connection.execute(
-                text("""
-                    ALTER TABLE payments
-                    ADD COLUMN payment_type
-                    VARCHAR(30)
-                    NOT NULL
-                    DEFAULT 'Participant'
-                """)
-            )
-
-        # ----------------------------------------------
-        # SPONSORSHIP TIER
-        # ----------------------------------------------
-
-        if "sponsorship_tier" not in columns:
-
-            connection.execute(
-                text("""
-                    ALTER TABLE payments
-                    ADD COLUMN sponsorship_tier
-                    VARCHAR(30)
-                """)
-            )
-
-        # ----------------------------------------------
-        # SPONSOR ID
-        # ----------------------------------------------
-
-        if "sponsor_id" not in columns:
-
-            connection.execute(
-                text("""
-                    ALTER TABLE payments
-                    ADD COLUMN sponsor_id
-                    INTEGER
-                """)
-            )
-
-        # ----------------------------------------------
-        # DESCRIPTION
-        # ----------------------------------------------
-
-        if "description" not in columns:
-
-            connection.execute(
-                text("""
-                    ALTER TABLE payments
-                    ADD COLUMN description
-                    VARCHAR(500)
-                """)
-            )
-
-        # ----------------------------------------------
-        # CUSTOMER NAME
-        # ----------------------------------------------
+# # # ======================================================
+# # # MIGRATE PAYMENT TABLE
+# # # ======================================================
+
+# # def migrate_payment_columns():
+
+# #     with engine.connect() as connection:
+
+# #         result = connection.execute(
+# #             text("PRAGMA table_info(payments)")
+# #         )
+
+# #         columns = [
+# #             row[1]
+# #             for row in result
+# #         ]
+
+# #         # ----------------------------------------------
+# #         # PAYMENT TYPE
+# #         # ----------------------------------------------
+
+# #         if "payment_type" not in columns:
+
+# #             connection.execute(
+# #                 text("""
+# #                     ALTER TABLE payments
+# #                     ADD COLUMN payment_type
+# #                     VARCHAR(30)
+# #                     NOT NULL
+# #                     DEFAULT 'Participant'
+# #                 """)
+# #             )
+
+# #         # ----------------------------------------------
+# #         # SPONSORSHIP TIER
+# #         # ----------------------------------------------
+
+# #         if "sponsorship_tier" not in columns:
+
+# #             connection.execute(
+# #                 text("""
+# #                     ALTER TABLE payments
+# #                     ADD COLUMN sponsorship_tier
+# #                     VARCHAR(30)
+# #                 """)
+# #             )
+
+# #         # ----------------------------------------------
+# #         # SPONSOR ID
+# #         # ----------------------------------------------
+
+# #         if "sponsor_id" not in columns:
+
+# #             connection.execute(
+# #                 text("""
+# #                     ALTER TABLE payments
+# #                     ADD COLUMN sponsor_id
+# #                     INTEGER
+# #                 """)
+# #             )
+
+# #         # ----------------------------------------------
+# #         # DESCRIPTION
+# #         # ----------------------------------------------
+
+# #         if "description" not in columns:
+
+# #             connection.execute(
+# #                 text("""
+# #                     ALTER TABLE payments
+# #                     ADD COLUMN description
+# #                     VARCHAR(500)
+# #                 """)
+# #             )
+
+# #         # ----------------------------------------------
+# #         # CUSTOMER NAME
+# #         # ----------------------------------------------
 
-        if "customer_name" not in columns:
+# #         if "customer_name" not in columns:
 
-            connection.execute(
-                text("""
-                    ALTER TABLE payments
-                    ADD COLUMN customer_name
-                    VARCHAR(150)
-                """)
-            )
+# #             connection.execute(
+# #                 text("""
+# #                     ALTER TABLE payments
+# #                     ADD COLUMN customer_name
+# #                     VARCHAR(150)
+# #                 """)
+# #             )
 
-        # ----------------------------------------------
-        # CUSTOMER CONTACT
-        # ----------------------------------------------
+# #         # ----------------------------------------------
+# #         # CUSTOMER CONTACT
+# #         # ----------------------------------------------
 
-        if "customer_contact" not in columns:
-
-            connection.execute(
-                text("""
-                    ALTER TABLE payments
-                    ADD COLUMN customer_contact
-                    VARCHAR(50)
-                """)
-            )
+# #         if "customer_contact" not in columns:
+
+# #             connection.execute(
+# #                 text("""
+# #                     ALTER TABLE payments
+# #                     ADD COLUMN customer_contact
+# #                     VARCHAR(50)
+# #                 """)
+# #             )
 
-        # ----------------------------------------------
-        # CUSTOMER EMAIL
-        # ----------------------------------------------
+# #         # ----------------------------------------------
+# #         # CUSTOMER EMAIL
+# #         # ----------------------------------------------
 
-        if "customer_email" not in columns:
+# #         if "customer_email" not in columns:
 
-            connection.execute(
-                text("""
-                    ALTER TABLE payments
-                    ADD COLUMN customer_email
-                    VARCHAR(255)
-                """)
-            )
+# #             connection.execute(
+# #                 text("""
+# #                     ALTER TABLE payments
+# #                     ADD COLUMN customer_email
+# #                     VARCHAR(255)
+# #                 """)
+# #             )
 
-        connection.commit()
+# #         connection.commit()
 
 
-# ======================================================
-# MAKE PARTICIPANT ID NULLABLE
-#
-# REQUIRED FOR STORE PAYMENTS
-# ======================================================
+# # # ======================================================
+# # # MAKE PARTICIPANT ID NULLABLE
+# # #
+# # # REQUIRED FOR STORE PAYMENTS
+# # # ======================================================
 
-def migrate_payment_participant_nullable():
+# # def migrate_payment_participant_nullable():
 
-    with engine.connect() as connection:
+# #     with engine.connect() as connection:
 
-        # --------------------------------------------------
-        # CHECK PAYMENTS TABLE
-        # --------------------------------------------------
+# #         # --------------------------------------------------
+# #         # CHECK PAYMENTS TABLE
+# #         # --------------------------------------------------
 
-        result = connection.execute(
-            text("""
-                PRAGMA table_info(payments)
-            """)
-        )
+# #         result = connection.execute(
+# #             text("""
+# #                 PRAGMA table_info(payments)
+# #             """)
+# #         )
 
-        columns = list(result)
+# #         columns = list(result)
 
-        participant_column = None
+# #         participant_column = None
 
-        for column in columns:
+# #         for column in columns:
 
-            # PRAGMA table_info:
-            #
-            # column[0] = cid
-            # column[1] = name
-            # column[2] = type
-            # column[3] = notnull
-            # column[4] = default
-            # column[5] = primary key
+# #             # PRAGMA table_info:
+# #             #
+# #             # column[0] = cid
+# #             # column[1] = name
+# #             # column[2] = type
+# #             # column[3] = notnull
+# #             # column[4] = default
+# #             # column[5] = primary key
 
-            if column[1] == "participant_id":
+# #             if column[1] == "participant_id":
 
-                participant_column = column
+# #                 participant_column = column
 
-                break
+# #                 break
 
-        # --------------------------------------------------
-        # PARTICIPANT COLUMN NOT FOUND
-        # --------------------------------------------------
+# #         # --------------------------------------------------
+# #         # PARTICIPANT COLUMN NOT FOUND
+# #         # --------------------------------------------------
 
-        if participant_column is None:
+# #         if participant_column is None:
 
-            raise RuntimeError(
-                "payments.participant_id column was not found."
-            )
+# #             raise RuntimeError(
+# #                 "payments.participant_id column was not found."
+# #             )
 
-        # --------------------------------------------------
-        # ALREADY NULLABLE
-        # --------------------------------------------------
+# #         # --------------------------------------------------
+# #         # ALREADY NULLABLE
+# #         # --------------------------------------------------
 
-        if participant_column[3] == 0:
+# #         if participant_column[3] == 0:
 
-            print(
-                "Payment migration: "
-                "participant_id is already nullable."
-            )
+# #             print(
+# #                 "Payment migration: "
+# #                 "participant_id is already nullable."
+# #             )
 
-            return
+# #             return
 
-        # --------------------------------------------------
-        # GET ORIGINAL TABLE SQL
-        # --------------------------------------------------
+# #         # --------------------------------------------------
+# #         # GET ORIGINAL TABLE SQL
+# #         # --------------------------------------------------
 
-        result = connection.execute(
-            text("""
-                SELECT sql
-                FROM sqlite_master
-                WHERE type = 'table'
-                AND name = 'payments'
-            """)
-        )
+# #         result = connection.execute(
+# #             text("""
+# #                 SELECT sql
+# #                 FROM sqlite_master
+# #                 WHERE type = 'table'
+# #                 AND name = 'payments'
+# #             """)
+# #         )
 
-        row = result.fetchone()
+# #         row = result.fetchone()
 
-        if not row or not row[0]:
+# #         if not row or not row[0]:
 
-            raise RuntimeError(
-                "Unable to read payments table definition."
-            )
-
-        original_sql = row[0]
-
-        # --------------------------------------------------
-        # RENAME ORIGINAL TABLE
-        # --------------------------------------------------
-
-        connection.execute(
-            text("""
-                ALTER TABLE payments
-                RENAME TO payments_old
-            """)
-        )
-
-        # --------------------------------------------------
-        # CHANGE PARTICIPANT_ID
-        #
-        # Remove NOT NULL from participant_id only.
-        # --------------------------------------------------
-
-        new_sql = original_sql
-
-        replacements = [
-
-            (
-                '"participant_id" INTEGER NOT NULL',
-                '"participant_id" INTEGER'
-            ),
-
-            (
-                '`participant_id` INTEGER NOT NULL',
-                '`participant_id` INTEGER'
-            ),
-
-            (
-                'participant_id INTEGER NOT NULL',
-                'participant_id INTEGER'
-            ),
-
-            (
-                '"participant_id" INTEGER NOT NULL DEFAULT',
-                '"participant_id" INTEGER DEFAULT'
-            ),
-
-            (
-                '`participant_id` INTEGER NOT NULL DEFAULT',
-                '`participant_id` INTEGER DEFAULT'
-            ),
-
-            (
-                'participant_id INTEGER NOT NULL DEFAULT',
-                'participant_id INTEGER DEFAULT'
-            )
-        ]
-
-        for old_text, new_text in replacements:
-
-            new_sql = new_sql.replace(
-                old_text,
-                new_text
-            )
-
-        # --------------------------------------------------
-        # CHANGE TABLE NAME
-        # --------------------------------------------------
-
-        new_sql = new_sql.replace(
-            '"payments"',
-            '"payments_new"',
-            1
-        )
-
-        new_sql = new_sql.replace(
-            '`payments`',
-            '`payments_new`',
-            1
-        )
-
-        # Handle unquoted CREATE TABLE payments
-        if (
-            "CREATE TABLE payments_new"
-            not in new_sql
-        ):
-
-            new_sql = new_sql.replace(
-                "CREATE TABLE payments",
-                "CREATE TABLE payments_new",
-                1
-            )
-
-        # --------------------------------------------------
-        # VERIFY PARTICIPANT_ID IS NOW NULLABLE
-        # --------------------------------------------------
-
-        if (
-            'participant_id INTEGER NOT NULL'
-            in new_sql
-            or
-            '"participant_id" INTEGER NOT NULL'
-            in new_sql
-            or
-            '`participant_id` INTEGER NOT NULL'
-            in new_sql
-        ):
-
-            # Roll back before raising the error.
-            connection.rollback()
-
-            raise RuntimeError(
-                "Unable to make payments.participant_id nullable. "
-                "The existing SQLite table definition has an "
-                "unexpected format."
-            )
-
-        # --------------------------------------------------
-        # CREATE NEW PAYMENTS TABLE
-        # --------------------------------------------------
-
-        connection.execute(
-            text(new_sql)
-        )
-
-        # --------------------------------------------------
-        # GET COLUMN NAMES
-        # --------------------------------------------------
-
-        column_result = connection.execute(
-            text("""
-                PRAGMA table_info(payments_old)
-            """)
-        )
-
-        column_names = [
-            row[1]
-            for row in column_result
-        ]
-
-        if not column_names:
-
-            connection.rollback()
-
-            raise RuntimeError(
-                "Unable to read columns from payments_old."
-            )
-
-        column_list = ", ".join(
-            f'"{column}"'
-            for column in column_names
-        )
-
-        # --------------------------------------------------
-        # COPY EXISTING PAYMENT DATA
-        # --------------------------------------------------
-
-        connection.execute(
-            text(
-                f"""
-                INSERT INTO payments_new (
-                    {column_list}
-                )
-                SELECT
-                    {column_list}
-                FROM payments_old
-                """
-            )
-        )
-
-        # --------------------------------------------------
-        # REMOVE OLD TABLE
-        # --------------------------------------------------
-
-        connection.execute(
-            text("""
-                DROP TABLE payments_old
-            """)
-        )
-
-        # --------------------------------------------------
-        # RENAME NEW TABLE
-        # --------------------------------------------------
-
-        connection.execute(
-            text("""
-                ALTER TABLE payments_new
-                RENAME TO payments
-            """)
-        )
-
-        connection.commit()
-
-        print(
-            "Payment migration: "
-            "participant_id is now nullable."
-        )
-
-
-# ======================================================
-# STAFF DATABASE MIGRATION
-# ======================================================
-
-def migrate_staff_columns():
-    """Add Staff.position and allow profile fields to remain empty for admin-created placeholders."""
-    from sqlalchemy import text
-
-    with engine.begin() as connection:
-        columns = connection.execute(text("PRAGMA table_info(staff)")).fetchall()
-        if not columns:
-            return
-
-        names = {row[1] for row in columns}
-        if "position" not in names:
-            connection.execute(text("ALTER TABLE staff ADD COLUMN position VARCHAR(100)"))
-
-        # SQLite cannot directly change NOT NULL columns. Rebuild only when the
-        # existing staff table still has the old NOT NULL profile columns.
-        info = connection.execute(text("PRAGMA table_info(staff)")).fetchall()
-        notnull = {row[1]: row[3] for row in info}
-        needs_rebuild = any(notnull.get(col) == 1 for col in [
-            "sex", "birthday", "contact", "local_church", "sector"
-        ])
-
-        if not needs_rebuild:
-            return
-
-        connection.execute(text("PRAGMA foreign_keys=OFF"))
-        connection.execute(text("DROP TABLE IF EXISTS staff_new"))
-        connection.execute(text("""
-            CREATE TABLE staff_new (
-                id INTEGER PRIMARY KEY,
-                event_id INTEGER NOT NULL,
-                fname VARCHAR(100) NOT NULL,
-                mname VARCHAR(100),
-                lname VARCHAR(100) NOT NULL,
-                position VARCHAR(100) NOT NULL DEFAULT '',
-                sex VARCHAR(20),
-                birthday DATE,
-                contact VARCHAR(20),
-                local_church VARCHAR(150),
-                sector VARCHAR(100),
-                is_archived INTEGER DEFAULT 0,
-                created_at DATETIME,
-                updated_at DATETIME
-            )
-        """))
-        connection.execute(text("""
-            INSERT INTO staff_new
-            (id,event_id,fname,mname,lname,position,sex,birthday,contact,local_church,sector,is_archived,created_at,updated_at)
-            SELECT id,event_id,fname,mname,lname,COALESCE(position,''),sex,birthday,contact,local_church,sector,is_archived,created_at,updated_at
-            FROM staff
-        """))
-        connection.execute(text("DROP TABLE staff"))
-        connection.execute(text("ALTER TABLE staff_new RENAME TO staff"))
-        connection.execute(text("CREATE INDEX IF NOT EXISTS ix_staff_id ON staff (id)"))
-        connection.execute(text("PRAGMA foreign_keys=ON"))
-
-
-# ======================================================
-# CREATE TABLES
-# ======================================================
-
-Base.metadata.create_all(
-    bind=engine
-)
-
-
-# ======================================================
-# RUN STAFF MIGRATION
-# ======================================================
-
-migrate_staff_columns()
-
-
-# ======================================================
-# RUN PAYMENT MIGRATIONS
-# ======================================================
-
-migrate_payment_columns()
-
-
-# ======================================================
-# MAKE STORE PAYMENTS POSSIBLE
-# ======================================================
-
-migrate_payment_participant_nullable()
-
-migrate_store_item_columns()
-
-migrate_cash_sponsorship_columns()
-
-migrate_staff_table()
+# #             raise RuntimeError(
+# #                 "Unable to read payments table definition."
+# #             )
+
+# #         original_sql = row[0]
+
+# #         # --------------------------------------------------
+# #         # RENAME ORIGINAL TABLE
+# #         # --------------------------------------------------
+
+# #         connection.execute(
+# #             text("""
+# #                 ALTER TABLE payments
+# #                 RENAME TO payments_old
+# #             """)
+# #         )
+
+# #         # --------------------------------------------------
+# #         # CHANGE PARTICIPANT_ID
+# #         #
+# #         # Remove NOT NULL from participant_id only.
+# #         # --------------------------------------------------
+
+# #         new_sql = original_sql
+
+# #         replacements = [
+
+# #             (
+# #                 '"participant_id" INTEGER NOT NULL',
+# #                 '"participant_id" INTEGER'
+# #             ),
+
+# #             (
+# #                 '`participant_id` INTEGER NOT NULL',
+# #                 '`participant_id` INTEGER'
+# #             ),
+
+# #             (
+# #                 'participant_id INTEGER NOT NULL',
+# #                 'participant_id INTEGER'
+# #             ),
+
+# #             (
+# #                 '"participant_id" INTEGER NOT NULL DEFAULT',
+# #                 '"participant_id" INTEGER DEFAULT'
+# #             ),
+
+# #             (
+# #                 '`participant_id` INTEGER NOT NULL DEFAULT',
+# #                 '`participant_id` INTEGER DEFAULT'
+# #             ),
+
+# #             (
+# #                 'participant_id INTEGER NOT NULL DEFAULT',
+# #                 'participant_id INTEGER DEFAULT'
+# #             )
+# #         ]
+
+# #         for old_text, new_text in replacements:
+
+# #             new_sql = new_sql.replace(
+# #                 old_text,
+# #                 new_text
+# #             )
+
+# #         # --------------------------------------------------
+# #         # CHANGE TABLE NAME
+# #         # --------------------------------------------------
+
+# #         new_sql = new_sql.replace(
+# #             '"payments"',
+# #             '"payments_new"',
+# #             1
+# #         )
+
+# #         new_sql = new_sql.replace(
+# #             '`payments`',
+# #             '`payments_new`',
+# #             1
+# #         )
+
+# #         # Handle unquoted CREATE TABLE payments
+# #         if (
+# #             "CREATE TABLE payments_new"
+# #             not in new_sql
+# #         ):
+
+# #             new_sql = new_sql.replace(
+# #                 "CREATE TABLE payments",
+# #                 "CREATE TABLE payments_new",
+# #                 1
+# #             )
+
+# #         # --------------------------------------------------
+# #         # VERIFY PARTICIPANT_ID IS NOW NULLABLE
+# #         # --------------------------------------------------
+
+# #         if (
+# #             'participant_id INTEGER NOT NULL'
+# #             in new_sql
+# #             or
+# #             '"participant_id" INTEGER NOT NULL'
+# #             in new_sql
+# #             or
+# #             '`participant_id` INTEGER NOT NULL'
+# #             in new_sql
+# #         ):
+
+# #             # Roll back before raising the error.
+# #             connection.rollback()
+
+# #             raise RuntimeError(
+# #                 "Unable to make payments.participant_id nullable. "
+# #                 "The existing SQLite table definition has an "
+# #                 "unexpected format."
+# #             )
+
+# #         # --------------------------------------------------
+# #         # CREATE NEW PAYMENTS TABLE
+# #         # --------------------------------------------------
+
+# #         connection.execute(
+# #             text(new_sql)
+# #         )
+
+# #         # --------------------------------------------------
+# #         # GET COLUMN NAMES
+# #         # --------------------------------------------------
+
+# #         column_result = connection.execute(
+# #             text("""
+# #                 PRAGMA table_info(payments_old)
+# #             """)
+# #         )
+
+# #         column_names = [
+# #             row[1]
+# #             for row in column_result
+# #         ]
+
+# #         if not column_names:
+
+# #             connection.rollback()
+
+# #             raise RuntimeError(
+# #                 "Unable to read columns from payments_old."
+# #             )
+
+# #         column_list = ", ".join(
+# #             f'"{column}"'
+# #             for column in column_names
+# #         )
+
+# #         # --------------------------------------------------
+# #         # COPY EXISTING PAYMENT DATA
+# #         # --------------------------------------------------
+
+# #         connection.execute(
+# #             text(
+# #                 f"""
+# #                 INSERT INTO payments_new (
+# #                     {column_list}
+# #                 )
+# #                 SELECT
+# #                     {column_list}
+# #                 FROM payments_old
+# #                 """
+# #             )
+# #         )
+
+# #         # --------------------------------------------------
+# #         # REMOVE OLD TABLE
+# #         # --------------------------------------------------
+
+# #         connection.execute(
+# #             text("""
+# #                 DROP TABLE payments_old
+# #             """)
+# #         )
+
+# #         # --------------------------------------------------
+# #         # RENAME NEW TABLE
+# #         # --------------------------------------------------
+
+# #         connection.execute(
+# #             text("""
+# #                 ALTER TABLE payments_new
+# #                 RENAME TO payments
+# #             """)
+# #         )
+
+# #         connection.commit()
+
+# #         print(
+# #             "Payment migration: "
+# #             "participant_id is now nullable."
+# #         )
+
+
+# # ======================================================
+# # STAFF DATABASE MIGRATION
+# # ======================================================
+
+# def migrate_staff_columns():
+#     """Add Staff.position and allow profile fields to remain empty for admin-created placeholders."""
+#     from sqlalchemy import text
+
+#     with engine.begin() as connection:
+#         columns = connection.execute(text("PRAGMA table_info(staff)")).fetchall()
+#         if not columns:
+#             return
+
+#         names = {row[1] for row in columns}
+#         if "position" not in names:
+#             connection.execute(text("ALTER TABLE staff ADD COLUMN position VARCHAR(100)"))
+
+#         # SQLite cannot directly change NOT NULL columns. Rebuild only when the
+#         # existing staff table still has the old NOT NULL profile columns.
+#         info = connection.execute(text("PRAGMA table_info(staff)")).fetchall()
+#         notnull = {row[1]: row[3] for row in info}
+#         needs_rebuild = any(notnull.get(col) == 1 for col in [
+#             "sex", "birthday", "contact", "local_church", "sector"
+#         ])
+
+#         if not needs_rebuild:
+#             return
+
+#         connection.execute(text("PRAGMA foreign_keys=OFF"))
+#         connection.execute(text("DROP TABLE IF EXISTS staff_new"))
+#         connection.execute(text("""
+#             CREATE TABLE staff_new (
+#                 id INTEGER PRIMARY KEY,
+#                 event_id INTEGER NOT NULL,
+#                 fname VARCHAR(100) NOT NULL,
+#                 mname VARCHAR(100),
+#                 lname VARCHAR(100) NOT NULL,
+#                 position VARCHAR(100) NOT NULL DEFAULT '',
+#                 sex VARCHAR(20),
+#                 birthday DATE,
+#                 contact VARCHAR(20),
+#                 local_church VARCHAR(150),
+#                 sector VARCHAR(100),
+#                 is_archived INTEGER DEFAULT 0,
+#                 created_at DATETIME,
+#                 updated_at DATETIME
+#             )
+#         """))
+#         connection.execute(text("""
+#             INSERT INTO staff_new
+#             (id,event_id,fname,mname,lname,position,sex,birthday,contact,local_church,sector,is_archived,created_at,updated_at)
+#             SELECT id,event_id,fname,mname,lname,COALESCE(position,''),sex,birthday,contact,local_church,sector,is_archived,created_at,updated_at
+#             FROM staff
+#         """))
+#         connection.execute(text("DROP TABLE staff"))
+#         connection.execute(text("ALTER TABLE staff_new RENAME TO staff"))
+#         connection.execute(text("CREATE INDEX IF NOT EXISTS ix_staff_id ON staff (id)"))
+#         connection.execute(text("PRAGMA foreign_keys=ON"))
+
+
+# # ======================================================
+# # CREATE TABLES
+# # ======================================================
+
+# Base.metadata.create_all(
+#     bind=engine
+# )
+
+
+# # ======================================================
+# # RUN STAFF MIGRATION
+# # ======================================================
+
+# migrate_staff_columns()
+
+
+# # ======================================================
+# # RUN PAYMENT MIGRATIONS
+# # ======================================================
+
+# # migrate_payment_columns()
+
+
+# # ======================================================
+# # MAKE STORE PAYMENTS POSSIBLE
+# # ======================================================
+
+# # migrate_payment_participant_nullable()
+
+# migrate_store_item_columns()
+
+# migrate_cash_sponsorship_columns()
+
+# migrate_staff_table()
 
 
 
@@ -3084,19 +3383,6 @@ class ContactRequest(BaseModel):
 # EMAIL CONFIGURATION
 # ==========================================================
 
-GMAIL_USERNAME = os.getenv(
-    "GMAIL_USERNAME"
-)
-
-GMAIL_APP_PASSWORD = os.getenv(
-    "GMAIL_APP_PASSWORD"
-)
-
-GMAIL_FROM_NAME = os.getenv(
-    "GMAIL_FROM_NAME",
-    "Event Registration System"
-)
-
 CONTACT_RECEIVER = (
     "matulacarianjay1@gmail.com"
 )
@@ -3104,24 +3390,17 @@ CONTACT_RECEIVER = (
 
 
 # ==========================================================
-# GMAIL SMTP EMAIL CONFIGURATION
+# GMAIL API EMAIL CONFIGURATION
 # ==========================================================
 
-# The Gmail account configured here is the account the
-# registration system uses to SEND all system emails.
-#
-# GMAIL_APP_PASSWORD must be a Google App Password.
-# Do NOT use the normal Gmail account password.
+# The authorized Gmail account is the sender.
+# No custom domain and no Gmail App Password are required.
 
 CONTACT_RECEIVER_EMAIL = (
     os.getenv("CONTACT_RECEIVER_EMAIL")
     or GMAIL_USERNAME
 )
 
-
-# ==========================================================
-# GMAIL SMTP SENDER
-# ==========================================================
 
 def send_gmail_smtp(
     recipient_email,
@@ -3131,133 +3410,24 @@ def send_gmail_smtp(
     reply_to=None
 ):
     """
-    Send an email through Gmail SMTP.
+    Backward-compatible function name.
 
-    Sender:
-        GMAIL_USERNAME
-
-    Recipient:
-        recipient_email
-
-    Authentication:
-        GMAIL_APP_PASSWORD
-
-    This function is synchronous so it can also be used by
-    normal/synchronous FastAPI code such as the Contact API.
+    This no longer uses SMTP. It sends through the Gmail API.
     """
 
-    if not GMAIL_USERNAME:
-        raise RuntimeError(
-            "GMAIL_USERNAME is not configured."
-        )
-
-    if not GMAIL_APP_PASSWORD:
-        raise RuntimeError(
-            "GMAIL_APP_PASSWORD is not configured."
-        )
-
-    if not recipient_email:
-        raise RuntimeError(
-            "Recipient email is empty."
-        )
-
-    recipient_email = str(
-        recipient_email
-    ).strip()
-
-    subject = str(
-        subject or ""
-    ).replace(
-        "\r",
-        " "
-    ).replace(
-        "\n",
-        " "
-    ).strip()
-
-    if not subject:
-        raise RuntimeError(
-            "Email subject is empty."
-        )
-
-    # --------------------------------------------------------
-    # CREATE EMAIL
-    # --------------------------------------------------------
-
-    message = EmailMessage()
-
-    message["From"] = (
-        f"{GMAIL_FROM_NAME} "
-        f"<{GMAIL_USERNAME}>"
+    return send_gmail(
+        recipient_email,
+        subject,
+        html_body=html_body,
+        plain_body=text_body,
+        reply_to=reply_to
     )
-
-    message["To"] = recipient_email
-
-    message["Subject"] = subject
-
-    if reply_to:
-        message["Reply-To"] = str(
-            reply_to
-        ).strip()
-
-    # --------------------------------------------------------
-    # TEXT BODY
-    # --------------------------------------------------------
-
-    if text_body is None:
-        text_body = ""
-
-    message.set_content(
-        str(text_body)
-    )
-
-    # --------------------------------------------------------
-    # OPTIONAL HTML BODY
-    # --------------------------------------------------------
-
-    if html_body:
-        message.add_alternative(
-            str(html_body),
-            subtype="html"
-        )
-
-    # --------------------------------------------------------
-    # SEND THROUGH GMAIL SMTP
-    # --------------------------------------------------------
-
-    with smtplib.SMTP(
-        "smtp.gmail.com",
-        587,
-        timeout=30
-    ) as smtp:
-
-        smtp.ehlo()
-
-        smtp.starttls()
-
-        smtp.ehlo()
-
-        smtp.login(
-            GMAIL_USERNAME,
-            GMAIL_APP_PASSWORD
-        )
-
-        smtp.send_message(
-            message
-        )
-
-    return {
-        "success": True,
-        "provider": "gmail_smtp",
-        "sender": GMAIL_USERNAME,
-        "recipient": recipient_email,
-        "subject": subject
-    }
 
 
 # ==========================================================
 # ASYNC GMAIL SMTP SENDER
 # ==========================================================
+
 
 async def send_gmail_smtp_async(
     recipient_email,
@@ -3267,19 +3437,17 @@ async def send_gmail_smtp_async(
     reply_to=None
 ):
     """
-    Async wrapper around the Gmail SMTP sender.
+    Backward-compatible async function name.
 
-    SMTP itself is blocking, so run it in a worker thread
-    instead of blocking the FastAPI event loop.
+    This no longer uses SMTP. It sends through the Gmail API.
     """
 
-    return await asyncio.to_thread(
-        send_gmail_smtp,
+    return await send_gmail_async(
         recipient_email,
         subject,
-        text_body,
-        html_body,
-        reply_to
+        html_body=html_body,
+        plain_body=text_body,
+        reply_to=reply_to
     )
 
 
@@ -3298,11 +3466,6 @@ def send_contact_email(
     if not GMAIL_USERNAME:
         raise RuntimeError(
             "GMAIL_USERNAME is not configured."
-        )
-
-    if not GMAIL_APP_PASSWORD:
-        raise RuntimeError(
-            "GMAIL_APP_PASSWORD is not configured."
         )
 
     if not CONTACT_RECEIVER_EMAIL:
@@ -4361,33 +4524,17 @@ async def send_payment_email(
 
     </html>
     """
-
     # --------------------------------------------------
-    # CREATE MESSAGE
-    # --------------------------------------------------
-
-    message = MessageSchema(
-
-        subject=subject,
-
-        recipients=[
-            participant.email
-        ],
-
-        body=html,
-
-        subtype="html"
-    )
-
-    # --------------------------------------------------
-    # SEND
+    # SEND THROUGH GMAIL API
     # --------------------------------------------------
 
     try:
 
-        fm = FastMail(mail_conf)
-
-        await fm.send_message(message)
+        await send_gmail_async(
+            participant.email,
+            subject,
+            html_body=html
+        )
 
         print(
             f"Payment email sent to "
@@ -4651,29 +4798,19 @@ async def send_payment_confirmation_email(
 
     </html>
     """
+    # --------------------------------------------------
+    # SEND THROUGH GMAIL API
+    # --------------------------------------------------
 
-    message = MessageSchema(
-
-        subject=(
-            "Payment Confirmed - "
-            f"{participant.registration_number}"
-        ),
-
-        recipients=[
-            participant.email
-        ],
-
-        body=html_body,
-
-        subtype="html"
+    subject = (
+        "Payment Confirmed - "
+        f"{participant.registration_number}"
     )
 
-    fm = FastMail(
-        mail_conf
-    )
-
-    await fm.send_message(
-        message
+    await send_gmail_async(
+        participant.email,
+        subject,
+        html_body=html_body
     )
 
     print(
@@ -5346,48 +5483,25 @@ async def send_sponsored_participant_confirmation_email(
 
     </html>
     """
-
-
     # ==================================================
-    # CREATE MESSAGE
+    # SEND THROUGH GMAIL API
     # ==================================================
 
-    message = MessageSchema(
-
-        subject=(
-            "Registration Completed Through Sponsorship - "
-            f"{participant.registration_number}"
-        ),
-
-        recipients=[
-            participant.email
-        ],
-
-        body=html_body,
-
-        subtype="html"
+    subject = (
+        "Registration Completed Through Sponsorship - "
+        f"{participant.registration_number}"
     )
 
-
-    # ==================================================
-    # USE YOUR EXISTING MAIL CONFIGURATION
-    # ==================================================
-
-    fm = FastMail(
-        mail_conf
+    await send_gmail_async(
+        participant.email,
+        subject,
+        html_body=html_body
     )
-
-
-    await fm.send_message(
-        message
-    )
-
 
     print(
         "Finding Sponsor participant email sent to",
         participant.email
     )
-
 
     return True
 
@@ -6142,6 +6256,31 @@ def add_cash_donation_to_total(
     )
 
     return True
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
