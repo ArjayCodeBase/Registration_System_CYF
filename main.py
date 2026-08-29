@@ -5,7 +5,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Optional
 from pathlib import Path
 import time
-from datetime import datetime
 import asyncio
 from types import SimpleNamespace
 import uuid
@@ -20190,7 +20189,7 @@ def create_store_purchase(
 
     store_order_id = (
         "STORE-"
-        + datetime.now().strftime("%Y%m%d%H%M%S")
+        + datetime.datetime.now().strftime("%Y%m%d%H%M%S")
         + "-"
         + uuid.uuid4().hex[:8].upper()
     )
