@@ -123,199 +123,173 @@ PAYMONGO_WEBHOOK_SECRET = os.getenv(
 )
 
 
+
 # ======================================================
 # GMAIL API CONFIGURATION
 # ======================================================
 #
 # Gmail API is used for ALL system emails.
 #
-# Required:
-#   - credentials.json
-#   - OAuth token generated from the Gmail account that
-#     should send system emails.
+# Railway environment variables required:
 #
-# Production/Railway:
-#   Set GMAIL_TOKEN_JSON to the contents of token.json,
-#   or deploy token.json as a protected file.
+#   GMAIL_CLIENT_ID
+#   GMAIL_CLIENT_SECRET
+#   GMAIL_REFRESH_TOKEN
+#   GMAIL_SENDER_EMAIL
 #
-# The Gmail account authorized by token.json is the sender.
+# No credentials.json is required.
+# No token.json is required.
 # No custom domain is required.
+#
+# The Gmail account associated with the refresh token
+# is the account that sends the system emails.
+# ======================================================
+
+import os
+import json
+import base64
+import asyncio
+
+from dotenv import load_dotenv
+
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
+from google.oauth2.credentials import Credentials
+from googleapiclient.discovery import build
+
+
+# ======================================================
+# LOAD ENVIRONMENT VARIABLES
 # ======================================================
 
 load_dotenv()
 
-GMAIL_USERNAME = os.getenv("GMAIL_USERNAME", "").strip()
+
+# ======================================================
+# GMAIL SETTINGS
+# ======================================================
+
+GMAIL_CLIENT_ID = os.getenv(
+    "GMAIL_CLIENT_ID",
+    ""
+).strip()
+
+
+GMAIL_CLIENT_SECRET = os.getenv(
+    "GMAIL_CLIENT_SECRET",
+    ""
+).strip()
+
+
+GMAIL_REFRESH_TOKEN = os.getenv(
+    "GMAIL_REFRESH_TOKEN",
+    ""
+).strip()
+
+
+GMAIL_SENDER_EMAIL = os.getenv(
+    "GMAIL_SENDER_EMAIL",
+    ""
+).strip()
+
 
 GMAIL_FROM_NAME = os.getenv(
     "GMAIL_FROM_NAME",
     "Event Registration System"
 ).strip()
 
-GMAIL_CREDENTIALS_FILE = os.getenv(
-    "GMAIL_CREDENTIALS_FILE",
-    "credentials.json"
-)
-
-GMAIL_TOKEN_FILE = os.getenv(
-    "GMAIL_TOKEN_FILE",
-    "token.json"
-)
-
-# Optional: paste the complete token.json contents into this
-# environment variable for Railway/production deployments.
-GMAIL_TOKEN_JSON = os.getenv(
-    "GMAIL_TOKEN_JSON"
-)
-
-GMAIL_ALLOW_LOCAL_AUTH = (
-    os.getenv(
-        "GMAIL_ALLOW_LOCAL_AUTH",
-        "true"
-    ).strip().lower()
-    in ("1", "true", "yes", "on")
-)
 
 GMAIL_SCOPES = [
     "https://www.googleapis.com/auth/gmail.send"
 ]
 
 
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from google.oauth2.credentials import Credentials
-from google.auth.transport.requests import Request as GoogleRequest
-from google_auth_oauthlib.flow import InstalledAppFlow
-from googleapiclient.discovery import build
+# ======================================================
+# VALIDATE GMAIL CONFIGURATION
+# ======================================================
 
+def _validate_gmail_config():
+    """
+    Make sure all required Gmail environment variables
+    are configured.
+
+    This does NOT expose the secret values.
+    """
+
+    missing = []
+
+    if not GMAIL_CLIENT_ID:
+        missing.append("GMAIL_CLIENT_ID")
+
+    if not GMAIL_CLIENT_SECRET:
+        missing.append("GMAIL_CLIENT_SECRET")
+
+    if not GMAIL_REFRESH_TOKEN:
+        missing.append("GMAIL_REFRESH_TOKEN")
+
+    if not GMAIL_SENDER_EMAIL:
+        missing.append("GMAIL_SENDER_EMAIL")
+
+    if missing:
+        raise RuntimeError(
+            "Gmail environment variables are missing: "
+            + ", ".join(missing)
+        )
+
+
+# ======================================================
+# LOAD GMAIL OAUTH CREDENTIALS
+# ======================================================
 
 def _load_gmail_credentials():
     """
-    Load Gmail OAuth credentials.
+    Create Gmail OAuth credentials directly from Railway
+    environment variables.
 
-    Priority:
-      1. GMAIL_TOKEN_JSON environment variable
-      2. token.json file
-      3. Local browser OAuth flow (only when
-         GMAIL_ALLOW_LOCAL_AUTH=true)
-
-    Railway should use option 1 or 2.
+    No credentials.json.
+    No token.json.
+    No local browser authorization.
     """
 
-    creds = None
+    _validate_gmail_config()
 
-    # --------------------------------------------------
-    # 1. TOKEN FROM ENVIRONMENT VARIABLE
-    # --------------------------------------------------
+    try:
 
-    if GMAIL_TOKEN_JSON:
-        try:
-            token_data = json.loads(
-                GMAIL_TOKEN_JSON
-            )
+        creds = Credentials(
+            token=None,
 
-            creds = Credentials.from_authorized_user_info(
-                token_data,
-                GMAIL_SCOPES
-            )
+            refresh_token=GMAIL_REFRESH_TOKEN,
 
-        except Exception as exc:
-            raise RuntimeError(
-                "GMAIL_TOKEN_JSON is invalid. "
-                "Paste the complete contents of token.json "
-                "into the Railway variable GMAIL_TOKEN_JSON."
-            ) from exc
+            token_uri="https://oauth2.googleapis.com/token",
 
-    # --------------------------------------------------
-    # 2. TOKEN FROM FILE
-    # --------------------------------------------------
+            client_id=GMAIL_CLIENT_ID,
 
-    elif os.path.exists(GMAIL_TOKEN_FILE):
-        try:
-            creds = Credentials.from_authorized_user_file(
-                GMAIL_TOKEN_FILE,
-                GMAIL_SCOPES
-            )
-        except Exception as exc:
-            raise RuntimeError(
-                f"Unable to read Gmail token file: "
-                f"{GMAIL_TOKEN_FILE}"
-            ) from exc
+            client_secret=GMAIL_CLIENT_SECRET,
 
-    # --------------------------------------------------
-    # 3. REFRESH TOKEN
-    # --------------------------------------------------
-
-    if creds and creds.expired and creds.refresh_token:
-        creds.refresh(
-            Request()
+            scopes=GMAIL_SCOPES
         )
 
-        # Save refreshed token when a token file is available.
-        try:
-            with open(
-                GMAIL_TOKEN_FILE,
-                "w",
-                encoding="utf-8"
-            ) as token_file:
-                token_file.write(
-                    creds.to_json()
-                )
-        except Exception:
-            # On Railway the filesystem may be ephemeral.
-            # The access token can still be used for this
-            # process because the refresh was successful.
-            pass
+        return creds
 
-    # --------------------------------------------------
-    # 4. FIRST-TIME LOCAL AUTHORIZATION
-    # --------------------------------------------------
+    except Exception as exc:
 
-    if not creds or not creds.valid:
+        raise RuntimeError(
+            "Unable to create Gmail OAuth credentials "
+            "from environment variables."
+        ) from exc
 
-        if not GMAIL_ALLOW_LOCAL_AUTH:
-            raise RuntimeError(
-                "Gmail OAuth token is not configured. "
-                "Set GMAIL_TOKEN_JSON in Railway using the "
-                "contents of token.json generated locally."
-            )
 
-        if not os.path.exists(
-            GMAIL_CREDENTIALS_FILE
-        ):
-            raise RuntimeError(
-                f"Gmail OAuth credentials file not found: "
-                f"{GMAIL_CREDENTIALS_FILE}"
-            )
-
-        flow = InstalledAppFlow.from_client_secrets_file(
-            GMAIL_CREDENTIALS_FILE,
-            GMAIL_SCOPES
-        )
-
-        creds = flow.run_local_server(
-            port=0,
-            access_type="offline",
-            prompt="consent"
-        )
-
-        try:
-            with open(
-                GMAIL_TOKEN_FILE,
-                "w",
-                encoding="utf-8"
-            ) as token_file:
-                token_file.write(
-                    creds.to_json()
-                )
-        except Exception:
-            pass
-
-    return creds
-
+# ======================================================
+# GET GMAIL SERVICE
+# ======================================================
 
 def get_gmail_service():
     """
     Return an authenticated Gmail API service.
+
+    The Gmail API client automatically uses the refresh
+    token to obtain an access token when necessary.
     """
 
     creds = _load_gmail_credentials()
@@ -328,6 +302,10 @@ def get_gmail_service():
     )
 
 
+# ======================================================
+# SEND EMAIL THROUGH GMAIL
+# ======================================================
+
 def send_gmail(
     recipient_email: str,
     subject: str,
@@ -338,67 +316,107 @@ def send_gmail(
     """
     Send an email through the Gmail API.
 
-    The authorized Gmail account is the sender.
-    No email service account or custom domain is required.
+    Sender:
+        GMAIL_SENDER_EMAIL
+
+    Recipient:
+        recipient_email
+
+    No Resend.
+    No custom domain.
+    No credentials.json.
+    No token.json.
     """
+
+    # --------------------------------------------------
+    # CLEAN INPUT
+    # --------------------------------------------------
 
     recipient_email = str(
         recipient_email or ""
     ).strip()
 
+
     subject = str(
         subject or ""
-    ).replace("\r", " ").replace("\n", " ").strip()
+    ).replace(
+        "\r",
+        " "
+    ).replace(
+        "\n",
+        " "
+    ).strip()
+
+
+    # --------------------------------------------------
+    # VALIDATE
+    # --------------------------------------------------
 
     if not recipient_email:
+
         raise ValueError(
             "Recipient email is empty."
         )
 
+
     if not subject:
+
         raise ValueError(
             "Email subject is empty."
         )
 
-    if not GMAIL_USERNAME:
-        raise RuntimeError(
-            "GMAIL_USERNAME is not configured. "
-            "Set it to the Gmail address that authorized the "
-            "Gmail API."
-        )
 
-    if html_body is None:
-        html_body = ""
+    _validate_gmail_config()
+
+
+    # --------------------------------------------------
+    # DEFAULT PLAIN TEXT
+    # --------------------------------------------------
 
     if plain_body is None:
+
         plain_body = (
             "This email contains HTML content. "
             "Please use an HTML-compatible email client."
         )
 
+
+    if html_body is None:
+
+        html_body = ""
+
+
     # --------------------------------------------------
-    # MIME MESSAGE
+    # CREATE MIME MESSAGE
     # --------------------------------------------------
 
     message = MIMEMultipart(
         "alternative"
     )
 
+
     message["To"] = recipient_email
+
 
     message["From"] = (
         f"{GMAIL_FROM_NAME} "
-        f"<{GMAIL_USERNAME}>"
-        if GMAIL_USERNAME
-        else GMAIL_FROM_NAME
+        f"<{GMAIL_SENDER_EMAIL}>"
     )
+
 
     message["Subject"] = subject
 
+
     if reply_to:
+
         message["Reply-To"] = str(
             reply_to
         ).strip()
+
+
+    # --------------------------------------------------
+    # PLAIN TEXT PART
+    # --------------------------------------------------
 
     message.attach(
         MIMEText(
@@ -408,7 +426,13 @@ def send_gmail(
         )
     )
 
+
+    # --------------------------------------------------
+    # HTML PART
+    # --------------------------------------------------
+
     if html_body:
+
         message.attach(
             MIMEText(
                 str(html_body),
@@ -417,36 +441,82 @@ def send_gmail(
             )
         )
 
+
     # --------------------------------------------------
-    # GMAIL API SEND
+    # ENCODE MESSAGE
     # --------------------------------------------------
 
-    raw_message = base64.urlsafe_b64encode(
-        message.as_bytes()
-    ).decode("utf-8")
-
-    result = (
-        get_gmail_service()
-        .users()
-        .messages()
-        .send(
-            userId="me",
-            body={
-                "raw": raw_message
-            }
+    raw_message = (
+        base64.urlsafe_b64encode(
+            message.as_bytes()
         )
-        .execute()
+        .decode("utf-8")
     )
 
+
+    # --------------------------------------------------
+    # SEND THROUGH GMAIL API
+    # --------------------------------------------------
+
+    try:
+
+        service = get_gmail_service()
+
+
+        result = (
+            service
+            .users()
+            .messages()
+            .send(
+                userId="me",
+                body={
+                    "raw": raw_message
+                }
+            )
+            .execute()
+        )
+
+
+    except Exception as exc:
+
+        print(
+            "GMAIL SEND ERROR:",
+            repr(exc)
+        )
+
+        raise RuntimeError(
+            f"Unable to send Gmail message: {exc}"
+        ) from exc
+
+
+    # --------------------------------------------------
+    # RETURN RESULT
+    # --------------------------------------------------
+
     return {
+
         "success": True,
+
         "provider": "gmail_api",
-        "sender": GMAIL_USERNAME,
-        "recipient": recipient_email,
-        "subject": subject,
-        "message_id": result.get("id")
+
+        "sender":
+            GMAIL_SENDER_EMAIL,
+
+        "recipient":
+            recipient_email,
+
+        "subject":
+            subject,
+
+        "message_id":
+            result.get("id")
+
     }
 
+
+# ======================================================
+# ASYNC GMAIL SENDER
+# ======================================================
 
 async def send_gmail_async(
     recipient_email: str,
@@ -458,8 +528,9 @@ async def send_gmail_async(
     """
     Async Gmail API sender.
 
-    Gmail's Python client is synchronous, so execute it in a
-    worker thread to avoid blocking FastAPI.
+    Gmail's Python client is synchronous, so the actual
+    send operation runs in a worker thread so that it does
+    not block FastAPI.
     """
 
     return await asyncio.to_thread(
@@ -470,6 +541,8 @@ async def send_gmail_async(
         plain_body,
         reply_to
     )
+
+
 
 
 # ======================================================
