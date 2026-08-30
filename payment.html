@@ -4,7 +4,7 @@
 
 <head>
 
-```
+
 <meta charset="UTF-8">
 
 <meta
@@ -808,7 +808,7 @@
     }
 
 </style>
-```
+
 
 </head>
 
@@ -816,7 +816,7 @@
 
 <header class="header">
 
-```
+
 <div>
 
     <div class="header-title">
@@ -835,13 +835,13 @@
 >
     Back
 </button>
-```
+
 
 </header>
 
 <main class="container">
 
-```
+
 <div
     id="loading"
     class="loading"
@@ -1113,7 +1113,7 @@
 
 
 </div>
-```
+
 
 </main>
 
@@ -1158,6 +1158,12 @@ let paymentCreated = false;
 let creatingPayment = false;
 
 let currentPaymentRequest = null;
+
+/* Snapshot of payment state when this checkout was created. */
+let paymentStartState = {
+    lanyardPaid: false,
+    tshirtPaid: false
+};
 
 
 /* =========================================================
@@ -2611,6 +2617,12 @@ function resetPaymentButton() {
         null;
 
 
+    paymentStartState = {
+        lanyardPaid: false,
+        tshirtPaid: false
+    };
+
+
     document
         .getElementById(
             "paymentWaiting"
@@ -2964,6 +2976,20 @@ async function proceedToPayment() {
 
         };
 
+        /* Capture the UNPAID/PAID state before PayMongo opens. */
+        paymentStartState = {
+            lanyardPaid:
+                Boolean(
+                    paymentData?.lanyard &&
+                    isPaid(paymentData.lanyard)
+                ),
+            tshirtPaid:
+                Boolean(
+                    paymentData?.tshirt &&
+                    isPaid(paymentData.tshirt)
+                )
+        };
+
 
         /*
          * Open PayMongo.
@@ -3242,137 +3268,171 @@ async function checkPaymentStatus() {
             await response.json();
 
 
-        /*
-         * Always replace local state
-         * with backend state.
-         */
+        /* Always replace local state with backend state. */
         paymentData =
             data;
 
 
-        /*
-         * =================================================
-         * READ BACKEND PAYMENT STATE
-         * =================================================
-         */
-
         const lanyardPaid =
             Boolean(
                 data?.lanyard &&
-                isPaid(
-                    data.lanyard
-                )
+                isPaid(data.lanyard)
             );
 
 
         const tshirtPaid =
             Boolean(
                 data?.tshirt &&
-                isPaid(
-                    data.tshirt
-                )
+                isPaid(data.tshirt)
             );
 
 
-        /*
-         * =================================================
-         * MANDATORY PAYMENT
-         * =================================================
-         *
-         * The Lanyard is mandatory.
-         *
-         * Therefore the frontend must NOT wait
-         * for the T-shirt.
-         */
-        const mandatoryPaymentComplete =
-            isMandatoryPaymentComplete(
-                data
-            );
+        /* =====================================================
+           CHECK THE ITEM FOR THIS CHECKOUT
+           =====================================================
 
+           Do not use payment_success or
+           mandatory_payment_complete here.
 
-        console.log(
-            "PAYMENT STATUS:",
-            {
-                lanyardPaid,
-                tshirtPaid,
-                paymentSuccess:
-                    data?.payment_success,
-                mandatoryPaymentComplete:
-                    data?.mandatory_payment_complete,
-                finalMandatoryPayment:
-                    mandatoryPaymentComplete
-            }
-        );
+           When paying for the T-shirt after the Lanyard is
+           already paid, the mandatory flag is already true.
+           That must NOT stop the T-shirt waiting screen.
 
+           Instead, wait for the item selected for THIS checkout
+           to change from UNPAID -> PAID.
+        */
 
-        /*
-         * =================================================
-         * PAYMENT CONFIRMED
-         * =================================================
-         */
+        let checkoutPaymentComplete =
+            false;
+
+        let checkoutTarget =
+            "payment";
+
 
         if (
-            mandatoryPaymentComplete
+            paymentCreated &&
+            currentPaymentRequest
+        ) {
+
+            const lanyardSelected =
+                Boolean(
+                    currentPaymentRequest.lanyardSelected
+                );
+
+            const tshirtSelected =
+                Boolean(
+                    currentPaymentRequest.tshirtSelected
+                );
+
+
+            const lanyardTransitionedToPaid =
+                lanyardSelected &&
+                !paymentStartState.lanyardPaid &&
+                lanyardPaid;
+
+            const tshirtTransitionedToPaid =
+                tshirtSelected &&
+                !paymentStartState.tshirtPaid &&
+                tshirtPaid;
+
+
+            if (
+                lanyardSelected &&
+                tshirtSelected
+            ) {
+
+                checkoutTarget =
+                    "Lanyard and T-shirt";
+
+                checkoutPaymentComplete =
+                    lanyardTransitionedToPaid &&
+                    tshirtTransitionedToPaid;
+
+            } else if (
+                lanyardSelected
+            ) {
+
+                checkoutTarget =
+                    "Lanyard";
+
+                checkoutPaymentComplete =
+                    lanyardTransitionedToPaid;
+
+            } else if (
+                tshirtSelected
+            ) {
+
+                checkoutTarget =
+                    "T-shirt";
+
+                checkoutPaymentComplete =
+                    tshirtTransitionedToPaid;
+
+            }
+
+
+            console.log(
+                "CHECKOUT PAYMENT STATUS:",
+                {
+                    checkoutTarget,
+                    lanyardPaid,
+                    tshirtPaid,
+                    startLanyardPaid:
+                        paymentStartState.lanyardPaid,
+                    startTshirtPaid:
+                        paymentStartState.tshirtPaid,
+                    checkoutPaymentComplete
+                }
+            );
+
+        }
+
+
+        /* =====================================================
+           PAYMENT CONFIRMED
+           ===================================================== */
+
+        if (
+            paymentCreated &&
+            checkoutPaymentComplete
         ) {
 
             console.log(
-                "MANDATORY PAYMENT CONFIRMED"
+                `${checkoutTarget} changed from UNPAID to PAID. Refreshing page.`
             );
 
 
-            /*
-             * Stop polling immediately.
-             */
+            /* Stop polling immediately. */
             stopPaymentPolling();
 
-
-            /*
-             * Payment creation is finished.
-             */
             paymentCreated =
                 false;
-
 
             creatingPayment =
                 false;
 
 
-            /*
-             * Close PayMongo window.
-             */
+            /* Close PayMongo window. */
             closePaymentWindow();
 
-
-            /*
-             * Clear current payment request.
-             */
             currentPaymentRequest =
                 null;
 
 
             /*
-             * Render latest backend state.
-             *
-             * Example:
-             *
-             * Lanyard: Paid
-             * T-Shirt: Unpaid
-             *
-             * This is SUCCESS.
+             * Refresh the entire page so every displayed payment
+             * status is loaded again directly from the backend.
              */
-            renderPage();
-
+            window.location.reload();
 
             return;
 
         }
 
 
-        /*
-         * =================================================
-         * PAYMENT STILL PENDING
-         * =================================================
-         */
+        /* =====================================================
+           PAYMENT STILL PENDING
+           ===================================================== */
 
         if (
             paymentCreated
@@ -3389,14 +3449,13 @@ async function checkPaymentStatus() {
                 waiting.style.display =
                     "block";
 
-
                 waiting.innerHTML = `
 
                     <span
                         class="spinner-small"
                     ></span>
 
-                    Waiting for payment confirmation...
+                    Waiting for ${escapeHtml(checkoutTarget)} payment confirmation...
                     You may complete payment in the PayMongo tab.
 
                 `;
@@ -3411,12 +3470,7 @@ async function checkPaymentStatus() {
         }
 
 
-        /*
-         * =================================================
-         * NORMAL PAGE LOAD
-         * =================================================
-         */
-
+        /* Normal page load. */
         renderPage();
 
 
