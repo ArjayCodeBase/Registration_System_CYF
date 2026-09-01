@@ -6746,7 +6746,12 @@ def sitemap_page():
         os.path.join(BASE_DIR, "sitemap.xml")
     )
 
-
+@app.get("/favicon.png")
+def favicon_page():
+    return FileResponse(
+        os.path.join(BASE_DIR, "favicon.png"),
+        media_type="image/png"
+    )
 
 
 
