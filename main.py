@@ -6740,6 +6740,11 @@ def terms_page():
         os.path.join(BASE_DIR, "terms.html")
     )
 
+@app.get("/sitemap.xml")
+def sitemap_page():
+    return FileResponse(
+        os.path.join(BASE_DIR, "sitemap.xml")
+    )
 
 
 
