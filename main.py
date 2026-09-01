@@ -9133,13 +9133,34 @@ def registration_search_participant(
     db: Session = Depends(get_db)
 ):
 
+    # ==================================================
+    # CLEAN SEARCH KEYWORD
+    # ==================================================
+
+    keyword = (keyword or "").strip().lower()
+
+    # ==================================================
+    # PREVENT SINGLE-LETTER SEARCH
+    # ==================================================
+    #
+    # Example:
+    # "c"  -> no results
+    # "cy" -> search
+    #
+    # ==================================================
+
+    if len(keyword) < 2:
+        return []
+
+    # ==================================================
+    # GET ACTIVE PARTICIPANTS
+    # ==================================================
+
     participants = db.query(Participant).filter(
         Participant.is_archived == 0
     ).all()
 
     result = []
-
-    keyword = (keyword or "").strip().lower()
 
     for participant in participants:
 
@@ -9159,38 +9180,77 @@ def registration_search_participant(
         fullname_lower = fullname.lower()
 
         # ==================================================
-        # SAFE STRING VALUES
+        # SEARCHABLE VALUES
+        # ==================================================
+        #
+        # SEARCH ONLY:
+        #   1. Name
+        #   2. Event name
+        #   3. Registration ID
+        #
+        # DO NOT SEARCH:
+        #   - Paid
+        #   - Unpaid
+        #   - Partial
+        #   - T-shirt status
+        #   - Lanyard status
+        #   - Email
+        #   - Contact number
+        #   - Registration phase
+        #   - Registration status
+        #   - Participant type
+        #   - Sponsorship status
+        #   - Participant tier
+        #
         # ==================================================
 
         registration_number = str(
             participant.registration_number or ""
-        ).lower()
-
-        email = str(
-            participant.email or ""
-        ).lower()
-
-        contact_number = str(
-            participant.contact_number or ""
-        ).lower()
+        ).strip().lower()
 
         event_name = str(
             participant.event_name or ""
-        ).lower()
+        ).strip().lower()
 
-        registration_phase = str(
-            participant.registration_phase or ""
-        ).lower()
+        searchable_values = [
+            fullname_lower,
+            event_name,
+            registration_number
+        ]
 
-        registration_status = str(
-            participant.registration_status or ""
-        ).lower()
+        # ==================================================
+        # MATCH SEARCH
+        # ==================================================
+
+        matched = any(
+            keyword in value
+            for value in searchable_values
+        )
+
+        if not matched:
+            continue
+
+        # ==================================================
+        # PARTICIPANT TYPE
+        # ==================================================
 
         participant_type = str(
             participant.participant_type or ""
         ).strip()
 
-        participant_type_lower = participant_type.lower()
+        is_sponsor_participant = (
+            participant_type.lower()
+            == "finding sponsor"
+        )
+
+        # ==================================================
+        # PAYMENT STATUS
+        # ==================================================
+        #
+        # This is returned to the frontend for display
+        # only. It is NOT searchable.
+        #
+        # ==================================================
 
         tshirt_status = str(
             participant.tshirt_status or "Unpaid"
@@ -9203,50 +9263,31 @@ def registration_search_participant(
         tshirt_status_lower = tshirt_status.lower()
         lanyard_status_lower = lanyard_status.lower()
 
-        # ==================================================
-        # DETERMINE PARTICIPANT TYPE
-        # ==================================================
+        if (
+            tshirt_status_lower == "paid"
+            and lanyard_status_lower == "paid"
+        ):
 
-        is_sponsor_participant = (
-            participant_type_lower
-            == "finding sponsor"
-        )
+            payment_status = "Paid"
+
+        elif (
+            tshirt_status_lower == "paid"
+            or lanyard_status_lower == "paid"
+        ):
+
+            payment_status = "Partial"
+
+        else:
+
+            payment_status = "Unpaid"
 
         # ==================================================
-        # MERCHANDISE / PAYMENT STATUS
-        # ==================================================
-        #
-        # REGULAR PARTICIPANT
-        #
-        # Lanyard paid + shirt paid
-        #       -> Paid
-        #
-        # Lanyard paid + shirt unpaid
-        #       -> Partial
-        #
-        # Nothing paid
-        #       -> Unpaid
-        #
-        #
-        # FINDING SPONSOR
-        #
-        # No payment button should be displayed.
-        #
-        # Sponsorship is handled separately.
-        #
+        # SPONSORSHIP STATUS
         # ==================================================
 
         if is_sponsor_participant:
 
-            # ----------------------------------------------
-            # SPONSORSHIP STATUS
-            # ----------------------------------------------
-
             sponsorship_status = "Sponsored in Review"
-
-            # ----------------------------------------------
-            # CHECK MERCHANDISE
-            # ----------------------------------------------
 
             if (
                 tshirt_status_lower == "paid"
@@ -9270,30 +9311,7 @@ def registration_search_participant(
 
         else:
 
-            # ----------------------------------------------
-            # NORMAL PARTICIPANT
-            # ----------------------------------------------
-
-            if (
-                tshirt_status_lower == "paid"
-                and lanyard_status_lower == "paid"
-            ):
-
-                payment_status = "Paid"
-
-            elif (
-                tshirt_status_lower == "paid"
-                or lanyard_status_lower == "paid"
-            ):
-
-                payment_status = "Partial"
-
-            else:
-
-                payment_status = "Unpaid"
-
             sponsorship_status = None
-
             merchandise_status = payment_status
 
         # ==================================================
@@ -9312,58 +9330,6 @@ def registration_search_participant(
             if evaluation
             else None
         )
-
-        participant_tier_lower = str(
-            participant_tier or ""
-        ).lower()
-
-        # ==================================================
-        # SEARCH
-        # ==================================================
-
-        searchable_values = [
-
-            fullname_lower,
-
-            registration_number,
-
-            email,
-
-            contact_number,
-
-            event_name,
-
-            registration_phase,
-
-            registration_status,
-
-            participant_type_lower,
-
-            payment_status.lower(),
-
-            tshirt_status_lower,
-
-            lanyard_status_lower,
-
-            participant_tier_lower,
-
-            str(
-                sponsorship_status or ""
-            ).lower(),
-
-            str(
-                merchandise_status or ""
-            ).lower()
-
-        ]
-
-        matched = any(
-            keyword in value
-            for value in searchable_values
-        )
-
-        if not matched:
-            continue
 
         # ==================================================
         # RESULT
@@ -9414,6 +9380,11 @@ def registration_search_participant(
             # ----------------------------------------------
             # PAYMENT
             # ----------------------------------------------
+            #
+            # Returned for display only.
+            # NOT used for search.
+            #
+            # ----------------------------------------------
 
             "payment_status":
                 payment_status,
@@ -9433,12 +9404,10 @@ def registration_search_participant(
                 merchandise_status,
 
             "tshirt_status":
-                participant.tshirt_status
-                or "Unpaid",
+                participant.tshirt_status or "Unpaid",
 
             "lanyard_status":
-                participant.lanyard_status
-                or "Unpaid",
+                participant.lanyard_status or "Unpaid",
 
             # ----------------------------------------------
             # EVALUATION
@@ -9450,6 +9419,17 @@ def registration_search_participant(
         })
 
     return result
+
+
+
+
+
+
+
+
+
+
+
 
 
 # ======================================================
