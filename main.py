@@ -6729,11 +6729,16 @@ def report_page():
     )
 
 @app.get("/privacy")
-def privacy():
+def privacy_page():
     return FileResponse(
         os.path.join(BASE_DIR, "privacy.html")
     )
 
+@app.get("/terms")
+def terms_page():
+    return FileResponse(
+        os.path.join(BASE_DIR, "terms.html")
+    )
 
 
 
