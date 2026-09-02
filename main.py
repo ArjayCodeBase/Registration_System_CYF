@@ -601,8 +601,8 @@ async def send_gmail_async(
 # SQLITE DATABASE
 # ======================================================
 
-# DATABASE_URL = "sqlite:////app/data/registration_system.db"
-DATABASE_URL = "sqlite:///./registration_system.db"
+DATABASE_URL = "sqlite:////app/data/registration_system.db"
+# DATABASE_URL = "sqlite:///./registration_system.db"
 
 engine = create_engine(
     DATABASE_URL,
