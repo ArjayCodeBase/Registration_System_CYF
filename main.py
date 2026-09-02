@@ -14760,29 +14760,13 @@ async def process_finding_sponsor_queue_logic(
 
 
 
-## ======================================================
-# PAYMONGO WEBHOOK
-# ======================================================
-#
-# Handles:
-#
-# 1. Normal participant payments
-# 2. Store payments
-# 3. Cash sponsorship payments
-# 4. Automatically adds successful cash donations
-#    to CashDonationTotal
-# 5. Automatically sponsors Finding Sponsor participants
-# 6. Automatically emails sponsored participants
-#
-# IMPORTANT:
-# cash_total_added is now INTEGER, not Boolean.
-#
-# cash_total_added:
-#     0   = donation has not been added
-#     > 0 = amount added to donation pool in pesos
-#
-# ======================================================
-
+@app.get("/webhooks/paymongo")
+async def paymongo_webhook_test():
+    print("PAYMONGO WEBHOOK GET TEST HIT")
+    return {
+        "ok": True,
+        "message": "PayMongo webhook endpoint is reachable"
+    }
 
 
 # ======================================================
