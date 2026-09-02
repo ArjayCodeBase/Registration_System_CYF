@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Optional
 from pathlib import Path
 import time
+import re
 import asyncio
 from types import SimpleNamespace
 import uuid
