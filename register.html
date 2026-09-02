@@ -245,7 +245,7 @@ button {
     display: grid;
 
     grid-template-columns:
-        repeat(3, 1fr);
+        repeat(4, 1fr);
 
     gap: 16px;
 
@@ -1085,6 +1085,38 @@ select:focus {
 }
 
 /* ======================================================
+   MULTIPLE REGISTRATION QUEUE
+====================================================== */
+.multiple-registration-panel { margin-bottom:22px; border:1px solid #ecd27b; background:var(--gold-light); border-radius:14px; padding:16px; }
+.multiple-header { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:12px; }
+.multiple-header strong { display:block; color:var(--red); font-size:16px; }
+.multiple-header span { display:block; color:var(--muted); font-size:12px; }
+.btn-small { padding:8px 12px; font-size:12px; }
+.registration-queue { display:grid; gap:8px; }
+.queue-item { display:flex; align-items:center; justify-content:space-between; gap:12px; background:white; border:1px solid var(--border); border-radius:10px; padding:10px 12px; }
+.queue-item-main { min-width:0; }
+.queue-item-number { color:var(--red); font-weight:900; margin-right:7px; }
+.queue-item-name { font-weight:800; }
+.queue-item-meta { color:var(--muted); font-size:12px; margin-top:2px; }
+.queue-remove { border:0; background:#fff0f0; color:#a11d1d; border-radius:8px; padding:7px 10px; font-size:12px; font-weight:800; }
+.queue-help { color:#5c4d1b; font-size:12px; margin-top:10px; }
+.registration-option-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; margin:18px 0; }
+.registration-option-card { border:1px solid var(--border); background:#fff; border-radius:14px; padding:22px; text-align:left; cursor:pointer; display:flex; flex-direction:column; gap:7px; transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease; }
+.registration-option-card:hover { transform:translateY(-2px); box-shadow:0 8px 22px rgba(0,0,0,.08); border-color:#d4af37; }
+.registration-option-card strong { color:var(--red); font-size:18px; }
+.registration-option-card span:last-child { color:var(--muted); font-size:13px; }
+.registration-option-card.confirm { background:var(--gold-light); border-color:#ecd27b; }
+.registration-option-icon { font-size:28px; line-height:1; }
+@media(max-width:760px){ .registration-option-grid { grid-template-columns:1fr; } }
+.bulk-progress { margin-top:15px; text-align:left; background:#fff; border:1px solid var(--border); border-radius:12px; padding:14px; }
+.bulk-progress-bar { height:9px; background:#eee; border-radius:999px; overflow:hidden; margin-top:8px; }
+.bulk-progress-bar > div { height:100%; width:0; background:var(--gold); transition:width .25s ease; }
+.bulk-result-list { margin-top:14px; display:grid; gap:8px; }
+.bulk-result-item { padding:10px 12px; border:1px solid var(--border); border-radius:9px; text-align:left; background:#fff; }
+.bulk-result-item.success { border-color:#b9dfc5; background:#f5fbf7; }
+.bulk-result-item.failed { border-color:#efb9b9; background:#fff5f5; }
+
+/* ======================================================
    RESPONSIVE
 ====================================================== */
 
@@ -1252,10 +1284,14 @@ Register as Participant
 
 
 
-<div
-    class="type-card"
-    id="staff-card"
->
+<div class="type-card" id="multiple-card">
+<div class="type-icon">👥</div>
+<h3>Multiple Registration</h3>
+<p>Register two or more participants and pay together.</p>
+<button class="type-button" onclick="selectRegistrationType('multiple')">Register Multiple Participants</button>
+</div>
+
+<div class="type-card" id="staff-card">
 
 <div class="type-icon">
     🧑‍💼
@@ -1367,10 +1403,23 @@ Register as Chaperone
 </div>
 
 
-<div class="step">
+<div class="step" data-step="4">
 
 <div class="step-number">
     4
+</div>
+
+<div class="step-label">
+    Registration Options
+</div>
+
+</div>
+
+
+<div class="step" data-step="5">
+
+<div class="step-number">
+    5
 </div>
 
 <div class="step-label">
@@ -1395,10 +1444,19 @@ Register as Chaperone
      PARTICIPANT STEP 1
 ====================================================== -->
 
-<div
-    class="form-step active"
-    id="participant-step-1"
->
+<div id="multiple-registration-panel" class="multiple-registration-panel" style="display:none;">
+  <div class="multiple-header">
+    <div>
+      <strong>Multiple Registration</strong>
+      <span id="multiple-queue-count">0 participants queued</span>
+    </div>
+    <button type="button" class="btn btn-light btn-small" onclick="clearRegistrationQueue()">Clear Queue</button>
+  </div>
+  <div id="registration-queue" class="registration-queue"></div>
+  <div class="queue-help">Complete each participant one at a time. Nothing is sent to the backend until you choose <strong>Confirm All Participants</strong> and submit the final registration.</div>
+</div>
+
+<div class="form-step active" id="participant-step-1">
 
     <div class="form-title">
 
@@ -2370,56 +2428,62 @@ Continue →
 
 
 <!-- ======================================================
-     PARTICIPANT STEP 4
+     PARTICIPANT STEP 4 — REGISTRATION OPTIONS
 ====================================================== -->
 
-<div
-    class="form-step"
-    id="participant-step-4"
->
+<div class="form-step" id="participant-step-4">
 
 <div class="form-title">
-
-<h2>
-    Review Registration
-</h2>
-
-<p>
-Review your information before the final submission.
-</p>
-
+    <h2>What would you like to do?</h2>
+    <p>Save this participant and either add another participant or confirm all participants for review.</p>
 </div>
 
+<div class="registration-option-grid">
+    <button type="button" class="registration-option-card" onclick="chooseAddParticipant()">
+        <span class="registration-option-icon">➕</span>
+        <strong>Add Participant</strong>
+        <span>Add this participant to the queue and enter another participant.</span>
+    </button>
 
-<div
-    id="registration-summary"
-    class="summary-card"
->
+    <button type="button" class="registration-option-card confirm" onclick="chooseConfirmAllParticipants()">
+        <span class="registration-option-icon">✓</span>
+        <strong>Confirm All Participants</strong>
+        <span>Save this participant, review everyone in the queue, then submit all registrations.</span>
+    </button>
 </div>
-
 
 <div class="form-actions">
-
-<button
-    class="btn btn-light"
-    onclick="showParticipantStep(3)"
->
-← Back
-</button>
-
-
-<button
-    id="complete-button"
-    class="btn btn-gold"
-    onclick="completeRegistration()"
->
-Complete Registration
-</button>
-
+    <button type="button" class="btn btn-light" onclick="showParticipantStep(3)">
+        ← Back
+    </button>
 </div>
 
 </div>
 
+
+<!-- ======================================================
+     PARTICIPANT STEP 5 — REVIEW ALL
+====================================================== -->
+
+<div class="form-step" id="participant-step-5">
+
+<div class="form-title">
+    <h2>Review Registration</h2>
+    <p>Review all participants before submitting the registrations.</p>
+</div>
+
+<div id="registration-summary" class="summary-card"></div>
+
+<div class="form-actions">
+    <button type="button" class="btn btn-light" onclick="registrationMode === 'multiple' ? showParticipantStep(4) : showParticipantStep(3)">
+        ← Back
+    </button>
+    <button id="complete-button" type="button" class="btn btn-gold" onclick="completeRegistration()">
+        Submit All Registrations
+    </button>
+</div>
+
+</div>
 
 
 <!-- ======================================================
@@ -2830,6 +2894,14 @@ Your registration has been recorded.
 >
 </div>
 
+<div id="bulk-progress" class="bulk-progress" style="display:none;">
+    <strong id="bulk-progress-text">Preparing registrations...</strong>
+    <div class="bulk-progress-bar">
+        <div id="bulk-progress-fill"></div>
+    </div>
+    <div id="bulk-result-list" class="bulk-result-list"></div>
+</div>
+
 
 <div id="post-registration-action"></div>
 
@@ -2891,6 +2963,13 @@ const API_BASE =
 let participantDraft = {};
 
 let questionnaireDraft = {};
+
+/* Multiple-registration state. Nothing is sent to FastAPI until Confirm Completion. */
+let registrationMode = "single";
+let registrationQueue = [];
+let registrationResults = [];
+let bulkSubmitting = false;
+let multipleCurrentAction = null;
 
 
 /* ======================================================
@@ -3096,106 +3175,36 @@ async function apiRequest(
    REGISTRATION TYPE
 ====================================================== */
 
-function selectRegistrationType(
-    type
-) {
-
+function selectRegistrationType(type) {
     clearAlert();
+    document.querySelectorAll(".type-card").forEach(card => card.classList.remove("active"));
+    document.getElementById(type + "-card")?.classList.add("active");
+    document.querySelectorAll(".form-step").forEach(step => step.classList.remove("active"));
+    const stepper = document.getElementById("participant-stepper");
+    const multiplePanel = document.getElementById("multiple-registration-panel");
 
-
-    document
-        .querySelectorAll(".type-card")
-        .forEach(
-            card =>
-                card.classList.remove(
-                    "active"
-                )
-        );
-
-
-    document
-        .getElementById(
-            type + "-card"
-        )
-        .classList.add(
-            "active"
-        );
-
-
-    document
-        .querySelectorAll(".form-step")
-        .forEach(
-            step =>
-                step.classList.remove(
-                    "active"
-                )
-        );
-
-
-    const stepper =
-        document.getElementById(
-            "participant-stepper"
-        );
-
-
-    if (
-        type === "participant"
-    ) {
-
-        stepper.classList.remove(
-            "hidden"
-        );
-
-        document
-            .getElementById(
-                "participant-step-1"
-            )
-            .classList.add(
-                "active"
-            );
-
+    if (type === "participant" || type === "multiple") {
+        registrationMode = type === "multiple" ? "multiple" : "single";
+        stepper?.classList.remove("hidden");
+        if (multiplePanel) multiplePanel.style.display = registrationMode === "multiple" ? "block" : "none";
+        if (registrationMode === "single") {
+            registrationQueue = [];
+            registrationResults = [];
+            multipleCurrentAction = null;
+        }
+        resetParticipantFormForNextEntry(false);
+        document.getElementById("participant-step-1")?.classList.add("active");
+        updateStepper(1);
+        updateParticipantContinueButton();
+        updateMultipleRegistrationUI();
+        return;
     }
 
-
-    if (
-        type === "staff"
-    ) {
-
-        stepper.classList.add(
-            "hidden"
-        );
-
-        document
-            .getElementById(
-                "staff-registration"
-            )
-            .classList.add(
-                "active"
-            );
-
-    }
-
-
-    if (
-        type === "chaperone"
-    ) {
-
-        stepper.classList.add(
-            "hidden"
-        );
-
-        document
-            .getElementById(
-                "chaperone-registration"
-            )
-            .classList.add(
-                "active"
-            );
-
-    }
-
+    registrationMode = type;
+    if (multiplePanel) multiplePanel.style.display = "none";
+    if (type === "staff") { stepper?.classList.add("hidden"); document.getElementById("staff-registration")?.classList.add("active"); }
+    if (type === "chaperone") { stepper?.classList.add("hidden"); document.getElementById("chaperone-registration")?.classList.add("active"); }
 }
-
 
 /* ======================================================
    LOAD EVENTS
@@ -3361,7 +3370,8 @@ function showParticipantStep(
             "#participant-step-1, " +
             "#participant-step-2, " +
             "#participant-step-3, " +
-            "#participant-step-4"
+            "#participant-step-4, " +
+            "#participant-step-5"
         )
         .forEach(
             step =>
@@ -3988,324 +3998,448 @@ function goToAgreements() {
 ====================================================== */
 
 function goToReview() {
-
     clearAlert();
 
+    const rules = document.getElementById("rules_agreed");
+    const confidentiality = document.getElementById("confidentiality_agreed");
 
-    const rules =
-        document.getElementById(
-            "rules_agreed"
-        );
-
-
-    const confidentiality =
-        document.getElementById(
-            "confidentiality_agreed"
-        );
-
-
-    if (
-        !rules.checked
-    ) {
-
-        showAlert(
-            "You must accept the Event Rules & Regulations."
-        );
-
+    if (!rules?.checked) {
+        showAlert("You must accept the Event Rules & Regulations.");
         return;
-
     }
 
-
-    if (
-        !confidentiality.checked
-    ) {
-
-        showAlert(
-            "You must accept the Data Confidentiality clause."
-        );
-
+    if (!confidentiality?.checked) {
+        showAlert("You must accept the Data Confidentiality clause.");
         return;
-
     }
 
+    collectQuestionnaire();
+
+    if (registrationMode === "multiple") {
+        multipleCurrentAction = null;
+        showParticipantStep(4);
+        return;
+    }
 
     buildRegistrationSummary();
-
-
-    showParticipantStep(
-        4
-    );
-
+    showParticipantStep(5);
 }
-
 
 /* ======================================================
    SUMMARY
 ====================================================== */
 
 function buildRegistrationSummary() {
+    const allParticipants = registrationMode === "multiple"
+        ? registrationQueue
+        : [getCurrentRegistrationPayload()];
 
-    const eventSelect =
-        document.getElementById(
-            "event_id"
-        );
+    if (!allParticipants.length) {
+        document.getElementById("registration-summary").innerHTML = `<div class="queue-item-meta">No participants have been added.</div>`;
+        return;
+    }
 
+    const eventSelect = document.getElementById("event_id");
+    const fallbackEventName = eventSelect?.options[eventSelect.selectedIndex]?.text || "";
 
-    const eventName =
-        eventSelect
-            .options[
-                eventSelect.selectedIndex
-            ]
-            ?.text || "";
-
-
-    const fullname = [
-
-        participantDraft.fname,
-
-        participantDraft.mname,
-
-        participantDraft.lname
-
-    ]
-        .filter(Boolean)
-        .join(" ");
-
-
-    document.getElementById(
-        "registration-summary"
-    ).innerHTML = `
-
+    document.getElementById("registration-summary").innerHTML = `
         <div class="summary-row">
-
-            <span>
-                Event
-            </span>
-
-            <span>
-                ${escapeHTML(eventName)}
-            </span>
-
+            <span>Total Participants</span>
+            <span><strong>${allParticipants.length}</strong></span>
         </div>
-
-
-        <div class="summary-row">
-
-            <span>
-                Participant Type
-            </span>
-
-            <span>
-                ${escapeHTML(
-                    participantDraft.participant_type
-                )}
-            </span>
-
-        </div>
-
-
-        <div class="summary-row">
-
-            <span>
-                Name
-            </span>
-
-            <span>
-                ${escapeHTML(fullname)}
-            </span>
-
-        </div>
-
-
-        <div class="summary-row">
-
-            <span>
-                Email
-            </span>
-
-            <span>
-                ${escapeHTML(
-                    participantDraft.email
-                )}
-            </span>
-
-        </div>
-
-
-        <div class="summary-row">
-
-            <span>
-                Contact
-            </span>
-
-            <span>
-                ${escapeHTML(
-                    participantDraft.contact_number
-                )}
-            </span>
-
-        </div>
-
-
-        <div class="summary-row">
-
-            <span>
-                Questionnaire
-            </span>
-
-            <span>
-                Ready ✓
-            </span>
-
-        </div>
-
-
-        <div class="summary-row">
-
-            <span>
-                Rules Agreement
-            </span>
-
-            <span>
-                Accepted ✓
-            </span>
-
-        </div>
-
-
-        <div class="summary-row">
-
-            <span>
-                Data Confidentiality
-            </span>
-
-            <span>
-                Accepted ✓
-            </span>
-
-        </div>
-
+        ${allParticipants.map((payload, index) => {
+            const p = payload.participant || {};
+            const fullname = [p.fname, p.mname, p.lname].filter(Boolean).join(" ");
+            return `
+                <div class="queue-item" style="margin-top:10px;">
+                    <div class="queue-item-main">
+                        <div>
+                            <span class="queue-item-number">#${index + 1}</span>
+                            <span class="queue-item-name">${escapeHTML(fullname || "Unnamed participant")}</span>
+                        </div>
+                        <div class="queue-item-meta">
+                            ${escapeHTML(p.email || "")} · ${escapeHTML(p.participant_type || "")}<br>
+                            ${escapeHTML(p.contact_number || "")} · ${escapeHTML(fallbackEventName)}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join("")}
     `;
-
 }
 
+function getCurrentRegistrationPayload() {
+    const rules = document.getElementById("rules_agreed");
+    const confidentiality = document.getElementById("confidentiality_agreed");
+    if (!participantDraft?.event_id) throw new Error("Participant information is incomplete.");
+    return {
+        participant: JSON.parse(JSON.stringify(participantDraft)),
+        questionnaire: JSON.parse(JSON.stringify(questionnaireDraft)),
+        rules_agreed: !!rules?.checked,
+        confidentiality_agreed: !!confidentiality?.checked
+    };
+}
 
-/* ======================================================
-   COMPLETE REGISTRATION
+function participantDisplayName(payload) {
+    const p = payload?.participant || {};
+    return [p.fname, p.mname, p.lname].filter(Boolean).join(" ").replace(/\s+/g, " ").trim() || "Unnamed participant";
+}
 
-   THIS IS THE FIRST PLACE WHERE DATA
-   IS SENT TO FASTAPI.
-====================================================== */
+function updateMultipleRegistrationUI() {
+    const panel = document.getElementById("multiple-registration-panel");
+    const count = document.getElementById("multiple-queue-count");
+    const queueBox = document.getElementById("registration-queue");
+
+    if (registrationMode !== "multiple") {
+        if (panel) panel.style.display = "none";
+        return;
+    }
+
+    if (panel) panel.style.display = "block";
+    const n = registrationQueue.length;
+    if (count) count.textContent = `${n} participant${n === 1 ? "" : "s"} queued`;
+
+    if (queueBox) {
+        queueBox.innerHTML = n
+            ? registrationQueue.map((item, index) => `
+                <div class="queue-item">
+                    <div class="queue-item-main">
+                        <div>
+                            <span class="queue-item-number">#${index + 1}</span>
+                            <span class="queue-item-name">${escapeHTML(participantDisplayName(item))}</span>
+                        </div>
+                        <div class="queue-item-meta">
+                            ${escapeHTML(item.participant?.email || "")} · ${escapeHTML(item.participant?.participant_type || "")}
+                        </div>
+                    </div>
+                    <button type="button" class="queue-remove" onclick="removeQueuedParticipant(${index})">Remove</button>
+                </div>
+            `).join("")
+            : `<div class="queue-item-meta">No participants have been added yet.</div>`;
+    }
+}
+
+function removeQueuedParticipant(index) {
+    if (bulkSubmitting || index < 0 || index >= registrationQueue.length) return;
+    registrationQueue.splice(index, 1);
+    updateMultipleRegistrationUI();
+    showAlert("Participant removed from the queue.", "success");
+}
+
+function clearRegistrationQueue() {
+    if (bulkSubmitting || !registrationQueue.length) return;
+    if (!window.confirm("Clear all queued participants?")) return;
+    registrationQueue = [];
+    registrationResults = [];
+    multipleCurrentAction = null;
+    updateMultipleRegistrationUI();
+    showAlert("Registration queue cleared.", "success");
+}
+
+function resetParticipantFormForNextEntry(clearEvent = false) {
+    const existingEventId = document.getElementById("event_id")?.value || "";
+    ["fname", "mname", "lname", "sex", "birthdate", "email", "address", "contact_number", "emergency_contact", "local_church", "sector", "local_church_other"].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = "";
+    });
+
+    if (clearEvent) {
+        document.getElementById("event_id").value = "";
+    } else if (registrationQueue.length) {
+        document.getElementById("event_id").value = String(registrationQueue[0].participant.event_id);
+    } else if (existingEventId) {
+        document.getElementById("event_id").value = existingEventId;
+    }
+
+    const other = document.getElementById("local_church_other");
+    if (other) {
+        other.style.display = "none";
+        other.required = false;
+    }
+
+    document.querySelector('input[name="participant_type"][value="Regular Participants"]')?.click();
+    questionnaireFields.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = "";
+    });
+    document.getElementById("rules_agreed").checked = false;
+    document.getElementById("confidentiality_agreed").checked = false;
+    participantDraft = {};
+    questionnaireDraft = {};
+    multipleCurrentAction = null;
+    updateChurchSector();
+    updateParticipantContinueButton();
+}
+
+function saveCurrentParticipantToQueue() {
+    if (registrationMode !== "multiple") return null;
+
+    if (!participantDraft?.event_id) collectParticipantDraft();
+    if (!validateQuestionnaire()) return null;
+
+    const rules = document.getElementById("rules_agreed");
+    const confidentiality = document.getElementById("confidentiality_agreed");
+    if (!rules?.checked || !confidentiality?.checked) {
+        showAlert("Both agreements are required before saving this participant.");
+        return null;
+    }
+
+    collectQuestionnaire();
+    const payload = getCurrentRegistrationPayload();
+    registrationQueue.push(payload);
+    registrationResults = [];
+    updateMultipleRegistrationUI();
+    return payload;
+}
+
+function chooseAddParticipant() {
+    clearAlert();
+    if (registrationMode !== "multiple") return;
+
+    try {
+        const payload = saveCurrentParticipantToQueue();
+        if (!payload) return;
+
+        showAlert(`${participantDisplayName(payload)} was added. Enter the next participant.`, "success");
+        resetParticipantFormForNextEntry(false);
+        showParticipantStep(1);
+    } catch (error) {
+        console.error(error);
+        showAlert(error.message);
+    }
+}
+
+function chooseConfirmAllParticipants() {
+    clearAlert();
+    if (registrationMode !== "multiple") return;
+
+    try {
+        const payload = saveCurrentParticipantToQueue();
+        if (!payload) return;
+
+        if (registrationQueue.length < 2) {
+            showAlert("Add at least one more participant, or use Single Registration for one participant.");
+            return;
+        }
+
+        buildRegistrationSummary();
+        showParticipantStep(5);
+    } catch (error) {
+        console.error(error);
+        showAlert(error.message);
+    }
+}
+
+function buildBulkSuccessSummary(results) {
+    return `
+        <div class="summary-row">
+            <span>Registration Status</span>
+            <span>${results.length} Participants Registered ✓</span>
+        </div>
+        <div class="summary-row">
+            <span>Payment</span>
+            <span>Bulk payment available</span>
+        </div>
+        <div class="bulk-result-list">
+            ${results.map((entry, index) => `
+                <div class="bulk-result-item success">
+                    <strong>#${index + 1} ${escapeHTML(entry.fullname || "Participant")}</strong><br>
+                    <span>${escapeHTML(entry.registration_number || "Registration Complete")}</span>
+                </div>
+            `).join("")}
+        </div>
+    `;
+}
+
+async function submitRegistrationQueueSequentially() {
+    registrationResults = [];
+    const total = registrationQueue.length;
+    const progress = document.getElementById("bulk-progress");
+    const progressText = document.getElementById("bulk-progress-text");
+    const progressFill = document.getElementById("bulk-progress-fill");
+    const resultList = document.getElementById("bulk-result-list");
+
+    if (progress) progress.style.display = "block";
+    if (resultList) resultList.innerHTML = "";
+
+    for (let index = 0; index < total; index++) {
+        const payload = registrationQueue[index];
+        const name = participantDisplayName(payload);
+
+        if (progressText) progressText.textContent = `Registering participant ${index + 1} of ${total}: ${name}`;
+        if (progressFill) progressFill.style.width = `${Math.round((index / total) * 100)}%`;
+
+        try {
+            const result = await apiRequest("/registration_submit_all", {
+                method: "POST",
+                body: JSON.stringify(payload)
+            });
+
+            const participant = result.participant || {};
+            if (!participant.participant_id) {
+                throw new Error("Registration succeeded but participant_id was not returned.");
+            }
+
+            registrationResults.push({
+                participant_id: participant.participant_id,
+                registration_number: participant.registration_number,
+                fullname: participant.fullname || name,
+                participant_type: participant.participant_type || payload.participant.participant_type,
+                event_name: participant.event_name || ""
+            });
+
+            if (resultList) {
+                resultList.insertAdjacentHTML("beforeend", `
+                    <div class="bulk-result-item success">
+                        <strong>✓ Participant ${index + 1} registered</strong><br>
+                        ${escapeHTML(participant.fullname || name)} · ${escapeHTML(participant.registration_number || "")}
+                    </div>
+                `);
+            }
+        } catch (error) {
+            if (progressText) progressText.textContent = `Registration stopped at participant ${index + 1} of ${total}.`;
+            if (resultList) {
+                resultList.insertAdjacentHTML("beforeend", `
+                    <div class="bulk-result-item failed">
+                        <strong>✕ Participant ${index + 1} was not registered</strong><br>
+                        ${escapeHTML(name)}<br>
+                        ${escapeHTML(error.message || "Registration failed.")}
+                    </div>
+                `);
+            }
+            throw new Error(`${registrationResults.length} of ${total} participants were registered. Registration stopped at participant ${index + 1} (${name}). ${error.message}`);
+        }
+
+        if (progressFill) progressFill.style.width = `${Math.round(((index + 1) / total) * 100)}%`;
+    }
+
+    if (progressText) progressText.textContent = `${total} of ${total} participants registered successfully.`;
+}
 
 async function completeRegistration() {
     clearAlert();
+    if (bulkSubmitting) return;
 
     const button = document.getElementById("complete-button");
-    button.disabled = true;
-    button.textContent = "Submitting...";
 
-    try {
-        if (!participantDraft || !participantDraft.event_id) {
-            throw new Error("Participant information is incomplete.");
+    if (registrationMode === "multiple") {
+        if (registrationQueue.length < 2) {
+            showAlert("Please add at least 2 participants before submitting all registrations.");
+            return;
         }
 
-        const rules = document.getElementById("rules_agreed");
-        const confidentiality = document.getElementById("confidentiality_agreed");
+        bulkSubmitting = true;
+        if (button) {
+            button.disabled = true;
+            button.textContent = "Submitting All Registrations...";
+        }
 
-        const payload = {
-            participant: participantDraft,
-            questionnaire: questionnaireDraft,
-            rules_agreed: !!rules?.checked,
-            confidentiality_agreed: !!confidentiality?.checked
-        };
+        try {
+            await submitRegistrationQueueSequentially();
 
-        /*
-         * ONE FINAL REQUEST:
-         * /registration_submit_all creates the participant,
-         * questionnaire and agreement in one transaction.
-         */
-        const result = await apiRequest(
-            "/registration_submit_all",
-            {
-                method: "POST",
-                body: JSON.stringify(payload)
+            const regularResults = registrationResults.filter(
+                e => String(e.participant_type || "").toLowerCase() !== "finding sponsor"
+            );
+            const sponsorResults = registrationResults.filter(
+                e => String(e.participant_type || "").toLowerCase() === "finding sponsor"
+            );
+
+            document.getElementById("success-registration-number").textContent = `${registrationResults.length} Participants Registered`;
+            document.getElementById("final-summary").innerHTML = buildBulkSuccessSummary(registrationResults);
+
+            const actionBox = document.getElementById("post-registration-action");
+
+            if (regularResults.length) {
+                const ids = regularResults.map(e => e.participant_id).join(",");
+                const paymentUrl = `payment.html?bulk=true&participant_ids=${encodeURIComponent(ids)}`;
+                const sponsorNote = sponsorResults.length
+                    ? `<div style="margin-top:8px;">${sponsorResults.length} Finding Sponsor participant${sponsorResults.length === 1 ? "" : "s"} do not require payment.</div>`
+                    : "";
+
+                let seconds = 5;
+                actionBox.innerHTML = `
+                    <div class="redirect-message">
+                        <strong>${registrationResults.length} participants registered successfully.</strong><br>
+                        ${regularResults.length} participant${regularResults.length === 1 ? " is" : "s are"} present for bulk payment.${sponsorNote}
+                        <div class="redirect-countdown">Redirecting to bulk payment in <span id="payment-countdown">5</span> seconds...</div>
+                        <div style="margin-top:10px;">
+                            <a id="payment-link" class="btn btn-gold" href="${paymentUrl}">Proceed to Bulk Payment →</a>
+                        </div>
+                    </div>
+                `;
+
+                const countdownElement = document.getElementById("payment-countdown");
+                const countdown = setInterval(() => {
+                    seconds--;
+                    if (countdownElement) countdownElement.textContent = String(seconds);
+                    if (seconds <= 0) {
+                        clearInterval(countdown);
+                        window.location.href = paymentUrl;
+                    }
+                }, 1000);
+            } else {
+                actionBox.innerHTML = `
+                    <div class="redirect-message">
+                        <strong>${registrationResults.length} participants registered successfully.</strong><br>
+                        No payment is required because all registered participants are Finding Sponsor participants.
+                    </div>
+                `;
             }
-        );
+
+            document.querySelectorAll(".form-step").forEach(step => step.classList.remove("active"));
+            document.getElementById("registration-success").classList.add("active");
+            document.getElementById("participant-stepper").classList.add("hidden");
+            document.getElementById("multiple-registration-panel").style.display = "none";
+            window.scrollTo({ top: 0, behavior: "smooth" });
+        } catch (error) {
+            console.error(error);
+            showAlert(error.message);
+            if (button) {
+                button.disabled = false;
+                button.textContent = "Submit All Registrations";
+            }
+        } finally {
+            bulkSubmitting = false;
+        }
+        return;
+    }
+
+    if (button) {
+        button.disabled = true;
+        button.textContent = "Submitting...";
+    }
+
+    try {
+        const payload = getCurrentRegistrationPayload();
+        const result = await apiRequest("/registration_submit_all", {
+            method: "POST",
+            body: JSON.stringify(payload)
+        });
 
         const participant = result.participant || {};
         const participantType = participant.participant_type || participantDraft.participant_type;
         const participantId = participant.participant_id;
 
-        document.getElementById("success-registration-number").textContent =
-            participant.registration_number || "Registration Complete";
-
+        document.getElementById("success-registration-number").textContent = participant.registration_number || "Registration Complete";
         document.getElementById("final-summary").innerHTML = `
-            <div class="summary-row">
-                <span>Event</span>
-                <span>${escapeHTML(result.participant?.event_name || "")}</span>
-            </div>
-            <div class="summary-row">
-                <span>Participant Type</span>
-                <span>${escapeHTML(participantType || "")}</span>
-            </div>
-            <div class="summary-row">
-                <span>Name</span>
-                <span>${escapeHTML(participant.fullname || "")}</span>
-            </div>
-            <div class="summary-row">
-                <span>Registration Status</span>
-                <span>${escapeHTML(participant.registration_status || "Pending")}</span>
-            </div>
+            <div class="summary-row"><span>Event</span><span>${escapeHTML(participant.event_name || "")}</span></div>
+            <div class="summary-row"><span>Participant Type</span><span>${escapeHTML(participantType || "")}</span></div>
+            <div class="summary-row"><span>Name</span><span>${escapeHTML(participant.fullname || "")}</span></div>
+            <div class="summary-row"><span>Registration Status</span><span>${escapeHTML(participant.registration_status || "Pending")}</span></div>
         `;
 
         const actionBox = document.getElementById("post-registration-action");
-
         if (String(participantType).toLowerCase() === "finding sponsor") {
-            /* NO PAYMENT BUTTON FOR FINDING SPONSOR */
-            actionBox.innerHTML = `
-                <div class="redirect-message">
-                    <strong>Your data has been collected successfully.</strong><br>
-                    Your sponsorship request is now on the queue. Our team will review and process your sponsorship request.
-                    <div style="margin-top:8px;">No payment is required at this stage.</div>
-                </div>
-            `;
+            actionBox.innerHTML = `<div class="redirect-message"><strong>Your data has been collected successfully.</strong><br>Your sponsorship request is now on the queue. Our team will review and process your sponsorship request.<div style="margin-top:8px;">No payment is required at this stage.</div></div>`;
         } else {
-            /* REGULAR PARTICIPANT → AUTO REDIRECT TO PAYMENT */
-            if (!participantId) {
-                throw new Error("Registration succeeded but participant_id was not returned.");
-            }
-
+            if (!participantId) throw new Error("Registration succeeded but participant_id was not returned.");
             let seconds = 5;
-            actionBox.innerHTML = `
-                <div class="redirect-message">
-                    <strong>Registration completed successfully.</strong><br>
-                    You will be redirected to the payment page automatically.
-                    <div class="redirect-countdown">
-                        Redirecting in <span id="payment-countdown">5</span> seconds...
-                    </div>
-                    <div style="margin-top:10px;">
-                        <a
-                            id="payment-link"
-                            class="btn btn-gold"
-                            href="payment.html?participant_id=${encodeURIComponent(participantId)}"
-                        >
-                            Proceed to Payment →
-                        </a>
-                    </div>
-                </div>
-            `;
-
+            const paymentUrl = "payment.html?participant_id=" + encodeURIComponent(participantId);
+            actionBox.innerHTML = `<div class="redirect-message"><strong>Registration completed successfully.</strong><br>You will be redirected to the payment page automatically.<div class="redirect-countdown">Redirecting in <span id="payment-countdown">5</span> seconds...</div><div style="margin-top:10px;"><a id="payment-link" class="btn btn-gold" href="${paymentUrl}">Proceed to Payment →</a></div></div>`;
             const countdownElement = document.getElementById("payment-countdown");
-            const paymentUrl =
-                "payment.html?participant_id=" + encodeURIComponent(participantId);
-
             const countdown = setInterval(() => {
                 seconds--;
-                if (countdownElement) {
-                    countdownElement.textContent = String(seconds);
-                }
-
+                if (countdownElement) countdownElement.textContent = String(seconds);
                 if (seconds <= 0) {
                     clearInterval(countdown);
                     window.location.href = paymentUrl;
@@ -4313,23 +4447,17 @@ async function completeRegistration() {
             }, 1000);
         }
 
-        document.querySelectorAll(".form-step").forEach(step => {
-            step.classList.remove("active");
-        });
-
+        document.querySelectorAll(".form-step").forEach(step => step.classList.remove("active"));
         document.getElementById("registration-success").classList.add("active");
         document.getElementById("participant-stepper").classList.add("hidden");
-
-        window.scrollTo({
-            top: 0,
-            behavior: "smooth"
-        });
-
+        window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (error) {
         console.error(error);
         showAlert(error.message);
-        button.disabled = false;
-        button.textContent = "Complete Registration";
+        if (button) {
+            button.disabled = false;
+            button.textContent = "Complete Registration";
+        }
     }
 }
 
@@ -4770,6 +4898,7 @@ document.addEventListener(
         initializeChurchSelectors();
         updateChurchSector();
         updateParticipantContinueButton();
+        updateMultipleRegistrationUI();
 
     }
 );
