@@ -9698,7 +9698,6 @@ def payment_status(
     )
 
     if not participant:
-
         raise HTTPException(
             status_code=404,
             detail="Participant not found."
@@ -9739,8 +9738,7 @@ def payment_status(
             item
             for item in registration_items
             if item.item_name
-            and item.item_name.strip().lower()
-            == "t-shirt"
+            and item.item_name.strip().lower() == "t-shirt"
         ),
         None
     )
@@ -9754,8 +9752,7 @@ def payment_status(
             item
             for item in registration_items
             if item.item_name
-            and item.item_name.strip().lower()
-            == "lanyard"
+            and item.item_name.strip().lower() == "lanyard"
         ),
         None
     )
@@ -9765,13 +9762,13 @@ def payment_status(
     # ==================================================
 
     tshirt_price = (
-        tshirt_item.price
+        int(tshirt_item.price or 0)
         if tshirt_item
         else 0
     )
 
     lanyard_price = (
-        lanyard_item.price
+        int(lanyard_item.price or 0)
         if lanyard_item
         else 0
     )
@@ -9783,11 +9780,11 @@ def payment_status(
     payments = (
         db.query(Payment)
         .filter(
-            Payment.participant_id ==
-            participant.id
+            Payment.participant_id == participant.id
         )
         .order_by(
-            Payment.created_at.desc()
+            Payment.created_at.desc(),
+            Payment.id.desc()
         )
         .all()
     )
@@ -9823,9 +9820,7 @@ def payment_status(
                 ""
             )
             or ""
-        ).strip().lower()
-        in successful_statuses
-
+        ).strip().lower() in successful_statuses
         for p in payments
     )
 
@@ -9849,9 +9844,7 @@ def payment_status(
                 ""
             )
             or ""
-        ).strip().lower()
-        in successful_statuses
-
+        ).strip().lower() in successful_statuses
         for p in payments
     )
 
@@ -9878,33 +9871,23 @@ def payment_status(
     ).strip().lower()
 
     if participant_tshirt_status == "paid":
-
         tshirt_paid = True
 
     if participant_lanyard_status == "paid":
-
         lanyard_paid = True
 
     # ==================================================
-    # 12. UPDATE ITEM STATUS
+    # 12. UPDATE PARTICIPANT ITEM STATUS
     # ==================================================
 
-    if hasattr(
-        participant,
-        "tshirt_status"
-    ):
-
+    if hasattr(participant, "tshirt_status"):
         participant.tshirt_status = (
             "Paid"
             if tshirt_paid
             else "Unpaid"
         )
 
-    if hasattr(
-        participant,
-        "lanyard_status"
-    ):
-
+    if hasattr(participant, "lanyard_status"):
         participant.lanyard_status = (
             "Paid"
             if lanyard_paid
@@ -9914,15 +9897,8 @@ def payment_status(
     # ==================================================
     # 13. MANDATORY PAYMENT STATUS
     #
-    # IMPORTANT:
-    #
-    # The Lanyard is mandatory.
-    #
-    # Therefore:
-    #
-    #     Lanyard Paid = mandatory payment complete
-    #
-    # The T-shirt does NOT affect this.
+    # Lanyard is mandatory.
+    # T-shirt is optional.
     # ==================================================
 
     mandatory_payment_complete = (
@@ -9941,10 +9917,7 @@ def payment_status(
             participant,
             "registration_status"
         ):
-
-            participant.registration_status = (
-                "Confirmed"
-            )
+            participant.registration_status = "Confirmed"
 
     # ==================================================
     # 15. UPDATED TIMESTAMP
@@ -9954,10 +9927,7 @@ def payment_status(
         participant,
         "updated_at"
     ):
-
-        participant.updated_at = (
-            datetime.datetime.now()
-        )
+        participant.updated_at = datetime.datetime.now()
 
     db.commit()
 
@@ -9967,88 +9937,93 @@ def payment_status(
 
     paid_items = []
 
-    if tshirt_paid:
+    if tshirt_item and tshirt_paid:
+        paid_items.append("T-Shirt")
 
-        paid_items.append(
-            "T-Shirt"
-        )
-
-    if lanyard_paid:
-
-        paid_items.append(
-            "Lanyard"
-        )
+    if lanyard_item and lanyard_paid:
+        paid_items.append("Lanyard")
 
     # ==================================================
-    # 17. REQUESTED ITEMS
-    # ==================================================
-
-    requested_items = []
-
-    for p in payments:
-
-        if bool(
-            getattr(
-                p,
-                "tshirt_selected",
-                False
-            )
-        ):
-
-            requested_items.append(
-                "T-Shirt"
-            )
-
-        if bool(
-            getattr(
-                p,
-                "lanyard_selected",
-                False
-            )
-        ):
-
-            requested_items.append(
-                "Lanyard"
-            )
-
-    requested_items = list(
-        dict.fromkeys(
-            requested_items
-        )
-    )
-
-    # ==================================================
-    # 18. ALL REQUESTED ITEMS PAID
+    # 17. ALL ACTUAL REGISTRATION ITEMS
     #
-    # This is NOT the same as mandatory payment complete.
+    # IMPORTANT:
+    #
+    # DO NOT build this from previous Payment rows.
+    #
+    # We need to know what items are actually available
+    # for this registration.
+    # ==================================================
+
+    registration_item_names = []
+
+    if tshirt_item:
+        registration_item_names.append("T-Shirt")
+
+    if lanyard_item:
+        registration_item_names.append("Lanyard")
+
+    # ==================================================
+    # 18. REMAINING ITEMS
+    #
+    # This is the critical fix.
+    # ==================================================
+
+    remaining_items = []
+
+    if tshirt_item and not tshirt_paid:
+        remaining_items.append("T-Shirt")
+
+    if lanyard_item and not lanyard_paid:
+        remaining_items.append("Lanyard")
+
+    # ==================================================
+    # 19. REMAINING AMOUNT
+    # ==================================================
+
+    remaining_amount = 0
+
+    if tshirt_item and not tshirt_paid:
+        remaining_amount += tshirt_price
+
+    if lanyard_item and not lanyard_paid:
+        remaining_amount += lanyard_price
+
+    # ==================================================
+    # 20. ALL ITEMS PAID
+    #
+    # This now checks the ACTUAL registration items.
     #
     # Example:
     #
+    # T-Shirt = Unpaid
     # Lanyard = Paid
-    # T-Shirt  = Unpaid
     #
-    # mandatory_payment_complete = True
     # all_items_paid = False
     # ==================================================
 
     all_items_paid = (
-        len(requested_items) > 0
+        len(registration_item_names) > 0
         and
-        all(
-            item in paid_items
-            for item in requested_items
-        )
+        len(remaining_items) == 0
     )
 
     # ==================================================
-    # 19. PAYMENT SUCCESS
+    # 21. CAN PROCEED TO PAYMENT
     #
-    # IMPORTANT:
+    # The participant can proceed whenever there is
+    # something remaining to pay.
+    # ==================================================
+
+    can_proceed_to_payment = (
+        len(remaining_items) > 0
+        and remaining_amount > 0
+    )
+
+    # ==================================================
+    # 22. PAYMENT SUCCESS
     #
-    # Payment success for registration is based on
-    # the mandatory Lanyard.
-    #
-    # T-shirt is optional.
+    # Registration success is based on mandatory
+    # Lanyard payment.
     # ==================================================
 
     payment_success = (
@@ -10056,7 +10031,7 @@ def payment_status(
     )
 
     # ==================================================
-    # 20. REGISTRATION STATUS
+    # 23. REGISTRATION STATUS
     # ==================================================
 
     registration_status = getattr(
@@ -10066,7 +10041,72 @@ def payment_status(
     )
 
     # ==================================================
-    # 21. DEBUG LOGGING
+    # 24. DEDUPLICATE PAYMENT HISTORY
+    #
+    # Keep the newest payment record for the same
+    # payment-item combination.
+    #
+    # This prevents old duplicate lanyard rows from
+    # being displayed repeatedly.
+    # ==================================================
+
+    history_payments = []
+
+    seen_payment_combinations = set()
+
+    for p in payments:
+
+        tshirt_selected = bool(
+            getattr(
+                p,
+                "tshirt_selected",
+                False
+            )
+        )
+
+        lanyard_selected = bool(
+            getattr(
+                p,
+                "lanyard_selected",
+                False
+            )
+        )
+
+        # Normalize the payment combination.
+        payment_combination = (
+            tshirt_selected,
+            lanyard_selected
+        )
+
+        status_normalized = str(
+            getattr(
+                p,
+                "status",
+                ""
+            )
+            or ""
+        ).strip().lower()
+
+        # --------------------------------------------------
+        # For successful payments:
+        #
+        # Only show the newest successful payment for the
+        # same combination of items.
+        # --------------------------------------------------
+
+        if status_normalized in successful_statuses:
+
+            if payment_combination in seen_payment_combinations:
+                continue
+
+            seen_payment_combinations.add(
+                payment_combination
+            )
+
+        history_payments.append(p)
+
+    # ==================================================
+    # 25. DEBUG LOGGING
     # ==================================================
 
     print(
@@ -10108,8 +10148,33 @@ def payment_status(
     )
 
     print(
+        "Registration Items:",
+        registration_item_names
+    )
+
+    print(
+        "Paid Items:",
+        paid_items
+    )
+
+    print(
+        "Remaining Items:",
+        remaining_items
+    )
+
+    print(
+        "Remaining Amount:",
+        remaining_amount
+    )
+
+    print(
         "All Items Paid:",
         all_items_paid
+    )
+
+    print(
+        "Can Proceed To Payment:",
+        can_proceed_to_payment
     )
 
     print(
@@ -10120,7 +10185,7 @@ def payment_status(
     print("=" * 70)
 
     # ==================================================
-    # 22. RETURN RESPONSE
+    # 26. RETURN RESPONSE
     # ==================================================
 
     return {
@@ -10145,24 +10210,40 @@ def payment_status(
         # MAIN PAYMENT FLAGS
         # ==================================================
 
-        # Mandatory Lanyard payment is complete.
         "mandatory_payment_complete":
             mandatory_payment_complete,
 
-        # Registration payment is successful when
-        # the mandatory Lanyard is paid.
         "payment_success":
             payment_success,
 
-        # True only when every requested item is paid.
         "all_items_paid":
             all_items_paid,
+
+        "can_proceed_to_payment":
+            can_proceed_to_payment,
+
+        # ==================================================
+        # ITEM LISTS
+        # ==================================================
 
         "paid_items":
             paid_items,
 
         "requested_items":
-            requested_items,
+            registration_item_names,
+
+        "remaining_items":
+            remaining_items,
+
+        # ==================================================
+        # REMAINING PAYMENT
+        # ==================================================
+
+        "remaining_amount":
+            remaining_amount,
+
+        "remaining_amount_display":
+            f"₱{remaining_amount / 100:,.2f}",
 
         # ==================================================
         # EXPLICIT LANYARD FLAG
@@ -10206,7 +10287,10 @@ def payment_status(
                 else "Unpaid",
 
             "paid":
-                tshirt_paid
+                tshirt_paid,
+
+            "remaining":
+                not tshirt_paid
 
         },
 
@@ -10238,7 +10322,10 @@ def payment_status(
                 else "Unpaid",
 
             "paid":
-                lanyard_paid
+                lanyard_paid,
+
+            "remaining":
+                not lanyard_paid
 
         },
 
@@ -10352,7 +10439,7 @@ def payment_status(
 
             }
 
-            for p in payments
+            for p in history_payments
 
         ]
     }
