@@ -3819,23 +3819,57 @@ function updateCheckoutVisibilityBulk() {
         );
 
 
-    if (
-        areAllBulkParticipantsPaid()
-    ) {
-
-        checkoutSection.style.display =
-            "none";
-
+    if (!checkoutSection) {
         return;
-
     }
 
 
+    /*
+     * IMPORTANT:
+     *
+     * In bulk mode, the Lanyard is the mandatory registration
+     * payment, while the T-shirt is optional.
+     *
+     * Therefore, do NOT hide the checkout just because every
+     * participant has completed the mandatory Lanyard payment.
+     * The checkout must remain visible when one or more
+     * participants still have an unpaid T-shirt.
+     */
+
+    const anyUnpaidLanyard =
+        bulkParticipants.some(
+            participant =>
+                participant?.lanyard &&
+                !isPaid(
+                    participant.lanyard
+                )
+        );
+
+
+    const anyUnpaidTshirt =
+        bulkParticipants.some(
+            participant =>
+                participant?.tshirt &&
+                !isPaid(
+                    participant.tshirt
+                )
+        );
+
+
+    const hasUnpaidItems =
+        anyUnpaidLanyard ||
+        anyUnpaidTshirt;
+
+
     checkoutSection.style.display =
-        "block";
+        hasUnpaidItems
+            ? "block"
+            : "none";
 
 
-    updateSelectionUI();
+    if (hasUnpaidItems) {
+        updateSelectionUI();
+    }
 
 }
 
@@ -3875,14 +3909,13 @@ function renderSuccessMessage() {
         successMessage.innerHTML = `
 
             <h3>
-                ${bulkParticipants.length}
-                Participants Registered
+                Mandatory Payment Confirmed
             </h3>
 
             <p>
-                Payment for all
-                ${bulkParticipants.length}
-                participants has been confirmed.
+                The mandatory Lanyard payment has been confirmed for all
+                ${bulkParticipants.length} participants.
+                T-shirts are optional and may still be purchased separately.
             </p>
 
             <div
