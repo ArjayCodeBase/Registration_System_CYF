@@ -36,7 +36,8 @@ from sqlalchemy import (
 from sqlalchemy.orm import (
     declarative_base,
     sessionmaker,
-    Session
+    Session,
+    object_session
 )
 
 from passlib.context import CryptContext
@@ -57,6 +58,9 @@ import os
 from dotenv import load_dotenv
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.mime.image import MIMEImage
+from io import BytesIO
+import qrcode
 
 # ======================================================
 # APP CONFIGURATION
@@ -314,7 +318,8 @@ def send_gmail(
     subject: str,
     html_body: str | None = None,
     plain_body: str | None = None,
-    reply_to: str | None = None
+    reply_to: str | None = None,
+    attachments: list[dict] | None = None
 ):
     """
     Send an email through the Gmail API.
@@ -393,56 +398,98 @@ def send_gmail(
     # CREATE MIME MESSAGE
     # --------------------------------------------------
 
-    message = MIMEMultipart(
-        "alternative"
-    )
-
+    message = MIMEMultipart("mixed")
 
     message["To"] = recipient_email
-
-
     message["From"] = (
         f"{GMAIL_FROM_NAME} "
         f"<{GMAIL_SENDER_EMAIL}>"
     )
-
-
     message["Subject"] = subject
 
-
     if reply_to:
+        message["Reply-To"] = str(reply_to).strip()
 
-        message["Reply-To"] = str(
-            reply_to
-        ).strip()
+    related = MIMEMultipart("related")
+    alternative = MIMEMultipart("alternative")
 
-
-    # --------------------------------------------------
-    # PLAIN TEXT PART
-    # --------------------------------------------------
-
-    message.attach(
-        MIMEText(
-            str(plain_body),
-            "plain",
-            "utf-8"
-        )
+    alternative.attach(
+        MIMEText(str(plain_body), "plain", "utf-8")
     )
 
-
-    # --------------------------------------------------
-    # HTML PART
-    # --------------------------------------------------
-
     if html_body:
-
-        message.attach(
-            MIMEText(
-                str(html_body),
-                "html",
-                "utf-8"
-            )
+        alternative.attach(
+            MIMEText(str(html_body), "html", "utf-8")
         )
+
+    related.attach(alternative)
+
+    # Inline images used by the HTML email.
+    for attachment in attachments or []:
+        if not attachment.get("inline"):
+            continue
+
+        content = attachment.get("content")
+        if not content:
+            continue
+
+        mime_type = str(
+            attachment.get("mime_type", "image/png")
+        ).lower()
+
+        if mime_type == "image/png":
+            image = MIMEImage(content, _subtype="png")
+        elif mime_type == "image/jpeg":
+            image = MIMEImage(content, _subtype="jpeg")
+        else:
+            continue
+
+        content_id = attachment.get("content_id")
+        if content_id:
+            image.add_header("Content-ID", f"<{content_id}>")
+
+        image.add_header(
+            "Content-Disposition",
+            "inline",
+            filename=attachment.get("filename", "image.png")
+        )
+        related.attach(image)
+
+    message.attach(related)
+
+    # Downloadable attachments shown by Gmail.
+    for attachment in attachments or []:
+        if attachment.get("inline"):
+            continue
+
+        content = attachment.get("content")
+        if not content:
+            continue
+
+        mime_type = str(
+            attachment.get("mime_type", "application/octet-stream")
+        )
+        maintype, subtype = (
+            mime_type.split("/", 1)
+            if "/" in mime_type
+            else ("application", "octet-stream")
+        )
+
+        if maintype == "image":
+            part = MIMEImage(content, _subtype=subtype)
+        else:
+            from email.mime.base import MIMEBase
+            from email import encoders
+            part = MIMEBase(maintype, subtype)
+            part.set_payload(content)
+            encoders.encode_base64(part)
+
+        part.add_header(
+            "Content-Disposition",
+            "attachment",
+            filename=attachment.get("filename", "attachment")
+        )
+        message.attach(part)
 
 
     # --------------------------------------------------
@@ -526,7 +573,8 @@ async def send_gmail_async(
     subject: str,
     html_body: str | None = None,
     plain_body: str | None = None,
-    reply_to: str | None = None
+    reply_to: str | None = None,
+    attachments: list[dict] | None = None
 ):
     """
     Async Gmail API sender.
@@ -542,7 +590,8 @@ async def send_gmail_async(
         subject,
         html_body,
         plain_body,
-        reply_to
+        reply_to,
+        attachments
     )
 
 
@@ -552,8 +601,8 @@ async def send_gmail_async(
 # SQLITE DATABASE
 # ======================================================
 
-DATABASE_URL = "sqlite:////app/data/registration_system.db"
-# DATABASE_URL = "sqlite:///./registration_system.db"
+# DATABASE_URL = "sqlite:////app/data/registration_system.db"
+DATABASE_URL = "sqlite:///./registration_system.db"
 
 engine = create_engine(
     DATABASE_URL,
@@ -1460,6 +1509,12 @@ class Payment(Base):
         DateTime,
         nullable=True
     )
+    receipt_sent = Column(
+        Boolean,
+        nullable=False,
+        default=False
+    )
+
     
     
     
@@ -2955,6 +3010,26 @@ migrate_payment_store_order_id()
 
 
 
+
+# ============================================================
+# MIGRATE PAYMENT TABLE
+# ADD RECEIPT_SENT
+# ============================================================
+
+def migrate_payment_receipt_sent():
+    with engine.connect() as connection:
+        result = connection.execute(text("PRAGMA table_info(payments)"))
+        columns = [row[1] for row in result]
+        if "receipt_sent" not in columns:
+            connection.execute(text("""
+                ALTER TABLE payments
+                ADD COLUMN receipt_sent BOOLEAN NOT NULL DEFAULT 0
+            """))
+        connection.commit()
+
+migrate_payment_receipt_sent()
+
+
 # ======================================================
 # PYDANTIC SCHEMAS
 # ======================================================
@@ -3679,7 +3754,8 @@ def send_gmail_smtp(
     subject,
     text_body=None,
     html_body=None,
-    reply_to=None
+    reply_to=None,
+    attachments=None
 ):
     """
     Backward-compatible function name.
@@ -3692,7 +3768,8 @@ def send_gmail_smtp(
         subject,
         html_body=html_body,
         plain_body=text_body,
-        reply_to=reply_to
+        reply_to=reply_to,
+        attachments=attachments
     )
 
 
@@ -3711,7 +3788,8 @@ async def send_gmail_smtp_async(
     subject,
     text_body=None,
     html_body=None,
-    reply_to=None
+    reply_to=None,
+    attachments=None
 ):
     """
     Backward-compatible async function name.
@@ -3724,7 +3802,8 @@ async def send_gmail_smtp_async(
         subject,
         html_body=html_body,
         plain_body=text_body,
-        reply_to=reply_to
+        reply_to=reply_to,
+        attachments=attachments
     )
 
 
@@ -5971,6 +6050,49 @@ CYF Registration System
 
 
 # ============================================================
+# PARTICIPANT QR CODE GENERATOR
+# ============================================================
+
+def generate_participant_qr(registration_number: str) -> bytes:
+    """
+    Generate a PNG QR code containing the participant's
+    registration number.
+
+    Example payload:
+        SYC-2026-0001
+    """
+
+    registration_number = str(
+        registration_number or ""
+    ).strip()
+
+    if not registration_number:
+        raise ValueError(
+            "Registration number is required for QR generation."
+        )
+
+    qr = qrcode.QRCode(
+        version=None,
+        error_correction=qrcode.constants.ERROR_CORRECT_M,
+        box_size=12,
+        border=4
+    )
+
+    qr.add_data(registration_number)
+    qr.make(fit=True)
+
+    image = qr.make_image(
+        fill_color="black",
+        back_color="white"
+    )
+
+    buffer = BytesIO()
+    image.save(buffer, format="PNG")
+
+    return buffer.getvalue()
+
+
+# ============================================================
 # PARTICIPANT PAYMENT CONFIRMATION EMAIL
 # ============================================================
 
@@ -5978,279 +6100,256 @@ async def send_participant_payment_confirmation_email(
     participant,
     payment
 ):
+    """Send a professional participant receipt after lanyard payment."""
 
     try:
+        # Receipt is issued only after the mandatory lanyard is paid.
+        if str(
+            getattr(participant, "lanyard_status", "") or ""
+        ).strip().lower() != "paid":
+            print(
+                "Participant receipt skipped:",
+                participant.id,
+                "| Lanyard is not Paid."
+            )
+            return False
 
-        # ----------------------------------------------------
-        # GET EMAIL
-        # ----------------------------------------------------
+        # PayMongo may retry the same webhook. Do not send duplicates.
+        if bool(getattr(payment, "receipt_sent", False)):
+            print(
+                "Participant receipt already sent:",
+                participant.id
+            )
+            return True
 
-        recipient_email = getattr(
-            participant,
-            "email",
-            None
-        )
+        recipient_email = str(
+            getattr(participant, "email", "") or ""
+        ).strip()
 
         if not recipient_email:
-
             print(
                 "Participant confirmation email failed: "
                 "Participant email is empty."
             )
-
             return False
 
-        recipient_email = str(
-            recipient_email
-        ).strip()
-
-        # ----------------------------------------------------
-        # PARTICIPANT NAME
-        # ----------------------------------------------------
-
-        fname = (
-            getattr(
-                participant,
-                "fname",
-                ""
-            )
-            or ""
-        )
-
-        lname = (
-            getattr(
-                participant,
-                "lname",
-                ""
-            )
-            or ""
-        )
-
         participant_name = (
-            f"{fname} {lname}"
+            f"{getattr(participant, 'fname', '') or ''} "
+            f"{getattr(participant, 'mname', '') or ''} "
+            f"{getattr(participant, 'lname', '') or ''}"
+        ).replace("  ", " ").strip() or "Participant"
+
+        registration_number = str(
+            getattr(participant, "registration_number", "") or ""
         ).strip()
 
-        if not participant_name:
-
-            participant_name = "Participant"
-
-        # ----------------------------------------------------
-        # PAYMENT AMOUNT
-        # ----------------------------------------------------
+        if not registration_number:
+            print("Participant receipt failed: registration number is empty.")
+            return False
 
         try:
-
-            amount = (
-                Decimal(
-                    str(
-                        getattr(
-                            payment,
-                            "amount",
-                            0
-                        )
-                    )
-                )
-                / Decimal("100")
-            )
-
+            amount = Decimal(
+                str(getattr(payment, "amount", 0) or 0)
+            ) / Decimal("100")
         except Exception:
-
             amount = Decimal("0.00")
 
-        # ----------------------------------------------------
-        # ITEMS
-        # ----------------------------------------------------
+        amount_display = f"₱{amount:,.2f}"
 
         items = []
+        if getattr(payment, "tshirt_selected", 0):
+            size = getattr(payment, "tshirt_size", None)
+            items.append(f"T-Shirt ({size})" if size else "T-Shirt")
+        if getattr(payment, "lanyard_selected", 0):
+            items.append("Lanyard")
+        if not items:
+            items.append("Registration Payment")
 
-        if getattr(
-            payment,
-            "tshirt_selected",
-            0
-        ):
-
-            tshirt_size = getattr(
-                payment,
-                "tshirt_size",
-                None
-            )
-
-            if tshirt_size:
-
-                items.append(
-                    f"T-Shirt ({tshirt_size})"
-                )
-
+        item_rows = ""
+        for item in items:
+            if "T-Shirt" in item:
+                item_amount = "₱350.00"
+            elif "Lanyard" in item:
+                item_amount = "₱90.00"
             else:
+                item_amount = amount_display
+            item_rows += f"""
+            <tr>
+                <td style="padding:12px 10px;border-bottom:1px solid #e8e8e8;color:#333;">{item}</td>
+                <td style="padding:12px 10px;border-bottom:1px solid #e8e8e8;text-align:right;color:#333;font-weight:600;">{item_amount}</td>
+            </tr>
+            """
 
-                items.append(
-                    "T-Shirt"
-                )
+        reference = (
+            getattr(payment, "paymongo_reference", None)
+            or getattr(payment, "paymongo_payment_id", None)
+            or "N/A"
+        )
 
-        if getattr(
-            payment,
-            "lanyard_selected",
-            0
-        ):
-
-            items.append(
-                "Lanyard"
-            )
-
-        if items:
-
-            items_text = ", ".join(
-                items
-            )
-
+        paid_at = getattr(payment, "paid_at", None)
+        if paid_at:
+            try:
+                payment_date = paid_at.strftime("%B %d, %Y • %I:%M %p")
+            except Exception:
+                payment_date = str(paid_at)
         else:
+            payment_date = datetime.datetime.now().strftime(
+                "%B %d, %Y • %I:%M %p"
+            )
 
-            items_text = "Registration Payment"
-
-        # ----------------------------------------------------
-        # PAYMENT REFERENCE
-        # ----------------------------------------------------
-
-        reference = getattr(
-            payment,
-            "paymongo_reference",
-            None
+        # QR payload is exactly the registration number.
+        qr_bytes = generate_participant_qr(
+            registration_number
         )
 
-        # ----------------------------------------------------
-        # SUBJECT
-        # ----------------------------------------------------
+        logo_bytes = None
+        logo_path = os.path.join(BASE_DIR, "favicon.png")
+        if os.path.isfile(logo_path):
+            try:
+                with open(logo_path, "rb") as logo_file:
+                    logo_bytes = logo_file.read()
+            except Exception as logo_error:
+                print("Receipt logo read failed:", repr(logo_error))
 
-        subject = (
-            "CYF Payment Confirmation "
-            "- CYF Registration System"
+        logo_html = (
+            '<img src="cid:cyf-logo" alt="CYF" width="64" '
+            'style="display:block;border:0;">'
+            if logo_bytes else ""
         )
 
-        # ----------------------------------------------------
-        # EMAIL BODY
-        # ----------------------------------------------------
+        html_body = f"""
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#f1f3f5;font-family:Arial,Helvetica,sans-serif;color:#222;">
+<div style="width:100%;padding:35px 10px;background:#f1f3f5;">
+<div style="max-width:680px;margin:0 auto;background:#fff;border:1px solid #e3e3e3;border-radius:14px;overflow:hidden;">
 
-        body = f"""
-Dear {participant_name},
+<div style="background:#9d0b0b;padding:28px 30px;color:#fff;">
+<table style="width:100%;border-collapse:collapse;"><tr>
+<td style="vertical-align:middle;">{logo_html}</td>
+<td style="vertical-align:middle;text-align:right;">
+<div style="font-size:12px;color:#f5d27a;letter-spacing:1px;font-weight:bold;">CARAGA YOUTH FELLOWSHIP</div>
+<div style="font-size:27px;font-weight:800;margin-top:5px;">PAYMENT RECEIPT</div>
+</td></tr></table>
+</div>
 
-Thank you for your payment to the CYF Registration System.
+<div style="margin:24px 30px 0;padding:14px 18px;background:#eaf7ee;border:1px solid #bfe4ca;border-radius:9px;color:#16803c;font-weight:bold;text-align:center;">✓ PAYMENT SUCCESSFULLY RECEIVED</div>
 
-We are pleased to confirm that your payment has been
-successfully received.
+<div style="padding:28px 30px 32px;">
+<p style="margin:0 0 8px;color:#555;font-size:15px;">Dear {participant_name},</p>
+<p style="margin:0 0 25px;color:#555;line-height:1.7;font-size:14px;">Thank you for completing your payment. This email serves as your official CYF registration payment receipt.</p>
 
-PAYMENT DETAILS
-----------------------------------------
+<div style="border:1px solid #dedede;border-radius:10px;overflow:hidden;margin-bottom:24px;">
+<div style="background:#fafafa;padding:13px 16px;border-bottom:1px solid #dedede;color:#9d0b0b;font-weight:bold;font-size:14px;letter-spacing:.5px;">REGISTRATION DETAILS</div>
+<table style="width:100%;border-collapse:collapse;">
+<tr><td style="padding:13px 16px;color:#777;width:45%;">Registration Number</td><td style="padding:13px 16px;text-align:right;font-weight:800;color:#9d0b0b;font-size:17px;">{registration_number}</td></tr>
+<tr><td style="padding:13px 16px;color:#777;border-top:1px solid #eee;">Participant</td><td style="padding:13px 16px;text-align:right;font-weight:600;border-top:1px solid #eee;">{participant_name}</td></tr>
+<tr><td style="padding:13px 16px;color:#777;border-top:1px solid #eee;">Event</td><td style="padding:13px 16px;text-align:right;font-weight:600;border-top:1px solid #eee;">{getattr(participant, 'event_name', 'CYF Event')}</td></tr>
+</table></div>
 
-Registration Number:
-{getattr(participant, "registration_number", "N/A")}
+<div style="border:1px solid #dedede;border-radius:10px;overflow:hidden;margin-bottom:24px;">
+<div style="background:#fafafa;padding:13px 16px;border-bottom:1px solid #dedede;color:#9d0b0b;font-weight:bold;font-size:14px;letter-spacing:.5px;">PAYMENT DETAILS</div>
+<table style="width:100%;border-collapse:collapse;">
+<tr><td style="padding:12px 16px;border-bottom:1px solid #eee;color:#777;">Payment Date</td><td style="padding:12px 16px;border-bottom:1px solid #eee;text-align:right;font-weight:600;">{payment_date}</td></tr>
+<tr><td style="padding:12px 16px;border-bottom:1px solid #eee;color:#777;">PayMongo Reference</td><td style="padding:12px 16px;border-bottom:1px solid #eee;text-align:right;font-size:12px;word-break:break-all;">{reference}</td></tr>
+<tr><td style="padding:12px 16px;color:#777;">Payment Status</td><td style="padding:12px 16px;text-align:right;color:#16803c;font-weight:800;">PAID</td></tr>
+</table></div>
 
-Items:
-{items_text}
+<div style="border:1px solid #dedede;border-radius:10px;overflow:hidden;margin-bottom:24px;">
+<div style="background:#fafafa;padding:13px 16px;border-bottom:1px solid #dedede;color:#9d0b0b;font-weight:bold;font-size:14px;letter-spacing:.5px;">ITEMS PAID</div>
+<table style="width:100%;border-collapse:collapse;">
+<tr><th style="padding:11px 10px;text-align:left;font-size:12px;color:#888;">ITEM</th><th style="padding:11px 10px;text-align:right;font-size:12px;color:#888;">AMOUNT</th></tr>
+{item_rows}
+<tr><td style="padding:17px 10px;font-weight:800;font-size:15px;">TOTAL PAID</td><td style="padding:17px 10px;text-align:right;color:#9d0b0b;font-weight:900;font-size:22px;">{amount_display}</td></tr>
+</table></div>
 
-Amount Paid:
-₱{amount:,.2f}
+<div style="border:2px solid #9d0b0b;border-radius:12px;padding:24px 18px;text-align:center;margin:28px 0;background:#fff;">
+<div style="color:#9d0b0b;font-size:18px;font-weight:800;margin-bottom:7px;">YOUR PARTICIPANT QR CODE</div>
+<p style="margin:0 0 18px;color:#666;font-size:13px;line-height:1.5;">Present this QR code during registration/check-in.</p>
+<img src="cid:participant-qrcode" alt="Participant QR Code" width="220" height="220" style="display:block;width:220px;height:220px;margin:0 auto;border:1px solid #ddd;">
+<div style="margin-top:15px;display:inline-block;padding:9px 16px;background:#f7f7f7;border-radius:7px;font-size:16px;font-weight:800;letter-spacing:1px;color:#222;">{registration_number}</div>
+<p style="margin:15px 0 0;color:#777;font-size:12px;">A downloadable PNG copy of this QR code is attached to this email.</p>
+</div>
 
-Payment Status:
-Paid
+<div style="background:#fff8e5;border-left:4px solid #d4af37;padding:15px 16px;border-radius:7px;margin-top:25px;">
+<p style="margin:0;color:#555;font-size:13px;line-height:1.6;"><strong>Keep this receipt safe.</strong> Your QR code contains your registration number and may be used by the CYF Registration Team to identify your registration.</p>
+</div>
+</div>
+
+<div style="background:#9d0b0b;color:#fff;padding:22px 30px;text-align:center;">
+<div style="font-size:15px;font-weight:700;">CYF Registration System</div>
+<div style="margin-top:6px;color:#f5d27a;font-size:12px;">Thank you for being part of CYF.</div>
+</div>
+</div></div>
+</body></html>
 """
 
-        if reference:
+        attachments = [
+            {
+                "filename": f"{registration_number}_QR.png",
+                "content": qr_bytes,
+                "mime_type": "image/png",
+                "inline": False
+            },
+            {
+                "filename": "participant_qrcode.png",
+                "content": qr_bytes,
+                "mime_type": "image/png",
+                "content_id": "participant-qrcode",
+                "inline": True
+            }
+        ]
 
-            body += f"""
-PayMongo Reference:
-{reference}
-"""
+        if logo_bytes:
+            attachments.append({
+                "filename": "favicon.png",
+                "content": logo_bytes,
+                "mime_type": "image/png",
+                "content_id": "cyf-logo",
+                "inline": True
+            })
 
-        body += """
-----------------------------------------
-
-Your selected items have been successfully recorded
-in the CYF Registration System.
-
-Thank you for your support.
-
-God bless you!
-
-CYF Registration Team
-CYF Registration System
-"""
-
-        # ----------------------------------------------------
-        # SEND THROUGH GMAIL SMTP
-        # ----------------------------------------------------
-
-        # ----------------------------------------------------
-        # SEND THROUGH GMAIL SMTP
-        # ----------------------------------------------------
-
-        response = await send_gmail_smtp_async(
+        response = await send_gmail_async(
             recipient_email,
-            subject,
-            text_body=body
+            f"Payment Receipt • {registration_number} • CYF",
+            html_body=html_body,
+            plain_body=(
+                f"CYF PAYMENT RECEIPT\n\n"
+                f"Participant: {participant_name}\n"
+                f"Registration Number: {registration_number}\n"
+                f"Event: {getattr(participant, 'event_name', 'CYF Event')}\n"
+                f"Amount Paid: {amount_display}\n"
+                f"Payment Status: PAID\n"
+                f"PayMongo Reference: {reference}\n\n"
+                f"QR code attached: {registration_number}_QR.png\n"
+            ),
+            attachments=attachments
         )
 
-        print("=" * 70)
-        print(
-            "PARTICIPANT CONFIRMATION EMAIL SENT"
-        )
-        print(
-            "Recipient:",
-            recipient_email
-        )
-        print(
-            "Items:",
-            items_text
-        )
-        print(
-            "Amount:",
-            f"₱{amount:,.2f}"
-        )
-        print(
-            "Gmail SMTP Response:",
-            response
-        )
-        print("=" * 70)
+        payment.receipt_sent = True
+        try:
+            db_session = object_session(payment)
+            if db_session:
+                db_session.commit()
+        except Exception as receipt_commit_error:
+            print(
+                "WARNING: Receipt sent but receipt_sent could not be saved:",
+                repr(receipt_commit_error)
+            )
+
+        print("PARTICIPANT PAYMENT RECEIPT SENT")
+        print("Recipient:", recipient_email)
+        print("Registration Number:", registration_number)
+        print("QR Attachment:", f"{registration_number}_QR.png")
+        print("Gmail Response:", response)
 
         return True
 
     except Exception as e:
-
-        print("=" * 70)
-        print(
-            "PARTICIPANT CONFIRMATION EMAIL FAILED"
-        )
-        print(
-            "Error:",
-            repr(e)
-        )
-        print("=" * 70)
-
+        print("PARTICIPANT PAYMENT RECEIPT FAILED:", repr(e))
         return False
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# ======================================================
-# CASH SPONSORSHIP CONFIRMATION EMAIL
-# ======================================================
 
 async def send_cash_sponsorship_confirmation_email(
     sponsorship,
