@@ -94,8 +94,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-import httpx
-import base64
+
+
 
 
 
@@ -150,6 +150,7 @@ PAYMONGO_WEBHOOK_SECRET = os.getenv(
 import os
 import json
 import base64
+import httpx
 import asyncio
 
 from dotenv import load_dotenv
@@ -551,7 +552,8 @@ async def send_gmail_async(
 # SQLITE DATABASE
 # ======================================================
 
-DATABASE_URL = "sqlite:////app/data/registration_system.db"
+# DATABASE_URL = "sqlite:////app/data/registration_system.db"
+DATABASE_URL = "sqlite:///./registration_system.db"
 
 engine = create_engine(
     DATABASE_URL,
@@ -3284,20 +3286,82 @@ class StaffUpdateSchema(BaseModel):
 
     sector: Optional[str] = None
 
+
+
+
+
+
+
+
 # ======================================================
 # PAYMENT CREATE SCHEMA
+# SUPPORTS SINGLE + BULK PARTICIPANTS
 # ======================================================
 
 class PaymentCreateSchema(BaseModel):
 
-    participant_id: int
+    # --------------------------------------------------
+    # SINGLE PARTICIPANT
+    # --------------------------------------------------
+
+    participant_id: Optional[int] = None
+
+
+    # --------------------------------------------------
+    # BULK PARTICIPANTS
+    # --------------------------------------------------
+
+    participant_ids: Optional[List[int]] = None
+
+
+    # --------------------------------------------------
+    # ITEM SELECTION
+    # --------------------------------------------------
 
     tshirt_selected: bool = False
 
     lanyard_selected: bool = False
 
+
+    # --------------------------------------------------
+    # OPTIONAL ALIASES
+    #
+    # Allows frontend to send:
+    #
+    # "tshirt"
+    # "lanyard"
+    #
+    # in addition to:
+    #
+    # "tshirt_selected"
+    # "lanyard_selected"
+    # --------------------------------------------------
+
+    tshirt: Optional[bool] = None
+
+    lanyard: Optional[bool] = None
+
+
+    # --------------------------------------------------
+    # T-SHIRT SIZE
+    # --------------------------------------------------
+
     tshirt_size: Optional[str] = None
 
+
+    # --------------------------------------------------
+    # BULK FLAG
+    # --------------------------------------------------
+
+    bulk: bool = False
+    
+    
+    
+    
+    
+    
+    
+    
 
 # ============================================================
 # CASH SPONSORSHIP SCHEMA
@@ -3329,6 +3393,14 @@ class CashSponsorshipCreate(BaseModel):
     donation_amount: float
 
 
+
+
+
+
+
+
+
+
 # ============================================================
 # ITEM SPONSORSHIP SCHEMA
 # ============================================================
@@ -3357,6 +3429,14 @@ class ItemSponsorshipCreate(BaseModel):
     email: Optional[str] = None
 
     items: List[ItemSponsorshipItem]
+
+
+
+
+
+
+
+
 
 # ============================================================
 # CREATE SPONSORSHIP ITEM
@@ -3435,6 +3515,15 @@ def create_sponsorship_item(
 
     }
 
+
+
+
+
+
+
+
+
+
 # ======================================================
 # CREATE SPONSORSHIP ITEM SCHEMA
 # ======================================================
@@ -3448,9 +3537,13 @@ class SponsorshipItemCreateSchema(BaseModel):
 
 
 
-# ============================================================
-# STORE SCHEMAS
-# ============================================================
+
+
+
+
+
+
+
 
 # ============================================================
 # STORE ITEM CREATE SCHEMA
@@ -3476,6 +3569,15 @@ class StoreItemUpdateSchema(BaseModel):
     sizes: list[str] | None = None
 
 
+
+
+
+
+
+
+
+
+
 # ============================================================
 # STORE CART ITEM
 # ============================================================
@@ -3487,6 +3589,12 @@ class StorePurchaseItemSchema(BaseModel):
     quantity: int
 
     size: Optional[str] = None
+
+
+
+
+
+
 
 
 # ============================================================
@@ -3502,6 +3610,12 @@ class StorePurchaseSchema(BaseModel):
     customer_email: EmailStr
 
     items: List[StorePurchaseItemSchema]
+
+
+
+
+
+
 
 
 # ============================================================
@@ -3529,6 +3643,10 @@ class ContactRequest(BaseModel):
     message: str
 
 
+
+
+
+
 # ==========================================================
 # EMAIL CONFIGURATION
 # ==========================================================
@@ -3536,6 +3654,10 @@ class ContactRequest(BaseModel):
 CONTACT_RECEIVER = (
     "matulacarianjay1@gmail.com"
 )
+
+
+
+
 
 
 
@@ -3574,6 +3696,11 @@ def send_gmail_smtp(
     )
 
 
+
+
+
+
+
 # ==========================================================
 # ASYNC GMAIL SMTP SENDER
 # ==========================================================
@@ -3599,6 +3726,12 @@ async def send_gmail_smtp_async(
         plain_body=text_body,
         reply_to=reply_to
     )
+
+
+
+
+
+
 
 
 # ==========================================================
@@ -3743,6 +3876,15 @@ def send_contact_email(
     return response
 
 
+
+
+
+
+
+
+
+
+
 # ==========================================================
 # CONTACT API
 # ==========================================================
@@ -3803,8 +3945,6 @@ async def contact_us(
 # ITEM SPONSORSHIP RESPONSE
 # ============================================================
 
-
-
 class ItemSponsorshipResponse(BaseModel):
 
     id: int
@@ -3833,6 +3973,15 @@ class ItemSponsorshipResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+
+
+
+
+
+
+
 
 
 # ============================================================
@@ -3918,6 +4067,13 @@ class PaymentResponse(BaseModel):
 
     class Config:
         from_attributes = True
+ 
+ 
+ 
+ 
+ 
+ 
+ 
         
         
 # ============================================================
@@ -3957,6 +4113,13 @@ class RegistrationItemResponse(BaseModel):
     class Config:
         from_attributes = True        
         
+ 
+ 
+ 
+ 
+ 
+ 
+ 
         
         
 # ============================================================
@@ -9123,6 +9286,15 @@ def registration_create_participant(
     }
 
 
+
+
+
+
+
+
+
+
+
 # ======================================================
 # SEARCH PARTICIPANT
 # ======================================================
@@ -9419,8 +9591,6 @@ def registration_search_participant(
         })
 
     return result
-
-
 
 
 
@@ -12184,6 +12354,12 @@ def event_participant_count(
 
 # ======================================================
 # CREATE PAYMONGO PAYMENT
+# SUPPORTS SINGLE + BULK PARTICIPANTS
+# ======================================================
+
+# ======================================================
+# CREATE PAYMONGO PAYMENT
+# SUPPORTS SINGLE + BULK PARTICIPANTS
 # ======================================================
 
 @app.post("/create_payment")
@@ -12192,58 +12368,289 @@ def create_payment(
     db: Session = Depends(get_db)
 ):
 
-    # ==================================================
-    # DEBUG REQUEST
-    # ==================================================
-
     print()
     print("=" * 70)
     print("CREATE PAYMENT REQUEST")
     print("=" * 70)
 
-    print("Participant ID:", data.participant_id)
-    print("Raw T-Shirt:", getattr(data, "tshirt", None))
-    print("Raw Lanyard:", getattr(data, "lanyard", None))
-    print("Raw T-Shirt Selected:", getattr(data, "tshirt_selected", None))
-    print("Raw Lanyard Selected:", getattr(data, "lanyard_selected", None))
-    print("T-Shirt Size:", getattr(data, "tshirt_size", None))
+    print(
+        "Participant ID:",
+        data.participant_id
+    )
+
+    print(
+        "Participant IDs:",
+        data.participant_ids
+    )
+
+    print(
+        "Raw T-Shirt:",
+        getattr(data, "tshirt", None)
+    )
+
+    print(
+        "Raw Lanyard:",
+        getattr(data, "lanyard", None)
+    )
+
+    print(
+        "Raw T-Shirt Selected:",
+        getattr(data, "tshirt_selected", None)
+    )
+
+    print(
+        "Raw Lanyard Selected:",
+        getattr(data, "lanyard_selected", None)
+    )
+
+    print(
+        "T-Shirt Size:",
+        getattr(data, "tshirt_size", None)
+    )
+
+    print(
+        "Bulk:",
+        getattr(data, "bulk", False)
+    )
 
     print("=" * 70)
 
 
     # ==================================================
-    # FIND PARTICIPANT
+    # DETERMINE PARTICIPANT IDS
     # ==================================================
 
-    participant = (
-        db.query(Participant)
-        .filter(
-            Participant.id == data.participant_id,
-            Participant.is_archived == 0
+    participant_ids = []
+
+
+    # --------------------------------------------------
+    # BULK PARTICIPANTS
+    # --------------------------------------------------
+
+    if data.participant_ids:
+
+        for pid in data.participant_ids:
+
+            try:
+
+                participant_id = int(pid)
+
+                if participant_id > 0:
+                    participant_ids.append(
+                        participant_id
+                    )
+
+            except (
+                ValueError,
+                TypeError
+            ):
+
+                continue
+
+
+    # --------------------------------------------------
+    # SINGLE PARTICIPANT
+    # --------------------------------------------------
+
+    elif data.participant_id is not None:
+
+        try:
+
+            participant_id = int(
+                data.participant_id
+            )
+
+            if participant_id > 0:
+
+                participant_ids = [
+                    participant_id
+                ]
+
+        except (
+            ValueError,
+            TypeError
+        ):
+
+            participant_ids = []
+
+
+    # ==================================================
+    # VALIDATE PARTICIPANTS
+    # ==================================================
+
+    if not participant_ids:
+
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "At least one participant "
+                "is required for payment."
+            )
         )
-        .first()
+
+
+    # ==================================================
+    # REMOVE DUPLICATES
+    # PRESERVE ORIGINAL ORDER
+    # ==================================================
+
+    participant_ids = list(
+        dict.fromkeys(
+            participant_ids
+        )
     )
 
-    if not participant:
+
+    # ==================================================
+    # DETERMINE PAYMENT TYPE
+    # ==================================================
+
+    is_bulk_payment = (
+        len(participant_ids) > 1
+        or bool(
+            getattr(
+                data,
+                "bulk",
+                False
+            )
+        )
+    )
+
+
+    print()
+    print("=" * 70)
+    print("PAYMENT TYPE")
+    print("=" * 70)
+
+    print(
+        "Bulk Payment:",
+        is_bulk_payment
+    )
+
+    print(
+        "Participant Count:",
+        len(participant_ids)
+    )
+
+    print(
+        "Participant IDs:",
+        participant_ids
+    )
+
+    print("=" * 70)
+
+
+    # ==================================================
+    # FIND PARTICIPANTS
+    # ==================================================
+
+    participants = (
+        db.query(Participant)
+        .filter(
+            Participant.id.in_(
+                participant_ids
+            ),
+            Participant.is_archived == 0
+        )
+        .all()
+    )
+
+
+    # ==================================================
+    # VALIDATE ALL PARTICIPANTS EXIST
+    # ==================================================
+
+    found_ids = {
+        participant.id
+        for participant in participants
+    }
+
+
+    missing_ids = [
+        pid
+        for pid in participant_ids
+        if pid not in found_ids
+    ]
+
+
+    if missing_ids:
+
+        db.rollback()
 
         raise HTTPException(
             status_code=404,
-            detail="Participant not found."
+            detail={
+                "message":
+                    "One or more participants were not found.",
+
+                "missing_participant_ids":
+                    missing_ids
+            }
         )
 
 
     # ==================================================
-    # NORMALIZE ITEM SELECTION
-    #
-    # Supports:
-    #
-    # data.tshirt
-    # data.lanyard
-    #
-    # and also:
-    #
-    # data.tshirt_selected
-    # data.lanyard_selected
+    # PRESERVE REQUEST ORDER
+    # ==================================================
+
+    participant_map = {
+        participant.id:
+            participant
+        for participant in participants
+    }
+
+
+    participants = [
+        participant_map[pid]
+        for pid in participant_ids
+    ]
+
+
+    # ==================================================
+    # NORMALIZE BOOLEAN VALUES
+    # ==================================================
+
+    def normalize_bool(value):
+
+        if isinstance(
+            value,
+            bool
+        ):
+            return value
+
+        if value is None:
+
+            return False
+
+        if isinstance(
+            value,
+            int
+        ):
+
+            return value != 0
+
+        if isinstance(
+            value,
+            str
+        ):
+
+            return (
+                value.strip().lower()
+                in {
+                    "true",
+                    "1",
+                    "yes",
+                    "on",
+                    "selected",
+                    "checked"
+                }
+            )
+
+        return bool(value)
+
+
+    # ==================================================
+    # NORMALIZE T-SHIRT
     # ==================================================
 
     tshirt_value = getattr(
@@ -12252,15 +12659,6 @@ def create_payment(
         None
     )
 
-    lanyard_value = getattr(
-        data,
-        "lanyard",
-        None
-    )
-
-
-    # If tshirt/lanyard are not present,
-    # try tshirt_selected/lanyard_selected.
 
     if tshirt_value is None:
 
@@ -12269,6 +12667,17 @@ def create_payment(
             "tshirt_selected",
             False
         )
+
+
+    # ==================================================
+    # NORMALIZE LANYARD
+    # ==================================================
+
+    lanyard_value = getattr(
+        data,
+        "lanyard",
+        None
+    )
 
 
     if lanyard_value is None:
@@ -12280,14 +12689,19 @@ def create_payment(
         )
 
 
-    tshirt_requested = bool(
+    tshirt_requested = normalize_bool(
         tshirt_value
     )
 
-    lanyard_requested = bool(
+    lanyard_requested = normalize_bool(
         lanyard_value
     )
 
+
+    print()
+    print("=" * 70)
+    print("NORMALIZED ITEM SELECTION")
+    print("=" * 70)
 
     print(
         "T-Shirt requested:",
@@ -12299,9 +12713,11 @@ def create_payment(
         lanyard_requested
     )
 
+    print("=" * 70)
+
 
     # ==================================================
-    # MAKE SURE SOMETHING WAS SELECTED
+    # VALIDATE ITEM SELECTION
     # ==================================================
 
     if (
@@ -12309,187 +12725,14 @@ def create_payment(
         and not lanyard_requested
     ):
 
-        raise HTTPException(
-            status_code=400,
-            detail="Please select at least one registration item."
-        )
-
-
-    # ==================================================
-    # GET ALL PAYMENTS FOR PARTICIPANT
-    # ==================================================
-
-    payments = (
-        db.query(Payment)
-        .filter(
-            Payment.participant_id ==
-            participant.id
-        )
-        .order_by(
-            Payment.created_at.desc()
-        )
-        .all()
-    )
-
-
-    # ==================================================
-    # SUCCESSFUL PAYMENT STATUSES
-    # ==================================================
-
-    successful_statuses = {
-
-        "paid",
-        "success",
-        "succeeded",
-        "completed"
-
-    }
-
-
-    # ==================================================
-    # CHECK SUCCESSFULLY PAID T-SHIRT
-    # ==================================================
-
-    tshirt_paid = False
-
-
-    for payment in payments:
-
-        payment_status = str(
-            payment.status or ""
-        ).strip().lower()
-
-
-        if (
-            payment.tshirt_selected
-            and payment_status in successful_statuses
-        ):
-
-            tshirt_paid = True
-
-            break
-
-
-    # ==================================================
-    # CHECK SUCCESSFULLY PAID LANYARD
-    # ==================================================
-
-    lanyard_paid = False
-
-
-    for payment in payments:
-
-        payment_status = str(
-            payment.status or ""
-        ).strip().lower()
-
-
-        if (
-            payment.lanyard_selected
-            and payment_status in successful_statuses
-        ):
-
-            lanyard_paid = True
-
-            break
-
-
-    # ==================================================
-    # ALSO CHECK PARTICIPANT STATUS
-    #
-    # Only use this if there are no payment records
-    # representing the item.
-    #
-    # This keeps compatibility with your existing system.
-    # ==================================================
-
-    if not payments:
-
-        if str(
-            participant.tshirt_status or ""
-        ).strip().lower() == "paid":
-
-            tshirt_paid = True
-
-
-        if str(
-            participant.lanyard_status or ""
-        ).strip().lower() == "paid":
-
-            lanyard_paid = True
-
-
-    # ==================================================
-    # DEBUG PAYMENT STATUS
-    # ==================================================
-
-    print()
-    print("=" * 70)
-    print("PAYMENT STATUS CHECK")
-    print("=" * 70)
-
-    print(
-        "Participant T-Shirt Status:",
-        participant.tshirt_status
-    )
-
-    print(
-        "Participant Lanyard Status:",
-        participant.lanyard_status
-    )
-
-    print(
-        "T-Shirt Paid:",
-        tshirt_paid
-    )
-
-    print(
-        "Lanyard Paid:",
-        lanyard_paid
-    )
-
-    print("=" * 70)
-
-
-    # ==================================================
-    # REMOVE ITEMS THAT ARE ALREADY PAID
-    # ==================================================
-
-    if tshirt_requested and tshirt_paid:
-
-        tshirt_requested = False
-
-        print(
-            "T-Shirt removed because it is already paid."
-        )
-
-
-    if lanyard_requested and lanyard_paid:
-
-        lanyard_requested = False
-
-        print(
-            "Lanyard removed because it is already paid."
-        )
-
-
-    # ==================================================
-    # CHECK REMAINING ITEMS
-    # ==================================================
-
-    if (
-        not tshirt_requested
-        and not lanyard_requested
-    ):
+        db.rollback()
 
         raise HTTPException(
-
             status_code=400,
-
             detail=(
-                "All selected items have already been paid."
+                "Please select at least one "
+                "registration item."
             )
-
         )
 
 
@@ -12511,49 +12754,50 @@ def create_payment(
 
         if not requested_size:
 
+            db.rollback()
+
             raise HTTPException(
-
                 status_code=400,
-
                 detail=(
                     "Please select a T-shirt size."
                 )
-
             )
 
 
         tshirt_size = (
-            requested_size
+            str(requested_size)
             .strip()
             .upper()
         )
 
 
-        allowed_sizes = [
-
+        allowed_sizes = {
             "M",
             "L",
             "XL"
-
-        ]
+        }
 
 
         if tshirt_size not in allowed_sizes:
 
+            db.rollback()
+
             raise HTTPException(
-
                 status_code=400,
-
                 detail=(
                     "Invalid T-shirt size. "
                     "Please select M, L, or XL."
                 )
-
             )
 
 
     # ==================================================
     # PRICES
+    #
+    # Stored in CENTAVOS
+    #
+    # ₱350 = 35000
+    # ₱90  = 9000
     # ==================================================
 
     TSHIRT_PRICE = 35000
@@ -12562,216 +12806,569 @@ def create_payment(
 
 
     # ==================================================
-    # CALCULATE AMOUNT
+    # SUCCESSFUL PAYMENT STATUSES
     # ==================================================
 
-    amount = 0
+    successful_statuses = {
+        "paid",
+        "success",
+        "succeeded",
+        "completed"
+    }
 
-    selected_items = []
+
+    payment_rows = []
+
+    total_amount = 0
+
+    all_participant_items = []
+
+    participant_payment_summary = []
 
 
-    if tshirt_requested:
+    # ==================================================
+    # PROCESS EACH PARTICIPANT
+    # ==================================================
 
-        amount += TSHIRT_PRICE
+    for participant in participants:
 
-        selected_items.append(
-            f"T-Shirt ({tshirt_size})"
+        print()
+        print("-" * 70)
+
+        print(
+            "PROCESSING PARTICIPANT:",
+            participant.id
         )
 
-
-    if lanyard_requested:
-
-        amount += LANYARD_PRICE
-
-        selected_items.append(
-            "Lanyard"
+        print(
+            "Registration:",
+            participant.registration_number
         )
 
+        print("-" * 70)
 
-    # ==================================================
-    # VALIDATE AMOUNT
-    # ==================================================
 
-    if amount <= 0:
+        # ==================================================
+        # GET PAYMENTS
+        # ==================================================
 
-        raise HTTPException(
-
-            status_code=400,
-
-            detail=(
-                "There is no remaining amount to pay."
+        payments = (
+            db.query(Payment)
+            .filter(
+                Payment.participant_id ==
+                participant.id
             )
-
+            .order_by(
+                Payment.created_at.desc()
+            )
+            .all()
         )
 
 
-    # ==================================================
-    # FIND EXISTING PENDING PAYMENT
-    #
-    # IMPORTANT:
-    # Ignore old Unpaid/Failed payments.
-    # Only reuse an active Pending payment.
-    # ==================================================
+        # ==================================================
+        # CHECK PAID T-SHIRT
+        # ==================================================
 
-    existing_payment = (
-        db.query(Payment)
-        .filter(
+        tshirt_paid = False
 
-            Payment.participant_id ==
-            participant.id,
 
-            Payment.status ==
-            "Pending",
+        for payment in payments:
 
-            Payment.tshirt_selected ==
-            int(tshirt_requested),
+            payment_status = str(
+                payment.status or ""
+            ).strip().lower()
 
-            Payment.lanyard_selected ==
-            int(lanyard_requested)
 
+            if (
+                bool(
+                    getattr(
+                        payment,
+                        "tshirt_selected",
+                        False
+                    )
+                )
+                and
+                payment_status
+                in successful_statuses
+            ):
+
+                tshirt_paid = True
+
+                break
+
+
+        # ==================================================
+        # CHECK PAID LANYARD
+        # ==================================================
+
+        lanyard_paid = False
+
+
+        for payment in payments:
+
+            payment_status = str(
+                payment.status or ""
+            ).strip().lower()
+
+
+            if (
+                bool(
+                    getattr(
+                        payment,
+                        "lanyard_selected",
+                        False
+                    )
+                )
+                and
+                payment_status
+                in successful_statuses
+            ):
+
+                lanyard_paid = True
+
+                break
+
+
+        # ==================================================
+        # FALLBACK TO PARTICIPANT STATUS
+        # ==================================================
+
+        if not payments:
+
+            if str(
+                getattr(
+                    participant,
+                    "tshirt_status",
+                    ""
+                ) or ""
+            ).strip().lower() == "paid":
+
+                tshirt_paid = True
+
+
+            if str(
+                getattr(
+                    participant,
+                    "lanyard_status",
+                    ""
+                ) or ""
+            ).strip().lower() == "paid":
+
+                lanyard_paid = True
+
+
+        print(
+            "Existing T-Shirt Paid:",
+            tshirt_paid
         )
-        .first()
-    )
+
+        print(
+            "Existing Lanyard Paid:",
+            lanyard_paid
+        )
 
 
-    # ==================================================
-    # RETURN EXISTING CHECKOUT LINK
-    # ==================================================
+        # ==================================================
+        # PARTICIPANT REQUESTED ITEMS
+        # ==================================================
 
-    if existing_payment:
+        participant_tshirt_requested = (
+            tshirt_requested
+        )
 
-        if existing_payment.checkout_url:
+        participant_lanyard_requested = (
+            lanyard_requested
+        )
+
+
+        # ==================================================
+        # REMOVE ALREADY PAID ITEMS
+        # ==================================================
+
+        if (
+            participant_tshirt_requested
+            and
+            tshirt_paid
+        ):
+
+            participant_tshirt_requested = False
 
             print(
-                "Existing pending payment found:",
-                existing_payment.id
+                "T-Shirt already paid. "
+                "Removing from new payment."
             )
 
 
-            return {
+        if (
+            participant_lanyard_requested
+            and
+            lanyard_paid
+        ):
 
-                "message":
-                    "A payment link already exists.",
+            participant_lanyard_requested = False
 
-                "payment_id":
-                    existing_payment.id,
+            print(
+                "Lanyard already paid. "
+                "Removing from new payment."
+            )
 
+
+        # ==================================================
+        # CALCULATE PARTICIPANT AMOUNT
+        # ==================================================
+
+        participant_amount = 0
+
+        participant_items = []
+
+
+        if participant_tshirt_requested:
+
+            participant_amount += (
+                TSHIRT_PRICE
+            )
+
+            participant_items.append(
+                f"T-Shirt ({tshirt_size})"
+            )
+
+
+        if participant_lanyard_requested:
+
+            participant_amount += (
+                LANYARD_PRICE
+            )
+
+            participant_items.append(
+                "Lanyard"
+            )
+
+
+        # ==================================================
+        # NOTHING LEFT TO PAY
+        # ==================================================
+
+        if participant_amount <= 0:
+
+            db.rollback()
+
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Participant "
+                    f"{participant.registration_number} "
+                    "has no remaining items to pay."
+                )
+            )
+
+
+        # ==================================================
+        # CHECK EXISTING PENDING PAYMENT
+        # ==================================================
+
+        existing_payment = (
+            db.query(Payment)
+            .filter(
+                Payment.participant_id ==
+                participant.id,
+
+                Payment.status ==
+                "Pending",
+
+                Payment.tshirt_selected ==
+                int(
+                    participant_tshirt_requested
+                ),
+
+                Payment.lanyard_selected ==
+                int(
+                    participant_lanyard_requested
+                )
+            )
+            .order_by(
+                Payment.created_at.desc()
+            )
+            .first()
+        )
+
+
+        # ==================================================
+        # EXISTING PENDING PAYMENT
+        # ==================================================
+
+        if existing_payment:
+
+            if existing_payment.checkout_url:
+
+                db.rollback()
+
+                raise HTTPException(
+                    status_code=400,
+                    detail={
+                        "message":
+                            (
+                                "A pending payment already "
+                                "exists for participant "
+                                f"{participant.registration_number}."
+                            ),
+
+                        "participant_id":
+                            participant.id,
+
+                        "payment_id":
+                            existing_payment.id,
+
+                        "checkout_url":
+                            existing_payment.checkout_url
+                    }
+                )
+
+
+        # ==================================================
+        # ADD TO TOTAL
+        # ==================================================
+
+        total_amount += (
+            participant_amount
+        )
+
+
+        # ==================================================
+        # PARTICIPANT PAYMENT DETAILS
+        # ==================================================
+
+        fullname = (
+            f"{participant.fname or ''} "
+            f"{participant.mname or ''} "
+            f"{participant.lname or ''}"
+        ).strip()
+
+
+        all_participant_items.append(
+            {
                 "participant_id":
                     participant.id,
 
                 "registration_number":
                     participant.registration_number,
 
-                "items":
-                    selected_items,
+                "fullname":
+                    fullname,
 
-                "tshirt_size":
-                    existing_payment.tshirt_size,
+                "items":
+                    participant_items,
 
                 "amount":
-                    existing_payment.amount,
+                    participant_amount,
 
                 "amount_display":
                     (
                         f"₱"
-                        f"{(
-                            existing_payment.amount or 0
-                        ) / 100:,.2f}"
+                        f"{participant_amount / 100:,.2f}"
+                    )
+            }
+        )
+
+
+        # ==================================================
+        # PARTICIPANT PAYMENT SUMMARY
+        # ==================================================
+
+        participant_payment_summary.append(
+            {
+                "participant_id":
+                    participant.id,
+
+                "registration_number":
+                    participant.registration_number,
+
+                "tshirt_selected":
+                    int(
+                        participant_tshirt_requested
                     ),
 
-                "currency":
-                    existing_payment.currency,
+                "lanyard_selected":
+                    int(
+                        participant_lanyard_requested
+                    ),
 
-                "status":
-                    existing_payment.status,
+                "tshirt_size":
+                    tshirt_size,
 
-                "checkout_url":
-                    existing_payment.checkout_url,
-
-                "paymongo_link_id":
-                    existing_payment.paymongo_link_id,
-
-                "paymongo_reference":
-                    existing_payment.paymongo_reference
-
+                "amount":
+                    participant_amount
             }
+        )
+
+
+        # ==================================================
+        # CREATE LOCAL PAYMENT ROW
+        # ==================================================
+
+        payment = Payment(
+
+            participant_id =
+                participant.id,
+
+            amount =
+                participant_amount,
+
+            currency =
+                "PHP",
+
+            status =
+                "Pending",
+
+            payment_type =
+                "Participant",
+
+            tshirt_selected =
+                int(
+                    participant_tshirt_requested
+                ),
+
+            lanyard_selected =
+                int(
+                    participant_lanyard_requested
+                ),
+
+            tshirt_size =
+                tshirt_size
+
+        )
+
+
+        db.add(payment)
+
+        payment_rows.append(
+            payment
+        )
 
 
     # ==================================================
-    # FIND FULL NAME
+    # VALIDATE TOTAL
     # ==================================================
 
-    fullname = (
-        f"{participant.fname or ''} "
-        f"{participant.mname or ''} "
-        f"{participant.lname or ''}"
-    ).strip()
+    if total_amount <= 0:
+
+        db.rollback()
+
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "There is no remaining amount to pay."
+            )
+        )
 
 
     # ==================================================
-    # CREATE LOCAL PAYMENT
+    # FLUSH PAYMENT ROWS
     # ==================================================
 
-    payment = Payment(
+    try:
 
-        participant_id =
-            participant.id,
+        db.flush()
 
-        amount =
-            amount,
+    except Exception as e:
 
-        currency =
-            "PHP",
+        db.rollback()
 
-        status =
-            "Pending",
+        print(
+            "PAYMENT ROW FLUSH FAILED:",
+            repr(e)
+        )
 
-        tshirt_selected =
-            int(tshirt_requested),
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Failed to create local "
+                "payment records."
+            )
+        )
 
-        lanyard_selected =
-            int(lanyard_requested),
 
-        tshirt_size =
-            tshirt_size
+    # ==================================================
+    # BUILD BULK REFERENCE
+    # ==================================================
 
+    if is_bulk_payment:
+
+        local_bulk_reference = (
+            f"CYF-BULK-"
+            f"{uuid.uuid4().hex[:12].upper()}"
+        )
+
+    else:
+
+        local_bulk_reference = (
+            f"CYF-SINGLE-"
+            f"{uuid.uuid4().hex[:12].upper()}"
+        )
+
+
+    # ==================================================
+    # FIND EVENT NAME
+    # ==================================================
+
+    event_names = list(
+        dict.fromkeys(
+            participant.event_name
+            for participant in participants
+            if participant.event_name
+        )
     )
 
 
-    db.add(payment)
-
-    db.commit()
-
-    db.refresh(payment)
-
-
-    # ==================================================
-    # PAYMONGO DESCRIPTION
-    # ==================================================
-
-    description = (
-
-        "CYF Merchandise Payment - "
-
-        f"{participant.registration_number}"
-
+    event_name = (
+        event_names[0]
+        if len(event_names) == 1
+        else "Multiple Events"
     )
 
 
     # ==================================================
-    # PAYMONGO REMARKS
+    # BUILD DESCRIPTION
     # ==================================================
+
+    if is_bulk_payment:
+
+        description = (
+            "CYF Bulk Merchandise Payment - "
+            f"{len(participants)} Participants"
+        )
+
+    else:
+
+        description = (
+            "CYF Merchandise Payment - "
+            f"{participants[0].registration_number}"
+        )
+
+
+    # ==================================================
+    # BUILD REMARKS
+    # ==================================================
+
+    participant_remarks = []
+
+
+    for item in all_participant_items:
+
+        participant_remarks.append(
+            (
+                f"{item['registration_number']} | "
+                f"{item['fullname']} | "
+                f"{', '.join(item['items'])} | "
+                f"₱{item['amount'] / 100:,.2f}"
+            )
+        )
+
 
     remarks = (
-
-        f"Participant: {fullname} | "
-
-        f"Registration: "
-        f"{participant.registration_number} | "
-
-        f"Items: "
-        f"{', '.join(selected_items)}"
-
+        "CYF Registration Payment | "
+        f"Participants: {len(participants)} | "
+        f"Bulk Reference: {local_bulk_reference} | "
+        f"{' || '.join(participant_remarks)}"
     )
 
 
@@ -12780,10 +13377,28 @@ def create_payment(
     # ==================================================
 
     url = (
-
         f"{PAYMONGO_API_URL}"
         "/v1/payment_links"
+    )
 
+
+    # ==================================================
+    # PARTICIPANT IDS FOR METADATA
+    # ==================================================
+
+    participant_ids_metadata = ",".join(
+        str(pid)
+        for pid in participant_ids
+    )
+
+
+    # ==================================================
+    # PAYMENT IDS FOR METADATA
+    # ==================================================
+
+    payment_ids_metadata = ",".join(
+        str(payment.id)
+        for payment in payment_rows
     )
 
 
@@ -12794,7 +13409,7 @@ def create_payment(
     payload = {
 
         "amount":
-            amount,
+            total_amount,
 
         "currency":
             "PHP",
@@ -12807,24 +13422,80 @@ def create_payment(
 
         "metadata": {
 
-            "participant_id":
-                str(participant.id),
+            # ------------------------------------------
+            # PAYMENT TYPE
+            # ------------------------------------------
 
-            "payment_id":
-                str(payment.id),
+            "payment_type":
+                "bulk"
+                if is_bulk_payment
+                else "single",
 
-            "registration_number":
-                participant.registration_number,
+
+            # ------------------------------------------
+            # BULK REFERENCE
+            # ------------------------------------------
+
+            "bulk_reference":
+                local_bulk_reference,
+
+
+            # ------------------------------------------
+            # PARTICIPANT COUNT
+            # ------------------------------------------
+
+            "participant_count":
+                str(
+                    len(participants)
+                ),
+
+
+            # ------------------------------------------
+            # PARTICIPANT IDS
+            # ------------------------------------------
+
+            "participant_ids":
+                participant_ids_metadata,
+
+
+            # ------------------------------------------
+            # PAYMENT IDS
+            # ------------------------------------------
+
+            "payment_ids":
+                payment_ids_metadata,
+
+
+            # ------------------------------------------
+            # EVENT
+            # ------------------------------------------
+
+            "event_name":
+                event_name,
+
+
+            # ------------------------------------------
+            # GLOBAL ITEM FLAGS
+            # ------------------------------------------
 
             "tshirt":
                 str(
-                    int(tshirt_requested)
+                    int(
+                        tshirt_requested
+                    )
                 ),
 
             "lanyard":
                 str(
-                    int(lanyard_requested)
+                    int(
+                        lanyard_requested
+                    )
                 ),
+
+
+            # ------------------------------------------
+            # T-SHIRT SIZE
+            # ------------------------------------------
 
             "tshirt_size":
                 tshirt_size or ""
@@ -12839,16 +13510,14 @@ def create_payment(
     # ==================================================
 
     idempotency_key = (
-
         f"cyf-payment-"
-        f"{payment.id}-"
+        f"{local_bulk_reference}-"
         f"{uuid.uuid4()}"
-
     )
 
 
     # ==================================================
-    # DEBUG PAYMONGO REQUEST
+    # DEBUG
     # ==================================================
 
     print()
@@ -12857,33 +13526,53 @@ def create_payment(
     print("=" * 70)
 
     print(
-        "Participant ID:",
-        participant.id
+        "Payment Type:",
+        "BULK"
+        if is_bulk_payment
+        else "SINGLE"
     )
 
     print(
-        "Payment ID:",
-        payment.id
+        "Participant Count:",
+        len(participants)
     )
 
     print(
-        "Items:",
-        selected_items
+        "Participant IDs:",
+        participant_ids
     )
 
     print(
-        "Amount:",
-        amount
+        "Payment IDs:",
+        [
+            payment.id
+            for payment in payment_rows
+        ]
     )
 
     print(
-        "Amount Display:",
-        f"₱{amount / 100:,.2f}"
+        "T-Shirt Selected:",
+        tshirt_requested
     )
 
     print(
-        "URL:",
-        url
+        "Lanyard Selected:",
+        lanyard_requested
+    )
+
+    print(
+        "Total Amount:",
+        total_amount
+    )
+
+    print(
+        "Total Amount Display:",
+        f"₱{total_amount / 100:,.2f}"
+    )
+
+    print(
+        "Bulk Reference:",
+        local_bulk_reference
     )
 
     print(
@@ -12937,7 +13626,10 @@ def create_payment(
 
     except requests.RequestException as e:
 
-        payment.status = "Failed"
+        for payment in payment_rows:
+
+            payment.status = "Failed"
+
 
         db.commit()
 
@@ -12949,14 +13641,11 @@ def create_payment(
 
 
         raise HTTPException(
-
             status_code=502,
-
             detail=(
                 "PayMongo connection failed: "
                 f"{str(e)}"
             )
-
         )
 
 
@@ -12989,7 +13678,10 @@ def create_payment(
 
     if not response.ok:
 
-        payment.status = "Failed"
+        for payment in payment_rows:
+
+            payment.status = "Failed"
+
 
         db.commit()
 
@@ -13001,19 +13693,14 @@ def create_payment(
         except Exception:
 
             error_data = {
-
                 "error":
                     response.text
-
             }
 
 
         raise HTTPException(
-
             status_code=502,
-
             detail=error_data
-
         )
 
 
@@ -13027,20 +13714,20 @@ def create_payment(
 
     except Exception:
 
-        payment.status = "Failed"
+        for payment in payment_rows:
+
+            payment.status = "Failed"
+
 
         db.commit()
 
 
         raise HTTPException(
-
             status_code=502,
-
             detail=(
                 "PayMongo returned "
                 "an invalid JSON response."
             )
-
         )
 
 
@@ -13056,25 +13743,26 @@ def create_payment(
 
     if not link_data:
 
-        payment.status = "Failed"
+        for payment in payment_rows:
+
+            payment.status = "Failed"
+
 
         db.commit()
 
 
         raise HTTPException(
-
             status_code=502,
-
             detail={
-
                 "message":
-                    "PayMongo returned an empty data object.",
+                    (
+                        "PayMongo returned "
+                        "an empty data object."
+                    ),
 
                 "paymongo_response":
                     paymongo_data
-
             }
-
         )
 
 
@@ -13097,6 +13785,14 @@ def create_payment(
             {}
         )
     )
+
+
+    if not isinstance(
+        link_attributes,
+        dict
+    ):
+
+        link_attributes = {}
 
 
     # ==================================================
@@ -13155,25 +13851,26 @@ def create_payment(
 
     if not paymongo_link_id:
 
-        payment.status = "Failed"
+        for payment in payment_rows:
+
+            payment.status = "Failed"
+
 
         db.commit()
 
 
         raise HTTPException(
-
             status_code=502,
-
             detail={
-
                 "message":
-                    "PayMongo did not return a payment link ID.",
+                    (
+                        "PayMongo did not return "
+                        "a payment link ID."
+                    ),
 
                 "paymongo_response":
                     paymongo_data
-
             }
-
         )
 
 
@@ -13183,54 +13880,107 @@ def create_payment(
 
     if not checkout_url:
 
-        payment.status = "Failed"
+        for payment in payment_rows:
+
+            payment.status = "Failed"
+
 
         db.commit()
 
 
         raise HTTPException(
-
             status_code=502,
-
             detail={
-
                 "message":
-                    "PayMongo did not return a checkout URL.",
+                    (
+                        "PayMongo did not return "
+                        "a checkout URL."
+                    ),
 
                 "paymongo_response":
                     paymongo_data
-
             }
-
         )
 
 
     # ==================================================
     # SAVE PAYMONGO INFORMATION
+    # TO EVERY LOCAL PAYMENT ROW
+    #
+    # IMPORTANT FOR BULK:
+    #
+    # Participant 27
+    # Participant 28
+    # Participant 29
+    #
+    # ALL get the SAME PayMongo link ID.
     # ==================================================
 
-    payment.paymongo_link_id = (
-        paymongo_link_id
-    )
+    for payment in payment_rows:
 
-    payment.paymongo_reference = (
-        paymongo_reference
-    )
+        payment.paymongo_link_id = (
+            paymongo_link_id
+        )
 
-    payment.checkout_url = (
-        checkout_url
-    )
+        payment.paymongo_reference = (
+            paymongo_reference
+        )
 
-    payment.status = "Pending"
+        payment.checkout_url = (
+            checkout_url
+        )
 
-
-    db.commit()
-
-    db.refresh(payment)
+        payment.status = "Pending"
 
 
     # ==================================================
-    # SUCCESS
+    # COMMIT EVERYTHING
+    # ==================================================
+
+    try:
+
+        db.commit()
+
+    except Exception as e:
+
+        db.rollback()
+
+        print(
+            "PAYMENT COMMIT FAILED:",
+            repr(e)
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Payment was created but "
+                "could not be saved locally."
+            )
+        )
+
+
+    # ==================================================
+    # REFRESH
+    # ==================================================
+
+    for payment in payment_rows:
+
+        try:
+
+            db.refresh(
+                payment
+            )
+
+        except Exception as e:
+
+            print(
+                "Payment refresh failed:",
+                repr(e)
+            )
+
+
+    # ==================================================
+    # SUCCESS LOG
     # ==================================================
 
     print()
@@ -13239,23 +13989,43 @@ def create_payment(
     print("=" * 70)
 
     print(
-        "Payment ID:",
-        payment.id
+        "Payment Type:",
+        "BULK"
+        if is_bulk_payment
+        else "SINGLE"
     )
 
     print(
-        "Participant ID:",
-        participant.id
+        "Participant Count:",
+        len(participants)
     )
 
     print(
-        "Items:",
-        selected_items
+        "Participant IDs:",
+        participant_ids
     )
 
     print(
-        "Amount:",
-        amount
+        "Payment IDs:",
+        [
+            payment.id
+            for payment in payment_rows
+        ]
+    )
+
+    print(
+        "T-Shirt Selected:",
+        tshirt_requested
+    )
+
+    print(
+        "Lanyard Selected:",
+        lanyard_requested
+    )
+
+    print(
+        "Total Amount:",
+        total_amount
     )
 
     print(
@@ -13273,6 +14043,11 @@ def create_payment(
         paymongo_reference
     )
 
+    print(
+        "Bulk Reference:",
+        local_bulk_reference
+    )
+
     print("=" * 70)
 
 
@@ -13283,34 +14058,69 @@ def create_payment(
     return {
 
         "message":
-            "Payment link created successfully.",
+            (
+                "Bulk payment link created successfully."
+                if is_bulk_payment
+                else
+                "Payment link created successfully."
+            ),
 
-        "payment_id":
-            payment.id,
+        "payment_type":
+            (
+                "bulk"
+                if is_bulk_payment
+                else "single"
+            ),
 
-        "participant_id":
-            participant.id,
+        "participant_count":
+            len(participants),
 
-        "registration_number":
-            participant.registration_number,
+        "participant_ids":
+            participant_ids,
+
+        "participants":
+            all_participant_items,
+
+        "payment_ids":
+            [
+                payment.id
+                for payment in payment_rows
+            ],
+
+        "participant_payment_summary":
+            participant_payment_summary,
 
         "items":
-            selected_items,
+            list(
+                dict.fromkeys(
+                    item
+                    for participant_item
+                    in all_participant_items
+                    for item
+                    in participant_item["items"]
+                )
+            ),
+
+        "tshirt_selected":
+            tshirt_requested,
+
+        "lanyard_selected":
+            lanyard_requested,
 
         "tshirt_size":
             tshirt_size,
 
         "amount":
-            amount,
+            total_amount,
 
         "amount_display":
-            f"₱{amount / 100:,.2f}",
+            f"₱{total_amount / 100:,.2f}",
 
         "currency":
             "PHP",
 
         "status":
-            payment.status,
+            "Pending",
 
         "checkout_url":
             checkout_url,
@@ -13319,10 +14129,12 @@ def create_payment(
             paymongo_link_id,
 
         "paymongo_reference":
-            paymongo_reference
+            paymongo_reference,
+
+        "bulk_reference":
+            local_bulk_reference
 
     }
-
 
 
 
@@ -14579,6 +15391,10 @@ async def process_finding_sponsor_queue_logic(
 # Inventory is reduced for EVERY unpaid cart item.
 # ======================================================
 
+# ======================================================
+# /webhooks/paymongo
+# ======================================================
+
 @app.post("/webhooks/paymongo")
 async def paymongo_webhook(
     request: Request,
@@ -15188,9 +16004,7 @@ async def paymongo_webhook(
     print("=" * 70)
 
     # ========================================================
-    # ========================================================
     # CASH SPONSORSHIP
-    # ========================================================
     # ========================================================
 
     cash_sponsorship = None
@@ -15708,24 +16522,13 @@ async def paymongo_webhook(
         }
 
     # ========================================================
-    # ========================================================
     # NORMAL PAYMENT
-    # ========================================================
     # ========================================================
 
     payment = None
 
     # ========================================================
     # 15. MATCH STORE ORDER FIRST
-    #
-    # IMPORTANT:
-    #
-    # A STORE CART CAN HAVE MANY Payment ROWS.
-    #
-    # Therefore we DO NOT use .first() here for a store order.
-    #
-    # We first identify the order, then the STORE PAYMENT
-    # section loads ALL rows belonging to that order.
     # ========================================================
 
     if store_order_id:
@@ -16021,312 +16824,880 @@ async def paymongo_webhook(
         )
         print("=" * 70)
 
-        # ----------------------------------------------------
-        # PARTICIPANT ID
-        # ----------------------------------------------------
+        # ====================================================
+        # FIND ALL PARTICIPANT PAYMENT ROWS
+        #
+        # BULK PAYMENT:
+        #
+        # Payment 101 -> Participant 27
+        # Payment 102 -> Participant 28
+        # Payment 103 -> Participant 29
+        #
+        # All rows share the same PayMongo Link ID.
+        #
+        # SINGLE PAYMENT:
+        #
+        # Only one row is found.
+        #
+        # ====================================================
 
-        participant_id = getattr(
-            payment,
-            "participant_id",
-            None
-        )
-
-        print(
-            "Participant ID:",
-            participant_id
-        )
-
-        if not participant_id:
-
-            db.rollback()
-
-            return {
-
-                "received": True,
-
-                "processed": False,
-
-                "payment_type":
-                    "participant",
-
-                "payment_id":
-                    payment.id,
-
-                "message":
-                    "Participant ID is missing."
-
-            }
+        participant_payments = []
 
         # ----------------------------------------------------
-        # FIND PARTICIPANT
+        # 1. PAYMONGO LINK ID
         # ----------------------------------------------------
 
-        participant = (
-            db.query(
-                Participant
+        if (
+            paymongo_link_id
+            and hasattr(
+                Payment,
+                "paymongo_link_id"
             )
-            .filter(
-                Participant.id ==
-                participant_id
-            )
-            .first()
-        )
-
-        if not participant:
-
-            db.rollback()
-
-            return {
-
-                "received": True,
-
-                "processed": False,
-
-                "payment_type":
-                    "participant",
-
-                "payment_id":
-                    payment.id,
-
-                "participant_id":
-                    participant_id,
-
-                "message":
-                    "Participant not found."
-
-            }
-
-        print(
-            "Participant:",
-            participant.fname,
-            participant.lname
-        )
-
-        # ====================================================
-        # ITEM FLAGS
-        # ====================================================
-
-        tshirt_selected = bool(
-            getattr(
-                payment,
-                "tshirt_selected",
-                False
-            )
-        )
-
-        lanyard_selected = bool(
-            getattr(
-                payment,
-                "lanyard_selected",
-                False
-            )
-        )
-
-        print(
-            "T-Shirt Selected:",
-            tshirt_selected
-        )
-
-        print(
-            "Lanyard Selected:",
-            lanyard_selected
-        )
-
-        # ====================================================
-        # CURRENT PAYMENT STATUS
-        # ====================================================
-
-        current_status = str(
-            getattr(
-                payment,
-                "status",
-                ""
-            )
-            or ""
-        ).strip().lower()
-
-        print(
-            "Current Payment Status:",
-            current_status
-        )
-
-        # ====================================================
-        # MARK PAYMENT PAID
-        # ====================================================
-
-        payment.status = "Paid"
-
-        if hasattr(
-            payment,
-            "paid_at"
         ):
 
-            payment.paid_at = (
-                datetime.datetime.now()
+            print(
+                "Searching ALL participant payments by PayMongo Link ID:",
+                paymongo_link_id
             )
 
-        # ====================================================
-        # T-SHIRT
-        # ====================================================
+            participant_payments = (
+                db.query(
+                    Payment
+                )
+                .filter(
+                    Payment.paymongo_link_id ==
+                    paymongo_link_id,
 
-        if tshirt_selected:
+                    Payment.payment_type.ilike(
+                        "Participant"
+                    )
+                )
+                .order_by(
+                    Payment.id.asc()
+                )
+                .with_for_update()
+                .all()
+            )
 
             print(
-                "Updating T-Shirt status to Paid..."
-            )
-
-            if hasattr(
-                participant,
-                "tshirt_status"
-            ):
-
-                participant.tshirt_status = (
-                    "Paid"
+                "Participant rows found:",
+                len(
+                    participant_payments
                 )
-
-            tshirt_size = getattr(
-                payment,
-                "tshirt_size",
-                None
             )
+
+        # ----------------------------------------------------
+        # 2. PAYMONGO PAYMENT ID
+        # ----------------------------------------------------
+
+        if (
+            not participant_payments
+            and paymongo_payment_id
+            and hasattr(
+                Payment,
+                "paymongo_payment_id"
+            )
+        ):
+
+            print(
+                "Searching participant payments by PayMongo Payment ID:",
+                paymongo_payment_id
+            )
+
+            participant_payments = (
+                db.query(
+                    Payment
+                )
+                .filter(
+                    Payment.paymongo_payment_id ==
+                    paymongo_payment_id,
+
+                    Payment.payment_type.ilike(
+                        "Participant"
+                    )
+                )
+                .order_by(
+                    Payment.id.asc()
+                )
+                .with_for_update()
+                .all()
+            )
+
+        # ----------------------------------------------------
+        # 3. PAYMONGO REFERENCE
+        # ----------------------------------------------------
+
+        if (
+            not participant_payments
+            and paymongo_reference
+            and hasattr(
+                Payment,
+                "paymongo_reference"
+            )
+        ):
+
+            print(
+                "Searching participant payments by reference:",
+                paymongo_reference
+            )
+
+            participant_payments = (
+                db.query(
+                    Payment
+                )
+                .filter(
+                    Payment.paymongo_reference ==
+                    paymongo_reference,
+
+                    Payment.payment_type.ilike(
+                        "Participant"
+                    )
+                )
+                .order_by(
+                    Payment.id.asc()
+                )
+                .with_for_update()
+                .all()
+            )
+
+        # ----------------------------------------------------
+        # 4. FALLBACK TO THE PAYMENT THAT WAS FOUND ABOVE
+        # ----------------------------------------------------
+
+        if not participant_payments:
+
+            participant_payments = [
+                payment
+            ]
+
+        # ====================================================
+        # REMOVE DUPLICATES
+        # ====================================================
+
+        unique_payments = []
+
+        seen_payment_ids = set()
+
+        for participant_payment in participant_payments:
+
+            if participant_payment.id in seen_payment_ids:
+                continue
+
+            seen_payment_ids.add(
+                participant_payment.id
+            )
+
+            unique_payments.append(
+                participant_payment
+            )
+
+        participant_payments = unique_payments
+
+        # ====================================================
+        # KEEP PARTICIPANT PAYMENTS ONLY
+        # ====================================================
+
+        participant_payments = [
+
+            p
+
+            for p in participant_payments
+
+            if str(
+                getattr(
+                    p,
+                    "payment_type",
+                    ""
+                )
+                or ""
+            ).strip().lower()
+            == "participant"
+
+        ]
+
+        if not participant_payments:
+
+            db.rollback()
+
+            return {
+
+                "received": True,
+
+                "processed": False,
+
+                "payment_type":
+                    "participant",
+
+                "message":
+                    "No participant payment rows found."
+
+            }
+
+        # ====================================================
+        # PRINT ALL PARTICIPANT PAYMENT ROWS
+        # ====================================================
+
+        print("=" * 70)
+        print(
+            "PARTICIPANT PAYMENT ROWS FOUND:",
+            len(
+                participant_payments
+            )
+        )
+        print("=" * 70)
+
+        for participant_payment in participant_payments:
+
+            print(
+                "Payment ID:",
+                participant_payment.id,
+
+                "| Participant ID:",
+                getattr(
+                    participant_payment,
+                    "participant_id",
+                    None
+                ),
+
+                "| Amount:",
+                getattr(
+                    participant_payment,
+                    "amount",
+                    None
+                ),
+
+                "| Status:",
+                getattr(
+                    participant_payment,
+                    "status",
+                    None
+                ),
+
+                "| T-Shirt:",
+                getattr(
+                    participant_payment,
+                    "tshirt_selected",
+                    None
+                ),
+
+                "| Lanyard:",
+                getattr(
+                    participant_payment,
+                    "lanyard_selected",
+                    None
+                )
+            )
+
+        # ====================================================
+        # SAVE PAYMONGO IDENTIFIERS TO ALL PARTICIPANT ROWS
+        # ====================================================
+
+        for participant_payment in participant_payments:
 
             if (
-                tshirt_size
+                paymongo_link_id
                 and hasattr(
-                    participant,
-                    "tshirt_size"
+                    participant_payment,
+                    "paymongo_link_id"
                 )
             ):
 
-                participant.tshirt_size = (
-                    tshirt_size
+                participant_payment.paymongo_link_id = (
+                    paymongo_link_id
+                )
+
+            if (
+                paymongo_payment_id
+                and hasattr(
+                    participant_payment,
+                    "paymongo_payment_id"
+                )
+            ):
+
+                participant_payment.paymongo_payment_id = (
+                    paymongo_payment_id
+                )
+
+            if (
+                paymongo_reference
+                and hasattr(
+                    participant_payment,
+                    "paymongo_reference"
+                )
+            ):
+
+                participant_payment.paymongo_reference = (
+                    paymongo_reference
                 )
 
         # ====================================================
-        # LANYARD
+        # EXPECTED TOTAL
         # ====================================================
 
-        if lanyard_selected:
+        expected_participant_amount = 0
+
+        for participant_payment in participant_payments:
+
+            try:
+
+                row_amount = int(
+                    getattr(
+                        participant_payment,
+                        "amount",
+                        0
+                    )
+                    or 0
+                )
+
+            except (
+                ValueError,
+                TypeError
+            ):
+
+                row_amount = 0
+
+            if row_amount <= 0:
+
+                db.rollback()
+
+                return {
+
+                    "received": True,
+
+                    "processed": False,
+
+                    "payment_type":
+                        "participant",
+
+                    "payment_id":
+                        participant_payment.id,
+
+                    "participant_id":
+                        getattr(
+                            participant_payment,
+                            "participant_id",
+                            None
+                        ),
+
+                    "message":
+                        "Invalid participant payment amount."
+
+                }
+
+            expected_participant_amount += (
+                row_amount
+            )
+
+        print("=" * 70)
+        print(
+            "PARTICIPANT PAYMENT AMOUNT VERIFICATION"
+        )
+        print(
+            "PayMongo Amount:",
+            paymongo_amount
+        )
+        print(
+            "Expected Amount:",
+            expected_participant_amount
+        )
+        print("=" * 70)
+
+        # ====================================================
+        # VERIFY PAYMENT TOTAL
+        # ====================================================
+
+        if (
+            paymongo_amount > 0
+            and
+            paymongo_amount !=
+            expected_participant_amount
+        ):
+
+            print("=" * 70)
+            print(
+                "PARTICIPANT PAYMENT AMOUNT MISMATCH"
+            )
+            print(
+                "PayMongo:",
+                paymongo_amount
+            )
+            print(
+                "Expected:",
+                expected_participant_amount
+            )
+            print("=" * 70)
+
+            db.rollback()
+
+            return {
+
+                "received": True,
+
+                "processed": False,
+
+                "payment_type":
+                    "participant",
+
+                "payment_ids":
+                    [
+                        p.id
+                        for p in participant_payments
+                    ],
+
+                "paymongo_amount":
+                    paymongo_amount,
+
+                "expected_amount":
+                    expected_participant_amount,
+
+                "message":
+                    "Payment amount does not match participant payment total."
+
+            }
+
+        # ====================================================
+        # CHECK DUPLICATE WEBHOOK
+        # ====================================================
+
+        all_already_paid = all(
+
+            str(
+                getattr(
+                    p,
+                    "status",
+                    ""
+                )
+                or ""
+            ).strip().lower()
+            == "paid"
+
+            for p in participant_payments
+
+        )
+
+        if all_already_paid:
+
+            print("=" * 70)
+            print(
+                "ALL PARTICIPANT PAYMENTS ALREADY PAID"
+            )
+            print("=" * 70)
+
+            try:
+
+                db.commit()
+
+            except Exception:
+
+                db.rollback()
+
+            return {
+
+                "received": True,
+
+                "processed": True,
+
+                "already_processed": True,
+
+                "payment_type":
+                    "participant",
+
+                "event_id":
+                    event_id,
+
+                "payment_id":
+                    payment.id,
+
+                "payment_ids":
+                    [
+                        p.id
+                        for p in participant_payments
+                    ],
+
+                "participant_ids":
+                    [
+                        getattr(
+                            p,
+                            "participant_id",
+                            None
+                        )
+                        for p in participant_payments
+                    ],
+
+                "participant_count":
+                    len(
+                        participant_payments
+                    ),
+
+                "payment_status":
+                    "Paid",
+
+                "payment_success":
+                    True
+
+            }
+
+        # ====================================================
+        # FIND UNPAID PARTICIPANT PAYMENTS
+        # ====================================================
+
+        unpaid_participant_payments = [
+
+            p
+
+            for p in participant_payments
+
+            if str(
+                getattr(
+                    p,
+                    "status",
+                    ""
+                )
+                or ""
+            ).strip().lower()
+            != "paid"
+
+        ]
+
+        print("=" * 70)
+        print(
+            "ALREADY PAID:",
+            len(
+                participant_payments
+            ) -
+            len(
+                unpaid_participant_payments
+            )
+        )
+        print(
+            "TO PROCESS:",
+            len(
+                unpaid_participant_payments
+            )
+        )
+        print("=" * 70)
+
+        # ====================================================
+        # LOAD ALL PARTICIPANTS FIRST
+        # ====================================================
+
+        participant_entries = []
+
+        for participant_payment in unpaid_participant_payments:
+
+            participant_id = getattr(
+                participant_payment,
+                "participant_id",
+                None
+            )
 
             print(
-                "Updating Lanyard status to Paid..."
+                "Participant ID:",
+                participant_id
+            )
+
+            if not participant_id:
+
+                db.rollback()
+
+                return {
+
+                    "received": True,
+
+                    "processed": False,
+
+                    "payment_type":
+                        "participant",
+
+                    "payment_id":
+                        participant_payment.id,
+
+                    "message":
+                        "Participant ID is missing."
+
+                }
+
+            participant = (
+                db.query(
+                    Participant
+                )
+                .filter(
+                    Participant.id ==
+                    participant_id
+                )
+                .with_for_update()
+                .first()
+            )
+
+            if not participant:
+
+                db.rollback()
+
+                return {
+
+                    "received": True,
+
+                    "processed": False,
+
+                    "payment_type":
+                        "participant",
+
+                    "payment_id":
+                        participant_payment.id,
+
+                    "participant_id":
+                        participant_id,
+
+                    "message":
+                        "Participant not found."
+
+                }
+
+            participant_entries.append({
+
+                "payment":
+                    participant_payment,
+
+                "participant":
+                    participant
+
+            })
+
+        # ====================================================
+        # PROCESS EVERY PARTICIPANT
+        # ====================================================
+
+        now = datetime.datetime.now()
+
+        processed_participants = []
+
+        for entry in participant_entries:
+
+            participant_payment = entry[
+                "payment"
+            ]
+
+            participant = entry[
+                "participant"
+            ]
+
+            print("=" * 70)
+            print(
+                "PROCESSING PARTICIPANT"
+            )
+            print(
+                "Payment ID:",
+                participant_payment.id
+            )
+            print(
+                "Participant ID:",
+                participant.id
+            )
+            print(
+                "Participant:",
+                participant.fname,
+                participant.lname
+            )
+            print("=" * 70)
+
+            # =================================================
+            # ITEM FLAGS
+            # =================================================
+
+            tshirt_selected = bool(
+                getattr(
+                    participant_payment,
+                    "tshirt_selected",
+                    False
+                )
+            )
+
+            lanyard_selected = bool(
+                getattr(
+                    participant_payment,
+                    "lanyard_selected",
+                    False
+                )
+            )
+
+            print(
+                "T-Shirt Selected:",
+                tshirt_selected
+            )
+
+            print(
+                "Lanyard Selected:",
+                lanyard_selected
+            )
+
+            # =================================================
+            # MARK PAYMENT PAID
+            # =================================================
+
+            participant_payment.status = (
+                "Paid"
             )
 
             if hasattr(
-                participant,
-                "lanyard_status"
+                participant_payment,
+                "paid_at"
             ):
 
-                participant.lanyard_status = (
-                    "Paid"
+                participant_payment.paid_at = (
+                    now
                 )
 
-        # ====================================================
-        # MANDATORY ITEM CHECK
-        # ====================================================
+            # =================================================
+            # T-SHIRT
+            # =================================================
 
-        lanyard_status = str(
-            getattr(
+            if tshirt_selected:
+
+                print(
+                    "Updating T-Shirt status to Paid..."
+                )
+
+                if hasattr(
+                    participant,
+                    "tshirt_status"
+                ):
+
+                    participant.tshirt_status = (
+                        "Paid"
+                    )
+
+                tshirt_size = getattr(
+                    participant_payment,
+                    "tshirt_size",
+                    None
+                )
+
+                if (
+                    tshirt_size
+                    and hasattr(
+                        participant,
+                        "tshirt_size"
+                    )
+                ):
+
+                    participant.tshirt_size = (
+                        tshirt_size
+                    )
+
+            # =================================================
+            # LANYARD
+            # =================================================
+
+            if lanyard_selected:
+
+                print(
+                    "Updating Lanyard status to Paid..."
+                )
+
+                if hasattr(
+                    participant,
+                    "lanyard_status"
+                ):
+
+                    participant.lanyard_status = (
+                        "Paid"
+                    )
+
+            # =================================================
+            # MANDATORY ITEM CHECK
+            # =================================================
+
+            lanyard_status = str(
+                getattr(
+                    participant,
+                    "lanyard_status",
+                    ""
+                )
+                or ""
+            ).strip().lower()
+
+            lanyard_paid = (
+                lanyard_status == "paid"
+            )
+
+            # =================================================
+            # REGISTRATION STATUS
+            # =================================================
+
+            if hasattr(
                 participant,
-                "lanyard_status",
-                ""
-            )
-            or ""
-        ).strip().lower()
+                "registration_status"
+            ):
 
-        lanyard_paid = (
-            lanyard_status == "paid"
-        )
+                if lanyard_paid:
 
-        print("=" * 70)
-        print(
-            "MANDATORY ITEM CHECK"
-        )
-        print(
-            "Lanyard Status:",
-            getattr(
+                    participant.registration_status = (
+                        "Confirmed"
+                    )
+
+                    print(
+                        "Registration Status: Confirmed"
+                    )
+
+                else:
+
+                    participant.registration_status = (
+                        "Pending"
+                    )
+
+                    print(
+                        "Registration Status: Pending"
+                    )
+
+            # =================================================
+            # UPDATED TIME
+            # =================================================
+
+            if hasattr(
                 participant,
-                "lanyard_status",
-                None
-            )
-        )
-        print(
-            "Lanyard Paid:",
-            lanyard_paid
-        )
-        print(
-            "T-Shirt Status:",
-            getattr(
-                participant,
-                "tshirt_status",
-                None
-            )
-        )
-        print("=" * 70)
+                "updated_at"
+            ):
+
+                participant.updated_at = (
+                    now
+                )
+
+            # =================================================
+            # SAVE PROCESSING RESULT
+            # =================================================
+
+            processed_participants.append({
+
+                "payment":
+                    participant_payment,
+
+                "participant":
+                    participant,
+
+                "tshirt_selected":
+                    tshirt_selected,
+
+                "lanyard_selected":
+                    lanyard_selected,
+
+                "lanyard_paid":
+                    lanyard_paid
+
+            })
 
         # ====================================================
-        # REGISTRATION STATUS
-        # ====================================================
-
-        if hasattr(
-            participant,
-            "registration_status"
-        ):
-
-            if lanyard_paid:
-
-                participant.registration_status = (
-                    "Confirmed"
-                )
-
-                print(
-                    "Registration Status:",
-                    "Confirmed"
-                )
-
-                print(
-                    "Reason: Mandatory lanyard is Paid."
-                )
-
-            else:
-
-                participant.registration_status = (
-                    "Pending"
-                )
-
-                print(
-                    "Registration Status:",
-                    "Pending"
-                )
-
-                print(
-                    "Reason: Mandatory lanyard is not Paid."
-                )
-
-        # ====================================================
-        # UPDATED TIME
-        # ====================================================
-
-        if hasattr(
-            participant,
-            "updated_at"
-        ):
-
-            participant.updated_at = (
-                datetime.datetime.now()
-            )
-
-        # ====================================================
-        # FLUSH BEFORE COMMIT
+        # FLUSH
         # ====================================================
 
         try:
 
             db.flush()
 
+            print("=" * 70)
             print(
-                "Participant changes flushed successfully."
+                "ALL PARTICIPANT CHANGES FLUSHED"
             )
+            print("=" * 70)
 
         except Exception as e:
 
@@ -16334,7 +17705,7 @@ async def paymongo_webhook(
 
             print("=" * 70)
             print(
-                "PARTICIPANT FLUSH FAILED"
+                "PARTICIPANT BULK FLUSH FAILED"
             )
             print(
                 "Error Type:",
@@ -16357,12 +17728,6 @@ async def paymongo_webhook(
                     "payment_type":
                         "participant",
 
-                    "payment_id":
-                        payment.id,
-
-                    "participant_id":
-                        participant.id,
-
                     "message":
                         "Participant database update failed."
 
@@ -16370,7 +17735,7 @@ async def paymongo_webhook(
             )
 
         # ====================================================
-        # COMMIT
+        # COMMIT ALL PARTICIPANTS TOGETHER
         # ====================================================
 
         try:
@@ -16379,7 +17744,13 @@ async def paymongo_webhook(
 
             print("=" * 70)
             print(
-                "PARTICIPANT DATABASE UPDATE SUCCESSFUL"
+                "PARTICIPANT BULK DATABASE UPDATE SUCCESSFUL"
+            )
+            print(
+                "Participants Processed:",
+                len(
+                    processed_participants
+                )
             )
             print("=" * 70)
 
@@ -16389,7 +17760,7 @@ async def paymongo_webhook(
 
             print("=" * 70)
             print(
-                "PARTICIPANT DATABASE COMMIT FAILED"
+                "PARTICIPANT BULK DATABASE COMMIT FAILED"
             )
             print(
                 "Error Type:",
@@ -16412,12 +17783,6 @@ async def paymongo_webhook(
                     "payment_type":
                         "participant",
 
-                    "payment_id":
-                        payment.id,
-
-                    "participant_id":
-                        participant.id,
-
                     "message":
                         "Participant database update failed."
 
@@ -16425,157 +17790,227 @@ async def paymongo_webhook(
             )
 
         # ====================================================
-        # REFRESH OBJECTS
+        # REFRESH
         # ====================================================
 
-        try:
+        for entry in processed_participants:
 
-            db.refresh(
-                payment
-            )
+            participant_payment = entry[
+                "payment"
+            ]
 
-            db.refresh(
-                participant
-            )
-
-        except Exception as e:
-
-            print(
-                "Refresh after commit failed:",
-                repr(e)
-            )
-
-        # ====================================================
-        # FINAL DATABASE STATUS
-        # ====================================================
-
-        final_lanyard_status = getattr(
-            participant,
-            "lanyard_status",
-            None
-        )
-
-        final_tshirt_status = getattr(
-            participant,
-            "tshirt_status",
-            None
-        )
-
-        final_registration_status = getattr(
-            participant,
-            "registration_status",
-            None
-        )
-
-        final_lanyard_paid = (
-            str(
-                final_lanyard_status
-                or ""
-            ).strip().lower()
-            == "paid"
-        )
-
-        print("=" * 70)
-        print(
-            "FINAL PARTICIPANT PAYMENT STATUS"
-        )
-
-        print(
-            "Payment Status:",
-            payment.status
-        )
-
-        print(
-            "T-Shirt Status:",
-            final_tshirt_status
-        )
-
-        print(
-            "Lanyard Status:",
-            final_lanyard_status
-        )
-
-        print(
-            "Lanyard Paid:",
-            final_lanyard_paid
-        )
-
-        print(
-            "Registration Status:",
-            final_registration_status
-        )
-
-        print("=" * 70)
-
-        # ====================================================
-        # PARTICIPANT EMAIL
-        # ====================================================
-
-        gmail_success = False
-
-        participant_email = getattr(
-            participant,
-            "email",
-            None
-        )
-
-        print("=" * 70)
-        print(
-            "PARTICIPANT GMAIL PROCESSING"
-        )
-        print(
-            "Email:",
-            participant_email
-        )
-        print("=" * 70)
-
-        if participant_email:
+            participant = entry[
+                "participant"
+            ]
 
             try:
 
-                gmail_success = bool(
-                    await send_participant_payment_confirmation_email(
-                        participant,
-                        payment
-                    )
+                db.refresh(
+                    participant_payment
                 )
 
-                print(
-                    "Participant Gmail Result:",
-                    gmail_success
+                db.refresh(
+                    participant
                 )
 
             except Exception as e:
 
-                print("=" * 70)
                 print(
-                    "PARTICIPANT GMAIL FAILED"
-                )
-                print(
-                    "Error Type:",
-                    type(e).__name__
-                )
-                print(
-                    "Error:",
+                    "Participant refresh failed:",
                     repr(e)
                 )
-                print("=" * 70)
 
-        else:
+        # ====================================================
+        # SEND EMAILS
+        # ====================================================
 
-            print(
-                "Participant Gmail skipped: no email."
+        participant_results = []
+
+        for entry in processed_participants:
+
+            participant_payment = entry[
+                "payment"
+            ]
+
+            participant = entry[
+                "participant"
+            ]
+
+            gmail_success = False
+
+            participant_email = getattr(
+                participant,
+                "email",
+                None
             )
+
+            print("=" * 70)
+            print(
+                "PARTICIPANT GMAIL PROCESSING"
+            )
+            print(
+                "Participant ID:",
+                participant.id
+            )
+            print(
+                "Email:",
+                participant_email
+            )
+            print("=" * 70)
+
+            if participant_email:
+
+                try:
+
+                    gmail_success = bool(
+                        await send_participant_payment_confirmation_email(
+                            participant,
+                            participant_payment
+                        )
+                    )
+
+                    print(
+                        "Participant Gmail Result:",
+                        gmail_success
+                    )
+
+                except Exception as e:
+
+                    print(
+                        "Participant Gmail failed:",
+                        repr(e)
+                    )
+
+            else:
+
+                print(
+                    "Participant Gmail skipped: no email."
+                )
+
+            final_tshirt_status = getattr(
+                participant,
+                "tshirt_status",
+                None
+            )
+
+            final_lanyard_status = getattr(
+                participant,
+                "lanyard_status",
+                None
+            )
+
+            final_registration_status = getattr(
+                participant,
+                "registration_status",
+                None
+            )
+
+            final_lanyard_paid = (
+                str(
+                    final_lanyard_status
+                    or ""
+                ).strip().lower()
+                == "paid"
+            )
+
+            participant_results.append({
+
+                "payment_id":
+                    participant_payment.id,
+
+                "participant_id":
+                    participant.id,
+
+                "payment_status":
+                    participant_payment.status,
+
+                "tshirt_selected":
+                    entry[
+                        "tshirt_selected"
+                    ],
+
+                "tshirt_status":
+                    final_tshirt_status,
+
+                "lanyard_selected":
+                    entry[
+                        "lanyard_selected"
+                    ],
+
+                "lanyard_status":
+                    final_lanyard_status,
+
+                "lanyard_paid":
+                    final_lanyard_paid,
+
+                "registration_status":
+                    final_registration_status,
+
+                "gmail_sent":
+                    gmail_success
+
+            })
+
+        # ====================================================
+        # FINAL STATUS
+        # ====================================================
+
+        all_payment_rows_paid = all(
+
+            str(
+                getattr(
+                    p,
+                    "status",
+                    ""
+                )
+                or ""
+            ).strip().lower()
+            == "paid"
+
+            for p in participant_payments
+
+        )
+
+        all_lanyards_paid = all(
+
+            result[
+                "lanyard_paid"
+            ]
+
+            for result
+            in participant_results
+
+        )
+
+        print("=" * 70)
+        print(
+            "FINAL PARTICIPANT BULK PAYMENT STATUS"
+        )
+        print(
+            "Payment Rows:",
+            len(
+                participant_payments
+            )
+        )
+        print(
+            "Participants:",
+            len(
+                participant_results
+            )
+        )
+        print(
+            "All Payment Rows Paid:",
+            all_payment_rows_paid
+        )
+        print(
+            "All Lanyards Paid:",
+            all_lanyards_paid
+        )
+        print("=" * 70)
 
         # ====================================================
         # SUCCESS
         # ====================================================
-
-        print("=" * 70)
-        print(
-            "PARTICIPANT PAYMENT COMPLETED"
-        )
-        print("=" * 70)
 
         return {
 
@@ -16592,29 +18027,57 @@ async def paymongo_webhook(
             "payment_id":
                 payment.id,
 
-            "participant_id":
-                participant.id,
+            "payment_ids":
+                [
+                    p.id
+                    for p in participant_payments
+                ],
+
+            "participant_ids":
+                [
+                    getattr(
+                        p,
+                        "participant_id",
+                        None
+                    )
+                    for p in participant_payments
+                ],
+
+            "participant_count":
+                len(
+                    participant_results
+                ),
+
+            "participants":
+                participant_results,
+
+            "paymongo_amount":
+                paymongo_amount,
+
+            "expected_participant_amount":
+                expected_participant_amount,
+
+            "total_amount":
+                (
+                    expected_participant_amount /
+                    100
+                ),
 
             "payment_status":
-                payment.status,
+                (
+                    "Paid"
+                    if all_payment_rows_paid
+                    else "Pending"
+                ),
 
-            "tshirt_selected":
-                tshirt_selected,
+            "payment_success":
+                all_payment_rows_paid,
 
-            "tshirt_status":
-                final_tshirt_status,
+            "mandatory_items_paid":
+                all_lanyards_paid,
 
-            "lanyard_selected":
-                lanyard_selected,
-
-            "lanyard_status":
-                final_lanyard_status,
-
-            "lanyard_paid":
-                final_lanyard_paid,
-
-            "registration_status":
-                final_registration_status,
+            "all_required_items_paid":
+                all_lanyards_paid,
 
             "paymongo_reference":
                 paymongo_reference,
@@ -16623,19 +18086,7 @@ async def paymongo_webhook(
                 paymongo_payment_id,
 
             "paymongo_link_id":
-                paymongo_link_id,
-
-            "gmail_sent":
-                gmail_success,
-
-            "payment_success":
-                True,
-
-            "mandatory_items_paid":
-                final_lanyard_paid,
-
-            "all_required_items_paid":
-                final_lanyard_paid
+                paymongo_link_id
 
         }
 
@@ -16655,8 +18106,6 @@ async def paymongo_webhook(
 
         # ====================================================
         # DETERMINE STORE ORDER ID
-        #
-        # The Payment row found above may already contain it.
         # ====================================================
 
         if not store_order_id:
@@ -16679,20 +18128,7 @@ async def paymongo_webhook(
         )
 
         # ====================================================
-        # FIND ALL PAYMENT ROWS FOR THIS STORE ORDER
-        #
-        # THIS IS THE IMPORTANT MULTI-ITEM PART.
-        #
-        # Example:
-        #
-        # STORE-ABC
-        #
-        # Payment #101 -> Shirt
-        # Payment #102 -> Souvenir
-        # Payment #103 -> Hat
-        # Payment #104 -> Bag
-        #
-        # ALL FOUR ROWS ARE PROCESSED.
+        # FIND ALL PAYMENT ROWS FOR STORE ORDER
         # ====================================================
 
         store_payments = []
@@ -16719,7 +18155,7 @@ async def paymongo_webhook(
             )
 
         # ====================================================
-        # FALLBACK: MATCH ALL ROWS BY PAYMONGO LINK ID
+        # FALLBACK: PAYMONGO LINK ID
         # ====================================================
 
         if (
@@ -16755,7 +18191,7 @@ async def paymongo_webhook(
             )
 
         # ====================================================
-        # FALLBACK: USE THE FOUND PAYMENT'S ORDER ID
+        # FALLBACK: FOUND PAYMENT ORDER ID
         # ====================================================
 
         if (
@@ -16770,11 +18206,6 @@ async def paymongo_webhook(
             store_order_id = str(
                 payment.store_order_id
             ).strip()
-
-            print(
-                "Retrying Store Order lookup:",
-                store_order_id
-            )
 
             store_payments = (
                 db.query(
@@ -16798,12 +18229,6 @@ async def paymongo_webhook(
         if not store_payments:
 
             db.rollback()
-
-            print("=" * 70)
-            print(
-                "STORE ORDER PAYMENTS NOT FOUND"
-            )
-            print("=" * 70)
 
             return {
 
@@ -16830,12 +18255,14 @@ async def paymongo_webhook(
 
         # ====================================================
         # PRINT CART
-        # ========================================================
+        # ====================================================
 
         print("=" * 70)
         print(
             "STORE CART PAYMENT ROWS FOUND:",
-            len(store_payments)
+            len(
+                store_payments
+            )
         )
         print("=" * 70)
 
@@ -16844,24 +18271,28 @@ async def paymongo_webhook(
             print(
                 "Payment ID:",
                 store_payment.id,
+
                 "| Store Item ID:",
                 getattr(
                     store_payment,
                     "store_item_id",
                     None
                 ),
+
                 "| Quantity:",
                 getattr(
                     store_payment,
                     "store_quantity",
                     None
                 ),
+
                 "| Status:",
                 getattr(
                     store_payment,
                     "status",
                     None
                 ),
+
                 "| Amount:",
                 getattr(
                     store_payment,
@@ -16910,10 +18341,7 @@ async def paymongo_webhook(
             }
 
         # ====================================================
-        # SAVE PAYMONGO IDENTIFIERS TO ALL ROWS
-        #
-        # Because all rows belong to the same PayMongo
-        # payment link, every row receives the identifiers.
+        # SAVE PAYMONGO IDENTIFIERS
         # ====================================================
 
         for store_payment in store_payments:
@@ -16956,16 +18384,6 @@ async def paymongo_webhook(
 
         # ====================================================
         # CALCULATE EXPECTED CART TOTAL
-        #
-        # Each Payment.amount is stored in CENTAVOS.
-        #
-        # Example:
-        #
-        # Item 1 = ₱500 -> 50000
-        # Item 2 = ₱300 -> 30000
-        # Item 3 = ₱200 -> 20000
-        #
-        # Expected = 100000
         # ====================================================
 
         expected_cart_amount = 0
@@ -17033,15 +18451,7 @@ async def paymongo_webhook(
         print("=" * 70)
 
         # ====================================================
-        # VERIFY TOTAL PAYMENT AMOUNT
-        #
-        # PayMongo charged ONE payment link for the ENTIRE
-        # cart.
-        #
-        # Therefore:
-        #
-        # PayMongo amount == SUM(all Payment.amount)
-        #
+        # VERIFY TOTAL
         # ====================================================
 
         if (
@@ -17054,14 +18464,6 @@ async def paymongo_webhook(
             print("=" * 70)
             print(
                 "STORE CART AMOUNT MISMATCH"
-            )
-            print(
-                "PayMongo:",
-                paymongo_amount
-            )
-            print(
-                "Expected:",
-                expected_cart_amount
             )
             print("=" * 70)
 
@@ -17096,10 +18498,7 @@ async def paymongo_webhook(
             }
 
         # ====================================================
-        # CHECK IF ENTIRE ORDER IS ALREADY PAID
-        #
-        # This prevents duplicate webhook deliveries from
-        # reducing inventory a second time.
+        # DUPLICATE WEBHOOK
         # ====================================================
 
         all_already_paid = all(
@@ -17120,19 +18519,9 @@ async def paymongo_webhook(
 
         if all_already_paid:
 
-            print("=" * 70)
             print(
-                "STORE ORDER ALREADY FULLY PAID"
+                "STORE ORDER ALREADY FULLY PAID."
             )
-            print(
-                "Store Order ID:",
-                store_order_id
-            )
-            print(
-                "Item Count:",
-                len(store_payments)
-            )
-            print("=" * 70)
 
             try:
 
@@ -17166,7 +18555,9 @@ async def paymongo_webhook(
                     ],
 
                 "item_count":
-                    len(store_payments),
+                    len(
+                        store_payments
+                    ),
 
                 "payment_status":
                     "Paid",
@@ -17177,7 +18568,7 @@ async def paymongo_webhook(
             }
 
         # ====================================================
-        # PREPARE UNPAID ITEMS
+        # UNPAID ITEMS
         # ====================================================
 
         unpaid_payments = [
@@ -17198,39 +18589,13 @@ async def paymongo_webhook(
 
         ]
 
-        print("=" * 70)
-        print(
-            "STORE ITEMS ALREADY PAID:",
-            len(store_payments) -
-            len(unpaid_payments)
-        )
-        print(
-            "STORE ITEMS STILL TO PROCESS:",
-            len(unpaid_payments)
-        )
-        print("=" * 70)
-
         # ====================================================
-        # PROCESS EVERY UNPAID CART ITEM
-        #
-        # We first validate ALL inventory.
-        #
-        # This is important:
-        #
-        # If a 10-item cart has one item unavailable,
-        # we do NOT mark the first 9 as paid and leave
-        # the 10th unpaid.
-        #
-        # The transaction is rolled back instead.
+        # VALIDATE INVENTORY FIRST
         # ====================================================
 
         store_items_to_update = []
 
         for store_payment in unpaid_payments:
-
-            # ------------------------------------------------
-            # STORE ITEM ID
-            # ------------------------------------------------
 
             store_item_id = getattr(
                 store_payment,
@@ -17261,10 +18626,6 @@ async def paymongo_webhook(
                         "Store item ID is missing."
 
                 }
-
-            # ------------------------------------------------
-            # QUANTITY
-            # ------------------------------------------------
 
             try:
 
@@ -17303,20 +18664,10 @@ async def paymongo_webhook(
                     "payment_id":
                         store_payment.id,
 
-                    "store_item_id":
-                        store_item_id,
-
                     "message":
                         "Invalid store quantity."
 
                 }
-
-            # ------------------------------------------------
-            # FIND STORE ITEM
-            #
-            # with_for_update() locks the inventory row while
-            # this order is being processed.
-            # ------------------------------------------------
 
             store_item = (
                 db.query(
@@ -17357,10 +18708,6 @@ async def paymongo_webhook(
 
                 }
 
-            # ------------------------------------------------
-            # INVENTORY
-            # ------------------------------------------------
-
             try:
 
                 current_inventory = int(
@@ -17375,28 +18722,6 @@ async def paymongo_webhook(
                 current_inventory = 0
 
             if current_inventory < store_quantity:
-
-                print("=" * 70)
-                print(
-                    "INSUFFICIENT INVENTORY"
-                )
-                print(
-                    "Store Order:",
-                    store_order_id
-                )
-                print(
-                    "Item:",
-                    store_item.item_name
-                )
-                print(
-                    "Requested:",
-                    store_quantity
-                )
-                print(
-                    "Available:",
-                    current_inventory
-                )
-                print("=" * 70)
 
                 db.rollback()
 
@@ -17432,10 +18757,6 @@ async def paymongo_webhook(
 
                 }
 
-            # ------------------------------------------------
-            # STORE FOR LATER UPDATE
-            # ------------------------------------------------
-
             store_items_to_update.append({
 
                 "payment":
@@ -17450,9 +18771,7 @@ async def paymongo_webhook(
             })
 
         # ====================================================
-        # ALL INVENTORY VALIDATED
-        #
-        # Now safely process every cart item.
+        # PROCESS STORE ITEMS
         # ====================================================
 
         processed_items = []
@@ -17473,10 +18792,6 @@ async def paymongo_webhook(
                 "quantity"
             ]
 
-            # ------------------------------------------------
-            # MARK PAYMENT PAID
-            # ------------------------------------------------
-
             store_payment.status = (
                 "Paid"
             )
@@ -17489,10 +18804,6 @@ async def paymongo_webhook(
                 store_payment.paid_at = (
                     now
                 )
-
-            # ------------------------------------------------
-            # SAVE PAYMONGO DATA
-            # ------------------------------------------------
 
             if (
                 paymongo_link_id
@@ -17530,10 +18841,6 @@ async def paymongo_webhook(
                     paymongo_reference
                 )
 
-            # ------------------------------------------------
-            # REDUCE INVENTORY
-            # ------------------------------------------------
-
             old_inventory = int(
                 store_item.quantity or 0
             )
@@ -17551,10 +18858,6 @@ async def paymongo_webhook(
                 store_item.updated_at = (
                     now
                 )
-
-            # ------------------------------------------------
-            # RESULT
-            # ------------------------------------------------
 
             processed_items.append({
 
@@ -17578,61 +18881,26 @@ async def paymongo_webhook(
 
             })
 
-            print(
-                "STORE ITEM PAID:",
-                store_item.item_name,
-                "x",
-                store_quantity,
-                "| Remaining:",
-                store_item.quantity
-            )
-
         # ====================================================
-        # COMMIT ENTIRE CART AS ONE TRANSACTION
-        #
-        # Either every pending cart item is processed,
-        # or the transaction is rolled back.
+        # COMMIT STORE CART
         # ====================================================
 
         try:
 
             db.commit()
 
-            print("=" * 70)
             print(
-                "STORE CART DATABASE UPDATE SUCCESSFUL"
+                "STORE CART DATABASE UPDATE SUCCESSFUL."
             )
-            print(
-                "Store Order ID:",
-                store_order_id
-            )
-            print(
-                "Total Cart Items:",
-                len(store_payments)
-            )
-            print(
-                "Items Processed:",
-                len(processed_items)
-            )
-            print("=" * 70)
 
         except Exception as e:
 
             db.rollback()
 
-            print("=" * 70)
             print(
-                "STORE CART DATABASE COMMIT FAILED"
-            )
-            print(
-                "Error Type:",
-                type(e).__name__
-            )
-            print(
-                "Error:",
+                "STORE CART DATABASE COMMIT FAILED:",
                 repr(e)
             )
-            print("=" * 70)
 
             return JSONResponse(
                 status_code=500,
@@ -17655,7 +18923,7 @@ async def paymongo_webhook(
             )
 
         # ====================================================
-        # REFRESH ALL PAYMENT ROWS
+        # REFRESH
         # ====================================================
 
         for store_payment in store_payments:
@@ -17674,7 +18942,7 @@ async def paymongo_webhook(
                 )
 
         # ====================================================
-        # FINAL ITEM INFORMATION
+        # FINAL ITEMS
         # ====================================================
 
         final_items = []
@@ -17793,45 +19061,9 @@ async def paymongo_webhook(
             else "Pending"
         )
 
-        print("=" * 70)
-        print(
-            "FINAL STORE ORDER STATUS"
-        )
-        print(
-            "Store Order ID:",
-            store_order_id
-        )
-        print(
-            "Item Count:",
-            len(store_payments)
-        )
-        print(
-            "All Items Paid:",
-            all_paid
-        )
-        print(
-            "Order Status:",
-            final_order_status
-        )
-        print("=" * 70)
-
         # ====================================================
-        # STORE SUCCESS
+        # SUCCESS
         # ====================================================
-
-        print("=" * 70)
-        print(
-            "STORE PAYMENT COMPLETED"
-        )
-        print(
-            "STORE CART ITEM COUNT:",
-            len(store_payments)
-        )
-        print(
-            "STORE ORDER:",
-            store_order_id
-        )
-        print("=" * 70)
 
         return {
 
@@ -17848,16 +19080,8 @@ async def paymongo_webhook(
             "store_order_id":
                 store_order_id,
 
-            # ------------------------------------------------
-            # ORIGINAL PAYMENT
-            # ------------------------------------------------
-
             "payment_id":
                 payment.id,
-
-            # ------------------------------------------------
-            # ALL PAYMENT ROWS
-            # ------------------------------------------------
 
             "payment_ids":
                 [
@@ -17865,23 +19089,13 @@ async def paymongo_webhook(
                     for p in store_payments
                 ],
 
-            # ------------------------------------------------
-            # CART COUNT
-            # ------------------------------------------------
-
             "item_count":
-                len(store_payments),
-
-            # ------------------------------------------------
-            # ITEMS
-            # ------------------------------------------------
+                len(
+                    store_payments
+                ),
 
             "items":
                 final_items,
-
-            # ------------------------------------------------
-            # TOTAL
-            # ------------------------------------------------
 
             "paymongo_amount":
                 paymongo_amount,
@@ -17891,22 +19105,15 @@ async def paymongo_webhook(
 
             "total_amount":
                 (
-                    expected_cart_amount / 100
+                    expected_cart_amount /
+                    100
                 ),
-
-            # ------------------------------------------------
-            # STATUS
-            # ------------------------------------------------
 
             "payment_status":
                 final_order_status,
 
             "payment_success":
                 all_paid,
-
-            # ------------------------------------------------
-            # PAYMONGO
-            # ------------------------------------------------
 
             "paymongo_reference":
                 paymongo_reference,
