@@ -14860,16 +14860,15 @@ async def paymongo_webhook(
 ):
 
     print("\n")
-    print("=" * 70)
+    print("=" * 80)
     print("PAYMONGO WEBHOOK RECEIVED")
-    print("=" * 70)
+    print("=" * 80)
 
     # ========================================================
     # 1. READ RAW BODY
     # ========================================================
 
     try:
-
         raw_body = await request.body()
 
     except Exception as e:
@@ -14884,8 +14883,7 @@ async def paymongo_webhook(
             content={
                 "received": False,
                 "processed": False,
-                "message":
-                    "Unable to read webhook body."
+                "message": "Unable to read webhook body."
             }
         )
 
@@ -14900,8 +14898,7 @@ async def paymongo_webhook(
             content={
                 "received": False,
                 "processed": False,
-                "message":
-                    "Empty webhook body."
+                "message": "Empty webhook body."
             }
         )
 
@@ -14911,7 +14908,7 @@ async def paymongo_webhook(
     )
 
     # ========================================================
-    # 2. GET PAYMONGO SIGNATURE
+    # 2. PAYMONGO SIGNATURE
     # ========================================================
 
     signature_header = request.headers.get(
@@ -14929,8 +14926,7 @@ async def paymongo_webhook(
             content={
                 "received": False,
                 "processed": False,
-                "message":
-                    "Missing PayMongo signature."
+                "message": "Missing PayMongo signature."
             }
         )
 
@@ -14952,7 +14948,9 @@ async def paymongo_webhook(
                 1
             )
 
-            parts[key.strip()] = value.strip()
+            parts[
+                key.strip()
+            ] = value.strip()
 
         timestamp = parts.get("t")
 
@@ -14968,17 +14966,12 @@ async def paymongo_webhook(
 
         if not timestamp:
 
-            print(
-                "Missing webhook timestamp."
-            )
-
             return JSONResponse(
                 status_code=401,
                 content={
                     "received": False,
                     "processed": False,
-                    "message":
-                        "Missing webhook timestamp."
+                    "message": "Missing webhook timestamp."
                 }
             )
 
@@ -15012,8 +15005,7 @@ async def paymongo_webhook(
                 content={
                     "received": False,
                     "processed": False,
-                    "message":
-                        "Webhook timestamp expired."
+                    "message": "Webhook timestamp expired."
                 }
             )
 
@@ -15028,8 +15020,7 @@ async def paymongo_webhook(
                 content={
                     "received": False,
                     "processed": False,
-                    "message":
-                        "Webhook secret is not configured."
+                    "message": "Webhook secret is not configured."
                 }
             )
 
@@ -15055,17 +15046,12 @@ async def paymongo_webhook(
 
         if not provided_signature:
 
-            print(
-                "Missing signature value."
-            )
-
             return JSONResponse(
                 status_code=401,
                 content={
                     "received": False,
                     "processed": False,
-                    "message":
-                        "Missing signature value."
+                    "message": "Missing signature value."
                 }
             )
 
@@ -15083,8 +15069,7 @@ async def paymongo_webhook(
                 content={
                     "received": False,
                     "processed": False,
-                    "message":
-                        "Invalid PayMongo webhook signature."
+                    "message": "Invalid PayMongo webhook signature."
                 }
             )
 
@@ -15104,8 +15089,7 @@ async def paymongo_webhook(
             content={
                 "received": False,
                 "processed": False,
-                "message":
-                    "Invalid PayMongo webhook signature."
+                "message": "Invalid PayMongo webhook signature."
             }
         )
 
@@ -15133,8 +15117,7 @@ async def paymongo_webhook(
             content={
                 "received": False,
                 "processed": False,
-                "message":
-                    "Invalid JSON payload."
+                "message": "Invalid JSON payload."
             }
         )
 
@@ -15151,7 +15134,6 @@ async def paymongo_webhook(
         event_data,
         dict
     ):
-
         event_data = {}
 
     event_id = event_data.get(
@@ -15167,7 +15149,6 @@ async def paymongo_webhook(
         event_attributes,
         dict
     ):
-
         event_attributes = {}
 
     event_type = event_attributes.get(
@@ -15178,8 +15159,9 @@ async def paymongo_webhook(
         "livemode"
     )
 
-    print("=" * 70)
+    print("=" * 80)
     print("PAYMONGO EVENT")
+    print("=" * 80)
     print(
         "Event ID:",
         event_id
@@ -15192,10 +15174,10 @@ async def paymongo_webhook(
         "Live Mode:",
         livemode
     )
-    print("=" * 70)
+    print("=" * 80)
 
     # ========================================================
-    # 6. ONLY SUCCESSFUL PAYMENT EVENTS
+    # 6. ONLY SUCCESSFUL EVENTS
     # ========================================================
 
     if event_type not in {
@@ -15211,16 +15193,13 @@ async def paymongo_webhook(
         return {
             "received": True,
             "processed": False,
-            "event_id":
-                event_id,
-            "event_type":
-                event_type,
-            "message":
-                "Event ignored."
+            "event_id": event_id,
+            "event_type": event_type,
+            "message": "Event ignored."
         }
 
     # ========================================================
-    # 7. PAYMENT RESOURCE
+    # 7. PAYMONGO RESOURCE
     # ========================================================
 
     resource = event_attributes.get(
@@ -15232,7 +15211,6 @@ async def paymongo_webhook(
         resource,
         dict
     ):
-
         resource = {}
 
     resource_id = resource.get(
@@ -15252,7 +15230,6 @@ async def paymongo_webhook(
         resource_attributes,
         dict
     ):
-
         resource_attributes = {}
 
     print(
@@ -15278,7 +15255,6 @@ async def paymongo_webhook(
         metadata,
         dict
     ):
-
         metadata = {}
 
     print(
@@ -15338,6 +15314,120 @@ async def paymongo_webhook(
         ).strip()
 
     # --------------------------------------------------------
+    # BULK PAYMENT IDS
+    #
+    # create_payment sends:
+    #
+    #   "payment_ids": "101,102,103"
+    #
+    # --------------------------------------------------------
+
+    raw_payment_ids = metadata.get(
+        "payment_ids"
+    )
+
+    payment_ids = []
+
+    if isinstance(
+        raw_payment_ids,
+        list
+    ):
+
+        for value in raw_payment_ids:
+
+            try:
+
+                payment_ids.append(
+                    int(value)
+                )
+
+            except (
+                ValueError,
+                TypeError
+            ):
+
+                pass
+
+    elif raw_payment_ids:
+
+        raw_payment_ids_string = str(
+            raw_payment_ids
+        ).strip()
+
+        # ----------------------------------------------------
+        # JSON ARRAY
+        # ----------------------------------------------------
+
+        if (
+            raw_payment_ids_string.startswith("[")
+            and
+            raw_payment_ids_string.endswith("]")
+        ):
+
+            try:
+
+                decoded_payment_ids = json.loads(
+                    raw_payment_ids_string
+                )
+
+                if isinstance(
+                    decoded_payment_ids,
+                    list
+                ):
+
+                    for value in decoded_payment_ids:
+
+                        try:
+
+                            payment_ids.append(
+                                int(value)
+                            )
+
+                        except (
+                            ValueError,
+                            TypeError
+                        ):
+
+                            pass
+
+            except Exception:
+
+                pass
+
+        # ----------------------------------------------------
+        # COMMA-SEPARATED
+        # ----------------------------------------------------
+
+        else:
+
+            for value in raw_payment_ids_string.split(","):
+
+                value = value.strip()
+
+                if not value:
+                    continue
+
+                try:
+
+                    payment_ids.append(
+                        int(value)
+                    )
+
+                except (
+                    ValueError,
+                    TypeError
+                ):
+
+                    pass
+
+    # Remove duplicates
+    payment_ids = list(
+        dict.fromkeys(
+            payment_ids
+        )
+    )
+
+    # --------------------------------------------------------
     # PAYMONGO REFERENCE
     # --------------------------------------------------------
 
@@ -15366,9 +15456,9 @@ async def paymongo_webhook(
 
         paymongo_reference = None
 
-    # ========================================================
+    # --------------------------------------------------------
     # PAYMONGO PAYMENT ID
-    # ========================================================
+    # --------------------------------------------------------
 
     paymongo_payment_id = None
 
@@ -15388,9 +15478,9 @@ async def paymongo_webhook(
             paymongo_payment_id
         ).strip()
 
-    # ========================================================
+    # --------------------------------------------------------
     # PAYMONGO LINK ID
-    # ========================================================
+    # --------------------------------------------------------
 
     paymongo_link_id = None
 
@@ -15416,9 +15506,9 @@ async def paymongo_webhook(
             paymongo_link_id
         ).strip()
 
-    # ========================================================
+    # --------------------------------------------------------
     # AMOUNT
-    # ========================================================
+    # --------------------------------------------------------
 
     paymongo_amount = resource_attributes.get(
         "amount"
@@ -15437,11 +15527,20 @@ async def paymongo_webhook(
 
         paymongo_amount = 0
 
-    print("=" * 70)
+    print("=" * 80)
     print("PAYMENT IDENTIFIERS")
+    print("=" * 80)
     print(
         "Store Order ID:",
         store_order_id
+    )
+    print(
+        "Internal Payment ID:",
+        internal_payment_id
+    )
+    print(
+        "Bulk Payment IDs:",
+        payment_ids
     )
     print(
         "PayMongo Reference:",
@@ -15459,19 +15558,17 @@ async def paymongo_webhook(
         "PayMongo Amount:",
         paymongo_amount
     )
-    print("=" * 70)
+    print("=" * 80)
 
     # ========================================================
-    # ========================================================
-    # CASH SPONSORSHIP
-    # ========================================================
+    # 10. CASH SPONSORSHIP MATCHING
     # ========================================================
 
     cash_sponsorship = None
 
-    # ========================================================
-    # 10. MATCH SPONSORSHIP ID
-    # ========================================================
+    # --------------------------------------------------------
+    # BY SPONSORSHIP ID
+    # --------------------------------------------------------
 
     if sponsorship_id:
 
@@ -15497,9 +15594,9 @@ async def paymongo_webhook(
 
             cash_sponsorship = None
 
-    # ========================================================
-    # 11. MATCH SPONSORSHIP REFERENCE
-    # ========================================================
+    # --------------------------------------------------------
+    # BY REFERENCE
+    # --------------------------------------------------------
 
     if (
         not cash_sponsorship
@@ -15521,9 +15618,9 @@ async def paymongo_webhook(
             .first()
         )
 
-    # ========================================================
-    # 12. MATCH SPONSORSHIP PAYMENT ID
-    # ========================================================
+    # --------------------------------------------------------
+    # BY PAYMONGO PAYMENT ID
+    # --------------------------------------------------------
 
     if (
         not cash_sponsorship
@@ -15545,9 +15642,9 @@ async def paymongo_webhook(
             .first()
         )
 
-    # ========================================================
-    # 13. MATCH SPONSORSHIP LINK ID
-    # ========================================================
+    # --------------------------------------------------------
+    # BY PAYMONGO LINK ID
+    # --------------------------------------------------------
 
     if (
         not cash_sponsorship
@@ -15570,12 +15667,12 @@ async def paymongo_webhook(
         )
 
     # ========================================================
-    # 14. PROCESS CASH SPONSORSHIP
+    # 11. CASH SPONSORSHIP
     # ========================================================
 
     if cash_sponsorship:
 
-        print("=" * 70)
+        print("=" * 80)
         print(
             "CASH SPONSORSHIP FOUND"
         )
@@ -15583,7 +15680,7 @@ async def paymongo_webhook(
             "Sponsorship ID:",
             cash_sponsorship.id
         )
-        print("=" * 70)
+        print("=" * 80)
 
         # ----------------------------------------------------
         # SAVE PAYMONGO INFORMATION
@@ -15645,11 +15742,8 @@ async def paymongo_webhook(
         if current_status == "paid":
 
             try:
-
                 db.commit()
-
             except Exception:
-
                 db.rollback()
 
             print(
@@ -15657,25 +15751,13 @@ async def paymongo_webhook(
             )
 
             return {
-
                 "received": True,
-
                 "processed": True,
-
                 "already_processed": True,
-
-                "payment_type":
-                    "sponsor_package",
-
-                "event_id":
-                    event_id,
-
-                "sponsorship_id":
-                    cash_sponsorship.id,
-
-                "payment_status":
-                    cash_sponsorship.payment_status
-
+                "payment_type": "sponsor_package",
+                "event_id": event_id,
+                "sponsorship_id": cash_sponsorship.id,
+                "payment_status": "Paid"
             }
 
         # ----------------------------------------------------
@@ -15705,20 +15787,11 @@ async def paymongo_webhook(
             db.rollback()
 
             return {
-
                 "received": True,
-
                 "processed": False,
-
-                "payment_type":
-                    "sponsor_package",
-
-                "sponsorship_id":
-                    cash_sponsorship.id,
-
-                "message":
-                    "Invalid sponsorship amount."
-
+                "payment_type": "sponsor_package",
+                "sponsorship_id": cash_sponsorship.id,
+                "message": "Invalid sponsorship amount."
             }
 
         # ----------------------------------------------------
@@ -15728,8 +15801,7 @@ async def paymongo_webhook(
         if (
             paymongo_amount > 0
             and
-            paymongo_amount !=
-            donation_amount
+            paymongo_amount != donation_amount
         ):
 
             print(
@@ -15739,20 +15811,14 @@ async def paymongo_webhook(
             db.rollback()
 
             return {
-
                 "received": True,
-
                 "processed": False,
-
-                "payment_type":
-                    "sponsor_package",
-
-                "sponsorship_id":
-                    cash_sponsorship.id,
-
+                "payment_type": "sponsor_package",
+                "sponsorship_id": cash_sponsorship.id,
+                "paymongo_amount": paymongo_amount,
+                "expected_amount": donation_amount,
                 "message":
                     "Payment amount does not match sponsorship amount."
-
             }
 
         donation_pesos = (
@@ -15760,7 +15826,7 @@ async def paymongo_webhook(
         )
 
         # ----------------------------------------------------
-        # TOTAL
+        # CASH DONATION TOTAL
         # ----------------------------------------------------
 
         donation_total = (
@@ -15818,7 +15884,7 @@ async def paymongo_webhook(
             )
 
         # ----------------------------------------------------
-        # MARK PAID
+        # MARK SPONSORSHIP PAID
         # ----------------------------------------------------
 
         cash_sponsorship.payment_status = (
@@ -15862,7 +15928,7 @@ async def paymongo_webhook(
             )
 
         # ----------------------------------------------------
-        # COMMIT
+        # COMMIT SPONSORSHIP
         # ----------------------------------------------------
 
         try:
@@ -15881,19 +15947,15 @@ async def paymongo_webhook(
             return JSONResponse(
                 status_code=500,
                 content={
-
                     "received": True,
-
                     "processed": False,
-
                     "message":
                         "Sponsorship database update failed."
-
                 }
             )
 
         # ----------------------------------------------------
-        # GMAIL
+        # SPONSORSHIP EMAIL
         # ----------------------------------------------------
 
         gmail_success = False
@@ -15920,12 +15982,6 @@ async def paymongo_webhook(
                     gmail_success
                 )
 
-            else:
-
-                print(
-                    "Sponsor email not available."
-                )
-
         except Exception as e:
 
             print(
@@ -15933,81 +15989,67 @@ async def paymongo_webhook(
                 repr(e)
             )
 
-        # ----------------------------------------------------
-        # RETURN
-        # ----------------------------------------------------
-
         return {
-
             "received": True,
-
             "processed": True,
-
-            "payment_type":
-                "sponsor_package",
-
-            "event_id":
-                event_id,
-
-            "sponsorship_id":
-                cash_sponsorship.id,
-
-            "payment_status":
-                "Paid",
-
-            "donation_amount":
-                donation_pesos,
-
+            "payment_type": "sponsor_package",
+            "event_id": event_id,
+            "sponsorship_id": cash_sponsorship.id,
+            "payment_status": "Paid",
+            "donation_amount": donation_pesos,
             "donation_amount_display":
                 f"₱{donation_pesos:,.2f}",
-
-            "cash_donation_total":
-                new_total,
-
+            "cash_donation_total": new_total,
             "cash_donation_total_display":
                 f"₱{new_total:,.2f}",
-
             "paymongo_reference":
                 paymongo_reference,
-
             "paymongo_payment_id":
                 paymongo_payment_id,
-
             "paymongo_link_id":
                 paymongo_link_id,
-
             "gmail_sent":
                 gmail_success
-
         }
 
     # ========================================================
-    # ========================================================
-    # NORMAL PAYMENT
-    # ========================================================
+    # 12. FIND PAYMENT ROW
+    #
+    # For participant bulk payments, payment_ids is the
+    # strongest identifier.
     # ========================================================
 
     payment = None
 
-    # ========================================================
-    # 15. MATCH STORE ORDER FIRST
-    #
-    # IMPORTANT:
-    #
-    # A STORE CART CAN HAVE MANY Payment ROWS.
-    #
-    # Therefore we DO NOT use .first() here for a store order.
-    #
-    # We first identify the order, then the STORE PAYMENT
-    # section loads ALL rows belonging to that order.
-    # ========================================================
+    # --------------------------------------------------------
+    # BY PAYMENT IDS
+    # --------------------------------------------------------
 
-    if store_order_id:
+    if payment_ids:
 
-        print(
-            "Searching Payment rows by Store Order ID:",
-            store_order_id
+        payment = (
+            db.query(
+                Payment
+            )
+            .filter(
+                Payment.id.in_(
+                    payment_ids
+                )
+            )
+            .order_by(
+                Payment.id.asc()
+            )
+            .first()
         )
+
+    # --------------------------------------------------------
+    # BY STORE ORDER
+    # --------------------------------------------------------
+
+    if (
+        not payment
+        and store_order_id
+    ):
 
         payment = (
             db.query(
@@ -16023,15 +16065,9 @@ async def paymongo_webhook(
             .first()
         )
 
-        if payment:
-
-            print(
-                "Store order located by store_order_id."
-            )
-
-    # ========================================================
-    # 16. MATCH INTERNAL PAYMENT ID
-    # ========================================================
+    # --------------------------------------------------------
+    # BY INTERNAL PAYMENT ID
+    # --------------------------------------------------------
 
     if (
         not payment
@@ -16060,9 +16096,9 @@ async def paymongo_webhook(
 
             payment = None
 
-    # ========================================================
-    # 17. MATCH BY REFERENCE
-    # ========================================================
+    # --------------------------------------------------------
+    # BY REFERENCE
+    # --------------------------------------------------------
 
     if (
         not payment
@@ -16073,11 +16109,6 @@ async def paymongo_webhook(
         )
     ):
 
-        print(
-            "Searching Payment by Reference:",
-            paymongo_reference
-        )
-
         payment = (
             db.query(
                 Payment
@@ -16086,12 +16117,15 @@ async def paymongo_webhook(
                 Payment.paymongo_reference ==
                 paymongo_reference
             )
+            .order_by(
+                Payment.id.asc()
+            )
             .first()
         )
 
-    # ========================================================
-    # 18. MATCH BY PAYMONGO PAYMENT ID
-    # ========================================================
+    # --------------------------------------------------------
+    # BY PAYMONGO PAYMENT ID
+    # --------------------------------------------------------
 
     if (
         not payment
@@ -16110,12 +16144,15 @@ async def paymongo_webhook(
                 Payment.paymongo_payment_id ==
                 paymongo_payment_id
             )
+            .order_by(
+                Payment.id.asc()
+            )
             .first()
         )
 
-    # ========================================================
-    # 19. MATCH BY LINK ID
-    # ========================================================
+    # --------------------------------------------------------
+    # BY PAYMONGO LINK ID
+    # --------------------------------------------------------
 
     if (
         not payment
@@ -16125,11 +16162,6 @@ async def paymongo_webhook(
             "paymongo_link_id"
         )
     ):
-
-        print(
-            "Searching Payment by PayMongo Link ID:",
-            paymongo_link_id
-        )
 
         payment = (
             db.query(
@@ -16145,64 +16177,41 @@ async def paymongo_webhook(
             .first()
         )
 
-        if payment:
-
-            print(
-                "Payment located by PayMongo Link ID."
-            )
-
     # ========================================================
-    # 20. PAYMENT NOT FOUND
+    # PAYMENT NOT FOUND
     # ========================================================
 
     if not payment:
 
-        print("=" * 70)
+        print("=" * 80)
         print(
             "NO LOCAL PAYMENT FOUND"
         )
-        print("=" * 70)
+        print("=" * 80)
 
         return {
-
             "received": True,
-
             "processed": False,
-
-            "event_id":
-                event_id,
-
+            "event_id": event_id,
+            "payment_ids": payment_ids,
             "paymongo_reference":
                 paymongo_reference,
-
             "paymongo_payment_id":
                 paymongo_payment_id,
-
             "paymongo_link_id":
                 paymongo_link_id,
-
-            "store_order_id":
-                store_order_id,
-
             "message":
                 "No matching local payment found."
-
         }
 
-    # ========================================================
-    # 21. PAYMENT FOUND
-    # ========================================================
-
-    print("=" * 70)
+    print("=" * 80)
     print(
         "LOCAL PAYMENT FOUND"
     )
-
     print(
         "Payment ID:",
         payment.id
     )
-
     print(
         "Payment Type:",
         getattr(
@@ -16211,60 +16220,10 @@ async def paymongo_webhook(
             None
         )
     )
-
-    print(
-        "Store Order ID:",
-        getattr(
-            payment,
-            "store_order_id",
-            None
-        )
-    )
-
-    print("=" * 70)
+    print("=" * 80)
 
     # ========================================================
-    # SAVE PAYMONGO IDENTIFIERS
-    # ========================================================
-
-    if (
-        paymongo_link_id
-        and hasattr(
-            payment,
-            "paymongo_link_id"
-        )
-    ):
-
-        payment.paymongo_link_id = (
-            paymongo_link_id
-        )
-
-    if (
-        paymongo_payment_id
-        and hasattr(
-            payment,
-            "paymongo_payment_id"
-        )
-    ):
-
-        payment.paymongo_payment_id = (
-            paymongo_payment_id
-        )
-
-    if (
-        paymongo_reference
-        and hasattr(
-            payment,
-            "paymongo_reference"
-        )
-    ):
-
-        payment.paymongo_reference = (
-            paymongo_reference
-        )
-
-    # ========================================================
-    # PAYMENT TYPE
+    # 13. DETERMINE PAYMENT TYPE
     # ========================================================
 
     payment_type = str(
@@ -16276,589 +16235,1184 @@ async def paymongo_webhook(
         or ""
     ).strip().lower()
 
-    print(
-        "Normalized Payment Type:",
-        payment_type
-    )
+    # ========================================================
+    # ========================================================
+    # PARTICIPANT / BULK PARTICIPANT PAYMENT
+    # ========================================================
+    #
+    # IMPORTANT:
+    #
+    # BOTH "participant" AND "bulk" MUST ENTER THIS BLOCK.
+    #
+    # /create_payment uses:
+    #
+    #   payment_type = "bulk"
+    #
+    # for multiple participants.
+    #
+    # ========================================================
 
-    # ========================================================
-    # ========================================================
-    # PARTICIPANT PAYMENT
-    # ========================================================
-    # ========================================================
+    if payment_type in {
+        "participant",
+        "bulk",
+        "single"
+    }:
 
-    if payment_type == "participant":
-
-        print("=" * 70)
+        print("=" * 80)
         print(
             "PROCESSING PARTICIPANT PAYMENT"
         )
-        print("=" * 70)
+        print(
+            "Payment Type:",
+            payment_type
+        )
+        print("=" * 80)
 
         # ----------------------------------------------------
-        # PARTICIPANT ID
+        # FIND ALL PARTICIPANT PAYMENT ROWS
         # ----------------------------------------------------
 
-        participant_id = getattr(
-            payment,
-            "participant_id",
-            None
-        )
-
-        print(
-            "Participant ID:",
-            participant_id
-        )
-
-        if not participant_id:
-
-            db.rollback()
-
-            return {
-
-                "received": True,
-
-                "processed": False,
-
-                "payment_type":
-                    "participant",
-
-                "payment_id":
-                    payment.id,
-
-                "message":
-                    "Participant ID is missing."
-
-            }
+        participant_payments = []
 
         # ----------------------------------------------------
-        # FIND PARTICIPANT
+        # FIRST: EXACT PAYMENT IDS FROM METADATA
         # ----------------------------------------------------
 
-        participant = (
-            db.query(
-                Participant
+        if payment_ids:
+
+            participant_payments = (
+                db.query(
+                    Payment
+                )
+                .filter(
+                    Payment.id.in_(
+                        payment_ids
+                    ),
+                    Payment.payment_type.ilike(
+                        "Participant"
+                    )
+                )
+                .order_by(
+                    Payment.id.asc()
+                )
+                .with_for_update()
+                .all()
             )
-            .filter(
-                Participant.id ==
-                participant_id
-            )
-            .first()
-        )
-
-        if not participant:
-
-            db.rollback()
-
-            return {
-
-                "received": True,
-
-                "processed": False,
-
-                "payment_type":
-                    "participant",
-
-                "payment_id":
-                    payment.id,
-
-                "participant_id":
-                    participant_id,
-
-                "message":
-                    "Participant not found."
-
-            }
-
-        print(
-            "Participant:",
-            participant.fname,
-            participant.lname
-        )
-
-        # ====================================================
-        # ITEM FLAGS
-        # ====================================================
-
-        tshirt_selected = bool(
-            getattr(
-                payment,
-                "tshirt_selected",
-                False
-            )
-        )
-
-        lanyard_selected = bool(
-            getattr(
-                payment,
-                "lanyard_selected",
-                False
-            )
-        )
-
-        print(
-            "T-Shirt Selected:",
-            tshirt_selected
-        )
-
-        print(
-            "Lanyard Selected:",
-            lanyard_selected
-        )
-
-        # ====================================================
-        # CURRENT PAYMENT STATUS
-        # ====================================================
-
-        current_status = str(
-            getattr(
-                payment,
-                "status",
-                ""
-            )
-            or ""
-        ).strip().lower()
-
-        print(
-            "Current Payment Status:",
-            current_status
-        )
-
-        # ====================================================
-        # MARK PAYMENT PAID
-        # ====================================================
-
-        payment.status = "Paid"
-
-        if hasattr(
-            payment,
-            "paid_at"
-        ):
-
-            payment.paid_at = (
-                datetime.datetime.now()
-            )
-
-        # ====================================================
-        # T-SHIRT
-        # ====================================================
-
-        if tshirt_selected:
 
             print(
-                "Updating T-Shirt status to Paid..."
+                "Participant rows found by payment_ids:",
+                len(
+                    participant_payments
+                )
             )
 
-            if hasattr(
-                participant,
-                "tshirt_status"
-            ):
+        # ----------------------------------------------------
+        # FALLBACK: SHARED PAYMONGO LINK
+        # ----------------------------------------------------
 
-                participant.tshirt_status = (
-                    "Paid"
+        if (
+            not participant_payments
+            and paymongo_link_id
+        ):
+
+            participant_payments = (
+                db.query(
+                    Payment
+                )
+                .filter(
+                    Payment.paymongo_link_id ==
+                    paymongo_link_id,
+                    Payment.payment_type.ilike(
+                        "Participant"
+                    )
+                )
+                .order_by(
+                    Payment.id.asc()
+                )
+                .with_for_update()
+                .all()
+            )
+
+            print(
+                "Participant rows found by PayMongo Link ID:",
+                len(
+                    participant_payments
+                )
+            )
+
+        # ----------------------------------------------------
+        # FALLBACK: REFERENCE
+        # ----------------------------------------------------
+
+        if (
+            not participant_payments
+            and paymongo_reference
+        ):
+
+            participant_payments = (
+                db.query(
+                    Payment
+                )
+                .filter(
+                    Payment.paymongo_reference ==
+                    paymongo_reference,
+                    Payment.payment_type.ilike(
+                        "Participant"
+                    )
+                )
+                .order_by(
+                    Payment.id.asc()
+                )
+                .with_for_update()
+                .all()
+            )
+
+            print(
+                "Participant rows found by reference:",
+                len(
+                    participant_payments
+                )
+            )
+
+        # ----------------------------------------------------
+        # FALLBACK: SINGLE PAYMENT
+        # ----------------------------------------------------
+
+        if (
+            not participant_payments
+            and payment
+            and getattr(
+                payment,
+                "participant_id",
+                None
+            )
+        ):
+
+            participant_payments = [
+                payment
+            ]
+
+        # ----------------------------------------------------
+        # NO PARTICIPANT ROWS
+        # ----------------------------------------------------
+
+        if not participant_payments:
+
+            db.rollback()
+
+            return {
+                "received": True,
+                "processed": False,
+                "payment_type":
+                    payment_type,
+                "message":
+                    "No participant payment rows found."
+            }
+
+        # ----------------------------------------------------
+        # REMOVE DUPLICATES
+        # ----------------------------------------------------
+
+        unique_payments = {}
+
+        for participant_payment in participant_payments:
+
+            unique_payments[
+                participant_payment.id
+            ] = participant_payment
+
+        participant_payments = list(
+            unique_payments.values()
+        )
+
+        participant_payments.sort(
+            key=lambda p: p.id
+        )
+
+        print("=" * 80)
+        print(
+            "PARTICIPANT PAYMENT ROWS:"
+        )
+        print("=" * 80)
+
+        for participant_payment in participant_payments:
+
+            print(
+                "Payment ID:",
+                participant_payment.id,
+                "| Participant ID:",
+                getattr(
+                    participant_payment,
+                    "participant_id",
+                    None
+                ),
+                "| Amount:",
+                getattr(
+                    participant_payment,
+                    "amount",
+                    None
+                ),
+                "| T-Shirt:",
+                getattr(
+                    participant_payment,
+                    "tshirt_selected",
+                    0
+                ),
+                "| Lanyard:",
+                getattr(
+                    participant_payment,
+                    "lanyard_selected",
+                    0
+                ),
+                "| Status:",
+                getattr(
+                    participant_payment,
+                    "status",
+                    None
+                )
+            )
+
+        print("=" * 80)
+
+        # ----------------------------------------------------
+        # VERIFY PAYMENT IDS
+        #
+        # If create_payment explicitly supplied payment_ids,
+        # do not silently process only part of the bulk payment.
+        # ----------------------------------------------------
+
+        if payment_ids:
+
+            found_ids = {
+                p.id
+                for p in participant_payments
+            }
+
+            missing_ids = [
+                pid
+                for pid in payment_ids
+                if pid not in found_ids
+            ]
+
+            if missing_ids:
+
+                print(
+                    "Missing participant payment IDs:",
+                    missing_ids
                 )
 
+                # Try shared PayMongo link as recovery.
+                if paymongo_link_id:
+
+                    fallback_payments = (
+                        db.query(
+                            Payment
+                        )
+                        .filter(
+                            Payment.paymongo_link_id ==
+                            paymongo_link_id,
+                            Payment.payment_type.ilike(
+                                "Participant"
+                            )
+                        )
+                        .order_by(
+                            Payment.id.asc()
+                        )
+                        .with_for_update()
+                        .all()
+                    )
+
+                    fallback_ids = {
+                        p.id
+                        for p in fallback_payments
+                    }
+
+                    if all(
+                        pid in fallback_ids
+                        for pid in payment_ids
+                    ):
+
+                        participant_payments = (
+                            fallback_payments
+                        )
+
+                    else:
+
+                        db.rollback()
+
+                        return {
+                            "received": True,
+                            "processed": False,
+                            "payment_type":
+                                payment_type,
+                            "payment_ids":
+                                payment_ids,
+                            "missing_payment_ids":
+                                missing_ids,
+                            "message":
+                                "Not all bulk participant payment rows were found."
+                        }
+
+        # ----------------------------------------------------
+        # VERIFY TOTAL
+        #
+        # /create_payment creates one Payment row per
+        # participant, but ONE PayMongo link contains the
+        # combined amount.
+        # ----------------------------------------------------
+
+        expected_participant_amount = 0
+
+        for participant_payment in participant_payments:
+
+            try:
+
+                row_amount = int(
+                    getattr(
+                        participant_payment,
+                        "amount",
+                        0
+                    )
+                    or 0
+                )
+
+            except (
+                ValueError,
+                TypeError
+            ):
+
+                row_amount = 0
+
+            if row_amount <= 0:
+
+                db.rollback()
+
+                return {
+                    "received": True,
+                    "processed": False,
+                    "payment_type":
+                        payment_type,
+                    "payment_id":
+                        participant_payment.id,
+                    "message":
+                        "Invalid participant payment amount."
+                }
+
+            expected_participant_amount += (
+                row_amount
+            )
+
+        print("=" * 80)
+        print(
+            "PARTICIPANT AMOUNT VERIFICATION"
+        )
+        print(
+            "PayMongo Amount:",
+            paymongo_amount
+        )
+        print(
+            "Expected Amount:",
+            expected_participant_amount
+        )
+        print("=" * 80)
+
+        if (
+            paymongo_amount > 0
+            and
+            paymongo_amount !=
+            expected_participant_amount
+        ):
+
+            print(
+                "PARTICIPANT PAYMENT AMOUNT MISMATCH"
+            )
+
+            db.rollback()
+
+            return {
+                "received": True,
+                "processed": False,
+                "payment_type":
+                    payment_type,
+                "paymongo_amount":
+                    paymongo_amount,
+                "expected_amount":
+                    expected_participant_amount,
+                "payment_ids":
+                    [
+                        p.id
+                        for p in participant_payments
+                    ],
+                "message":
+                    "Payment amount does not match participant payment total."
+            }
+
+        # ----------------------------------------------------
+        # PROCESS EACH PARTICIPANT
+        # ----------------------------------------------------
+
+        processed_participants = []
+
+        now = datetime.datetime.now()
+
+        for participant_payment in participant_payments:
+
+            participant_id = getattr(
+                participant_payment,
+                "participant_id",
+                None
+            )
+
+            print("=" * 80)
+            print(
+                "PROCESSING PARTICIPANT"
+            )
+            print(
+                "Payment ID:",
+                participant_payment.id
+            )
+            print(
+                "Participant ID:",
+                participant_id
+            )
+            print("=" * 80)
+
+            if not participant_id:
+
+                db.rollback()
+
+                return {
+                    "received": True,
+                    "processed": False,
+                    "payment_type":
+                        payment_type,
+                    "payment_id":
+                        participant_payment.id,
+                    "message":
+                        "Participant ID is missing."
+                }
+
+            # ------------------------------------------------
+            # LOCK PARTICIPANT
+            # ------------------------------------------------
+
+            participant = (
+                db.query(
+                    Participant
+                )
+                .filter(
+                    Participant.id ==
+                    participant_id
+                )
+                .with_for_update()
+                .first()
+            )
+
+            if not participant:
+
+                db.rollback()
+
+                return {
+                    "received": True,
+                    "processed": False,
+                    "payment_type":
+                        payment_type,
+                    "payment_id":
+                        participant_payment.id,
+                    "participant_id":
+                        participant_id,
+                    "message":
+                        "Participant not found."
+                }
+
+            print(
+                "Participant:",
+                getattr(
+                    participant,
+                    "fname",
+                    ""
+                ),
+                getattr(
+                    participant,
+                    "lname",
+                    ""
+                )
+            )
+
+            # ------------------------------------------------
+            # ITEM FLAGS
+            #
+            # IMPORTANT:
+            #
+            # The local Payment row is the source of truth.
+            #
+            # ------------------------------------------------
+
+            tshirt_selected = bool(
+                getattr(
+                    participant_payment,
+                    "tshirt_selected",
+                    False
+                )
+            )
+
+            lanyard_selected = bool(
+                getattr(
+                    participant_payment,
+                    "lanyard_selected",
+                    False
+                )
+            )
+
             tshirt_size = getattr(
-                payment,
+                participant_payment,
                 "tshirt_size",
                 None
             )
 
-            if (
+            print(
+                "T-Shirt Selected:",
+                tshirt_selected
+            )
+
+            print(
+                "Lanyard Selected:",
+                lanyard_selected
+            )
+
+            print(
+                "T-Shirt Size:",
                 tshirt_size
+            )
+
+            # ------------------------------------------------
+            # SAVE PAYMONGO IDENTIFIERS
+            # ------------------------------------------------
+
+            if (
+                paymongo_link_id
                 and hasattr(
-                    participant,
-                    "tshirt_size"
+                    participant_payment,
+                    "paymongo_link_id"
                 )
             ):
 
-                participant.tshirt_size = (
-                    tshirt_size
+                participant_payment.paymongo_link_id = (
+                    paymongo_link_id
                 )
 
-        # ====================================================
-        # LANYARD
-        # ====================================================
+            if (
+                paymongo_payment_id
+                and hasattr(
+                    participant_payment,
+                    "paymongo_payment_id"
+                )
+            ):
 
-        if lanyard_selected:
+                participant_payment.paymongo_payment_id = (
+                    paymongo_payment_id
+                )
 
-            print(
-                "Updating Lanyard status to Paid..."
+            if (
+                paymongo_reference
+                and hasattr(
+                    participant_payment,
+                    "paymongo_reference"
+                )
+            ):
+
+                participant_payment.paymongo_reference = (
+                    paymongo_reference
+                )
+
+            # ------------------------------------------------
+            # MARK LOCAL PAYMENT PAID
+            #
+            # This is intentionally idempotent.
+            # If PayMongo sends the webhook twice, it stays Paid.
+            # ------------------------------------------------
+
+            previous_payment_status = str(
+                getattr(
+                    participant_payment,
+                    "status",
+                    ""
+                )
+                or ""
+            ).strip().lower()
+
+            participant_payment.status = (
+                "Paid"
+            )
+
+            if hasattr(
+                participant_payment,
+                "paid_at"
+            ):
+
+                if (
+                    previous_payment_status !=
+                    "paid"
+                ):
+
+                    participant_payment.paid_at = (
+                        now
+                    )
+
+                elif not participant_payment.paid_at:
+
+                    participant_payment.paid_at = (
+                        now
+                    )
+
+            # ------------------------------------------------
+            # T-SHIRT
+            # ------------------------------------------------
+
+            if tshirt_selected:
+
+                print(
+                    "Updating T-Shirt -> Paid"
+                )
+
+                if hasattr(
+                    participant,
+                    "tshirt_status"
+                ):
+
+                    participant.tshirt_status = (
+                        "Paid"
+                    )
+
+                if (
+                    tshirt_size
+                    and
+                    hasattr(
+                        participant,
+                        "tshirt_size"
+                    )
+                ):
+
+                    participant.tshirt_size = (
+                        tshirt_size
+                    )
+
+            # ------------------------------------------------
+            # LANYARD
+            # ------------------------------------------------
+
+            if lanyard_selected:
+
+                print(
+                    "Updating Lanyard -> Paid"
+                )
+
+                if hasattr(
+                    participant,
+                    "lanyard_status"
+                ):
+
+                    participant.lanyard_status = (
+                        "Paid"
+                    )
+
+                else:
+
+                    print(
+                        "WARNING: Participant has no "
+                        "lanyard_status column."
+                    )
+
+            # ------------------------------------------------
+            # REGISTRATION STATUS
+            #
+            # Lanyard is mandatory.
+            #
+            # IMPORTANT:
+            # Only change registration status based on the
+            # resulting lanyard status.
+            # ------------------------------------------------
+
+            lanyard_status = str(
+                getattr(
+                    participant,
+                    "lanyard_status",
+                    ""
+                )
+                or ""
+            ).strip().lower()
+
+            lanyard_paid = (
+                lanyard_status ==
+                "paid"
             )
 
             if hasattr(
                 participant,
-                "lanyard_status"
+                "registration_status"
             ):
 
-                participant.lanyard_status = (
-                    "Paid"
-                )
+                if lanyard_paid:
 
-        # ====================================================
-        # MANDATORY ITEM CHECK
-        # ====================================================
+                    participant.registration_status = (
+                        "Confirmed"
+                    )
 
-        lanyard_status = str(
-            getattr(
+                # Do NOT force Pending here if this webhook
+                # was only for another optional item.
+                #
+                # Existing registration state is preserved
+                # when the mandatory lanyard is still unpaid.
+
+            # ------------------------------------------------
+            # UPDATED TIME
+            # ------------------------------------------------
+
+            if hasattr(
                 participant,
-                "lanyard_status",
-                ""
-            )
-            or ""
-        ).strip().lower()
+                "updated_at"
+            ):
 
-        lanyard_paid = (
-            lanyard_status == "paid"
-        )
+                participant.updated_at = (
+                    now
+                )
 
-        print("=" * 70)
-        print(
-            "MANDATORY ITEM CHECK"
-        )
-        print(
-            "Lanyard Status:",
-            getattr(
-                participant,
-                "lanyard_status",
-                None
-            )
-        )
-        print(
-            "Lanyard Paid:",
-            lanyard_paid
-        )
-        print(
-            "T-Shirt Status:",
-            getattr(
-                participant,
-                "tshirt_status",
-                None
-            )
-        )
-        print("=" * 70)
+            # ------------------------------------------------
+            # ADD RESULT
+            # ------------------------------------------------
+
+            processed_participants.append({
+                "payment_id":
+                    participant_payment.id,
+
+                "participant_id":
+                    participant.id,
+
+                "registration_number":
+                    getattr(
+                        participant,
+                        "registration_number",
+                        None
+                    ),
+
+                "payment_status":
+                    participant_payment.status,
+
+                "tshirt_selected":
+                    tshirt_selected,
+
+                "tshirt_status":
+                    getattr(
+                        participant,
+                        "tshirt_status",
+                        None
+                    ),
+
+                "tshirt_size":
+                    getattr(
+                        participant,
+                        "tshirt_size",
+                        None
+                    ),
+
+                "lanyard_selected":
+                    lanyard_selected,
+
+                "lanyard_status":
+                    getattr(
+                        participant,
+                        "lanyard_status",
+                        None
+                    ),
+
+                "registration_status":
+                    getattr(
+                        participant,
+                        "registration_status",
+                        None
+                    )
+            })
 
         # ====================================================
-        # REGISTRATION STATUS
-        # ====================================================
-
-        if hasattr(
-            participant,
-            "registration_status"
-        ):
-
-            if lanyard_paid:
-
-                participant.registration_status = (
-                    "Confirmed"
-                )
-
-                print(
-                    "Registration Status:",
-                    "Confirmed"
-                )
-
-                print(
-                    "Reason: Mandatory lanyard is Paid."
-                )
-
-            else:
-
-                participant.registration_status = (
-                    "Pending"
-                )
-
-                print(
-                    "Registration Status:",
-                    "Pending"
-                )
-
-                print(
-                    "Reason: Mandatory lanyard is not Paid."
-                )
-
-        # ====================================================
-        # UPDATED TIME
-        # ====================================================
-
-        if hasattr(
-            participant,
-            "updated_at"
-        ):
-
-            participant.updated_at = (
-                datetime.datetime.now()
-            )
-
-        # ====================================================
-        # FLUSH BEFORE COMMIT
+        # FLUSH EVERYTHING
         # ====================================================
 
         try:
 
             db.flush()
 
+            print("=" * 80)
             print(
-                "Participant changes flushed successfully."
+                "ALL PARTICIPANT CHANGES FLUSHED"
             )
+            print("=" * 80)
 
         except Exception as e:
 
             db.rollback()
 
-            print("=" * 70)
             print(
-                "PARTICIPANT FLUSH FAILED"
-            )
-            print(
-                "Error Type:",
-                type(e).__name__
-            )
-            print(
-                "Error:",
+                "Participant flush failed:",
                 repr(e)
             )
-            print("=" * 70)
 
             return JSONResponse(
                 status_code=500,
                 content={
-
                     "received": True,
-
                     "processed": False,
-
                     "payment_type":
-                        "participant",
-
-                    "payment_id":
-                        payment.id,
-
-                    "participant_id":
-                        participant.id,
-
+                        payment_type,
                     "message":
                         "Participant database update failed."
-
                 }
             )
 
         # ====================================================
-        # COMMIT
+        # COMMIT EVERYTHING AS ONE TRANSACTION
         # ====================================================
 
         try:
 
             db.commit()
 
-            print("=" * 70)
+            print("=" * 80)
             print(
-                "PARTICIPANT DATABASE UPDATE SUCCESSFUL"
+                "PARTICIPANT PAYMENT DATABASE UPDATE SUCCESSFUL"
             )
-            print("=" * 70)
+            print(
+                "Participant Count:",
+                len(
+                    processed_participants
+                )
+            )
+            print("=" * 80)
 
         except Exception as e:
 
             db.rollback()
 
-            print("=" * 70)
             print(
-                "PARTICIPANT DATABASE COMMIT FAILED"
-            )
-            print(
-                "Error Type:",
-                type(e).__name__
-            )
-            print(
-                "Error:",
+                "Participant commit failed:",
                 repr(e)
             )
-            print("=" * 70)
 
             return JSONResponse(
                 status_code=500,
                 content={
-
                     "received": True,
-
                     "processed": False,
-
                     "payment_type":
-                        "participant",
-
-                    "payment_id":
-                        payment.id,
-
-                    "participant_id":
-                        participant.id,
-
+                        payment_type,
                     "message":
                         "Participant database update failed."
-
                 }
             )
 
         # ====================================================
-        # REFRESH OBJECTS
+        # REFRESH AND VERIFY
         # ====================================================
 
-        try:
+        final_participants = []
 
-            db.refresh(
-                payment
+        for participant_payment in participant_payments:
+
+            try:
+
+                db.refresh(
+                    participant_payment
+                )
+
+            except Exception as e:
+
+                print(
+                    "Payment refresh failed:",
+                    repr(e)
+                )
+
+            participant_id = getattr(
+                participant_payment,
+                "participant_id",
+                None
             )
 
-            db.refresh(
-                participant
+            participant = None
+
+            if participant_id:
+
+                participant = (
+                    db.query(
+                        Participant
+                    )
+                    .filter(
+                        Participant.id ==
+                        participant_id
+                    )
+                    .first()
+                )
+
+            if not participant:
+                continue
+
+            final_lanyard_status = getattr(
+                participant,
+                "lanyard_status",
+                None
             )
 
-        except Exception as e:
+            final_tshirt_status = getattr(
+                participant,
+                "tshirt_status",
+                None
+            )
 
+            final_registration_status = getattr(
+                participant,
+                "registration_status",
+                None
+            )
+
+            final_lanyard_paid = (
+                str(
+                    final_lanyard_status
+                    or ""
+                ).strip().lower()
+                ==
+                "paid"
+            )
+
+            final_participants.append({
+                "payment_id":
+                    participant_payment.id,
+
+                "participant_id":
+                    participant.id,
+
+                "registration_number":
+                    getattr(
+                        participant,
+                        "registration_number",
+                        None
+                    ),
+
+                "payment_status":
+                    participant_payment.status,
+
+                "tshirt_selected":
+                    bool(
+                        getattr(
+                            participant_payment,
+                            "tshirt_selected",
+                            False
+                        )
+                    ),
+
+                "tshirt_status":
+                    final_tshirt_status,
+
+                "lanyard_selected":
+                    bool(
+                        getattr(
+                            participant_payment,
+                            "lanyard_selected",
+                            False
+                        )
+                    ),
+
+                "lanyard_status":
+                    final_lanyard_status,
+
+                "lanyard_paid":
+                    final_lanyard_paid,
+
+                "registration_status":
+                    final_registration_status
+            })
+
+            print("=" * 80)
             print(
-                "Refresh after commit failed:",
-                repr(e)
+                "FINAL PARTICIPANT STATUS"
             )
-
-        # ====================================================
-        # FINAL DATABASE STATUS
-        # ====================================================
-
-        final_lanyard_status = getattr(
-            participant,
-            "lanyard_status",
-            None
-        )
-
-        final_tshirt_status = getattr(
-            participant,
-            "tshirt_status",
-            None
-        )
-
-        final_registration_status = getattr(
-            participant,
-            "registration_status",
-            None
-        )
-
-        final_lanyard_paid = (
-            str(
+            print(
+                "Payment ID:",
+                participant_payment.id
+            )
+            print(
+                "Participant ID:",
+                participant.id
+            )
+            print(
+                "Payment Status:",
+                participant_payment.status
+            )
+            print(
+                "T-Shirt Status:",
+                final_tshirt_status
+            )
+            print(
+                "Lanyard Status:",
                 final_lanyard_status
-                or ""
-            ).strip().lower()
-            == "paid"
-        )
-
-        print("=" * 70)
-        print(
-            "FINAL PARTICIPANT PAYMENT STATUS"
-        )
-
-        print(
-            "Payment Status:",
-            payment.status
-        )
-
-        print(
-            "T-Shirt Status:",
-            final_tshirt_status
-        )
-
-        print(
-            "Lanyard Status:",
-            final_lanyard_status
-        )
-
-        print(
-            "Lanyard Paid:",
-            final_lanyard_paid
-        )
-
-        print(
-            "Registration Status:",
-            final_registration_status
-        )
-
-        print("=" * 70)
+            )
+            print(
+                "Registration Status:",
+                final_registration_status
+            )
+            print("=" * 80)
 
         # ====================================================
         # PARTICIPANT EMAIL
+        #
+        # Send confirmation for each participant.
+        # A failed email must NOT undo the successful payment.
         # ====================================================
 
-        gmail_success = False
+        email_results = []
 
-        participant_email = getattr(
-            participant,
-            "email",
-            None
-        )
+        for participant_payment in participant_payments:
 
-        print("=" * 70)
-        print(
-            "PARTICIPANT GMAIL PROCESSING"
-        )
-        print(
-            "Email:",
-            participant_email
-        )
-        print("=" * 70)
+            participant_id = getattr(
+                participant_payment,
+                "participant_id",
+                None
+            )
 
-        if participant_email:
+            if not participant_id:
+                continue
+
+            participant = (
+                db.query(
+                    Participant
+                )
+                .filter(
+                    Participant.id ==
+                    participant_id
+                )
+                .first()
+            )
+
+            if not participant:
+                continue
+
+            participant_email = getattr(
+                participant,
+                "email",
+                None
+            )
+
+            if not participant_email:
+
+                print(
+                    "Participant Gmail skipped: no email.",
+                    participant.id
+                )
+
+                email_results.append({
+                    "participant_id":
+                        participant.id,
+                    "sent":
+                        False
+                })
+
+                continue
+
+            gmail_success = False
 
             try:
 
                 gmail_success = bool(
                     await send_participant_payment_confirmation_email(
                         participant,
-                        payment
+                        participant_payment
                     )
                 )
 
                 print(
                     "Participant Gmail Result:",
+                    participant.id,
                     gmail_success
                 )
 
             except Exception as e:
 
-                print("=" * 70)
                 print(
-                    "PARTICIPANT GMAIL FAILED"
-                )
-                print(
-                    "Error Type:",
-                    type(e).__name__
-                )
-                print(
-                    "Error:",
+                    "Participant Gmail failed:",
+                    participant.id,
                     repr(e)
                 )
-                print("=" * 70)
 
-        else:
+            email_results.append({
+                "participant_id":
+                    participant.id,
+                "sent":
+                    gmail_success
+            })
 
-            print(
-                "Participant Gmail skipped: no email."
+        # ====================================================
+        # FINAL RESULT
+        # ====================================================
+
+        all_payment_rows_paid = all(
+            str(
+                getattr(
+                    p,
+                    "status",
+                    ""
+                )
+                or ""
+            ).strip().lower()
+            ==
+            "paid"
+            for p in participant_payments
+        )
+
+        all_lanyards_paid = all(
+            item.get(
+                "lanyard_paid",
+                False
             )
+            for item in final_participants
+        )
 
-        # ====================================================
-        # SUCCESS
-        # ====================================================
+        is_bulk = (
+            len(
+                participant_payments
+            ) > 1
+            or
+            payment_type == "bulk"
+        )
 
-        print("=" * 70)
+        print("=" * 80)
         print(
             "PARTICIPANT PAYMENT COMPLETED"
         )
-        print("=" * 70)
+        print(
+            "Bulk:",
+            is_bulk
+        )
+        print(
+            "Payment Rows:",
+            len(
+                participant_payments
+            )
+        )
+        print(
+            "All Payment Rows Paid:",
+            all_payment_rows_paid
+        )
+        print(
+            "All Lanyards Paid:",
+            all_lanyards_paid
+        )
+        print("=" * 80)
 
         return {
-
             "received": True,
-
             "processed": True,
 
             "payment_type":
-                "participant",
+                "bulk"
+                if is_bulk
+                else "participant",
 
             "event_id":
                 event_id,
@@ -16866,29 +17420,42 @@ async def paymongo_webhook(
             "payment_id":
                 payment.id,
 
-            "participant_id":
-                participant.id,
+            "payment_ids":
+                [
+                    p.id
+                    for p in participant_payments
+                ],
+
+            "participant_ids":
+                [
+                    p.participant_id
+                    for p in participant_payments
+                ],
+
+            "participant_count":
+                len(
+                    participant_payments
+                ),
+
+            "participants":
+                final_participants,
 
             "payment_status":
-                payment.status,
+                "Paid"
+                if all_payment_rows_paid
+                else "Pending",
 
-            "tshirt_selected":
-                tshirt_selected,
+            "payment_success":
+                all_payment_rows_paid,
 
-            "tshirt_status":
-                final_tshirt_status,
+            "all_lanyards_paid":
+                all_lanyards_paid,
 
-            "lanyard_selected":
-                lanyard_selected,
+            "paymongo_amount":
+                paymongo_amount,
 
-            "lanyard_status":
-                final_lanyard_status,
-
-            "lanyard_paid":
-                final_lanyard_paid,
-
-            "registration_status":
-                final_registration_status,
+            "expected_amount":
+                expected_participant_amount,
 
             "paymongo_reference":
                 paymongo_reference,
@@ -16899,18 +17466,8 @@ async def paymongo_webhook(
             "paymongo_link_id":
                 paymongo_link_id,
 
-            "gmail_sent":
-                gmail_success,
-
-            "payment_success":
-                True,
-
-            "mandatory_items_paid":
-                final_lanyard_paid,
-
-            "all_required_items_paid":
-                final_lanyard_paid
-
+            "email_results":
+                email_results
         }
 
     # ========================================================
@@ -16921,17 +17478,15 @@ async def paymongo_webhook(
 
     elif payment_type == "store":
 
-        print("=" * 70)
+        print("=" * 80)
         print(
             "PROCESSING STORE PAYMENT"
         )
-        print("=" * 70)
+        print("=" * 80)
 
-        # ====================================================
-        # DETERMINE STORE ORDER ID
-        #
-        # The Payment row found above may already contain it.
-        # ====================================================
+        # ----------------------------------------------------
+        # RESOLVE STORE ORDER ID
+        # ----------------------------------------------------
 
         if not store_order_id:
 
@@ -16947,67 +17502,50 @@ async def paymongo_webhook(
                     store_order_id
                 ).strip()
 
-        print(
-            "Resolved Store Order ID:",
-            store_order_id
+        if not store_order_id:
+
+            db.rollback()
+
+            return {
+                "received": True,
+                "processed": False,
+                "payment_type": "store",
+                "payment_id":
+                    payment.id,
+                "message":
+                    "Store order ID is missing."
+            }
+
+        # ----------------------------------------------------
+        # FIND ALL STORE PAYMENT ROWS
+        # ----------------------------------------------------
+
+        store_payments = (
+            db.query(
+                Payment
+            )
+            .filter(
+                Payment.store_order_id ==
+                store_order_id,
+                Payment.payment_type.ilike(
+                    "Store"
+                )
+            )
+            .order_by(
+                Payment.id.asc()
+            )
+            .with_for_update()
+            .all()
         )
 
-        # ====================================================
-        # FIND ALL PAYMENT ROWS FOR THIS STORE ORDER
-        #
-        # THIS IS THE IMPORTANT MULTI-ITEM PART.
-        #
-        # Example:
-        #
-        # STORE-ABC
-        #
-        # Payment #101 -> Shirt
-        # Payment #102 -> Souvenir
-        # Payment #103 -> Hat
-        # Payment #104 -> Bag
-        #
-        # ALL FOUR ROWS ARE PROCESSED.
-        # ====================================================
-
-        store_payments = []
-
-        if store_order_id:
-
-            store_payments = (
-                db.query(
-                    Payment
-                )
-                .filter(
-                    Payment.store_order_id ==
-                    store_order_id,
-
-                    Payment.payment_type.ilike(
-                        "Store"
-                    )
-                )
-                .order_by(
-                    Payment.id.asc()
-                )
-                .with_for_update()
-                .all()
-            )
-
-        # ====================================================
-        # FALLBACK: MATCH ALL ROWS BY PAYMONGO LINK ID
-        # ====================================================
+        # ----------------------------------------------------
+        # FALLBACK LINK ID
+        # ----------------------------------------------------
 
         if (
             not store_payments
             and paymongo_link_id
-            and hasattr(
-                Payment,
-                "paymongo_link_id"
-            )
         ):
-
-            print(
-                "Falling back to PayMongo Link ID."
-            )
 
             store_payments = (
                 db.query(
@@ -17016,7 +17554,6 @@ async def paymongo_webhook(
                 .filter(
                     Payment.paymongo_link_id ==
                     paymongo_link_id,
-
                     Payment.payment_type.ilike(
                         "Store"
                     )
@@ -17028,167 +17565,30 @@ async def paymongo_webhook(
                 .all()
             )
 
-        # ====================================================
-        # FALLBACK: USE THE FOUND PAYMENT'S ORDER ID
-        # ====================================================
-
-        if (
-            not store_payments
-            and getattr(
-                payment,
-                "store_order_id",
-                None
-            )
-        ):
-
-            store_order_id = str(
-                payment.store_order_id
-            ).strip()
-
-            print(
-                "Retrying Store Order lookup:",
-                store_order_id
-            )
-
-            store_payments = (
-                db.query(
-                    Payment
-                )
-                .filter(
-                    Payment.store_order_id ==
-                    store_order_id
-                )
-                .order_by(
-                    Payment.id.asc()
-                )
-                .with_for_update()
-                .all()
-            )
-
-        # ====================================================
-        # STORE ORDER NOT FOUND
-        # ====================================================
-
         if not store_payments:
 
             db.rollback()
 
-            print("=" * 70)
-            print(
-                "STORE ORDER PAYMENTS NOT FOUND"
-            )
-            print("=" * 70)
-
             return {
-
                 "received": True,
-
                 "processed": False,
-
-                "payment_type":
-                    "store",
-
-                "payment_id":
-                    payment.id,
-
+                "payment_type": "store",
                 "store_order_id":
                     store_order_id,
-
-                "paymongo_link_id":
-                    paymongo_link_id,
-
                 "message":
                     "No store payment rows found for this order."
-
             }
 
-        # ====================================================
-        # PRINT CART
-        # ========================================================
-
-        print("=" * 70)
         print(
-            "STORE CART PAYMENT ROWS FOUND:",
-            len(store_payments)
+            "Store payment rows:",
+            len(
+                store_payments
+            )
         )
-        print("=" * 70)
 
-        for store_payment in store_payments:
-
-            print(
-                "Payment ID:",
-                store_payment.id,
-                "| Store Item ID:",
-                getattr(
-                    store_payment,
-                    "store_item_id",
-                    None
-                ),
-                "| Quantity:",
-                getattr(
-                    store_payment,
-                    "store_quantity",
-                    None
-                ),
-                "| Status:",
-                getattr(
-                    store_payment,
-                    "status",
-                    None
-                ),
-                "| Amount:",
-                getattr(
-                    store_payment,
-                    "amount",
-                    None
-                )
-            )
-
-        # ====================================================
-        # ENSURE STORE ORDER ID
-        # ====================================================
-
-        if not store_order_id:
-
-            store_order_id = getattr(
-                store_payments[0],
-                "store_order_id",
-                None
-            )
-
-            if store_order_id:
-
-                store_order_id = str(
-                    store_order_id
-                ).strip()
-
-        if not store_order_id:
-
-            db.rollback()
-
-            return {
-
-                "received": True,
-
-                "processed": False,
-
-                "payment_type":
-                    "store",
-
-                "payment_id":
-                    payment.id,
-
-                "message":
-                    "Store order ID is missing."
-
-            }
-
-        # ====================================================
-        # SAVE PAYMONGO IDENTIFIERS TO ALL ROWS
-        #
-        # Because all rows belong to the same PayMongo
-        # payment link, every row receives the identifiers.
-        # ====================================================
+        # ----------------------------------------------------
+        # SAVE PAYMONGO INFORMATION
+        # ----------------------------------------------------
 
         for store_payment in store_payments:
 
@@ -17228,19 +17628,9 @@ async def paymongo_webhook(
                     paymongo_reference
                 )
 
-        # ====================================================
-        # CALCULATE EXPECTED CART TOTAL
-        #
-        # Each Payment.amount is stored in CENTAVOS.
-        #
-        # Example:
-        #
-        # Item 1 = ₱500 -> 50000
-        # Item 2 = ₱300 -> 30000
-        # Item 3 = ₱200 -> 20000
-        #
-        # Expected = 100000
-        # ====================================================
+        # ----------------------------------------------------
+        # CALCULATE CART TOTAL
+        # ----------------------------------------------------
 
         expected_cart_amount = 0
 
@@ -17269,54 +17659,25 @@ async def paymongo_webhook(
                 db.rollback()
 
                 return {
-
                     "received": True,
-
                     "processed": False,
-
                     "payment_type":
                         "store",
-
                     "store_order_id":
                         store_order_id,
-
                     "payment_id":
                         store_payment.id,
-
                     "message":
                         "Invalid store payment row amount."
-
                 }
 
             expected_cart_amount += (
                 row_amount
             )
 
-        print("=" * 70)
-        print(
-            "STORE CART AMOUNT VERIFICATION"
-        )
-        print(
-            "PayMongo Amount:",
-            paymongo_amount
-        )
-        print(
-            "Expected Cart Amount:",
-            expected_cart_amount
-        )
-        print("=" * 70)
-
-        # ====================================================
-        # VERIFY TOTAL PAYMENT AMOUNT
-        #
-        # PayMongo charged ONE payment link for the ENTIRE
-        # cart.
-        #
-        # Therefore:
-        #
-        # PayMongo amount == SUM(all Payment.amount)
-        #
-        # ====================================================
+        # ----------------------------------------------------
+        # VERIFY AMOUNT
+        # ----------------------------------------------------
 
         if (
             paymongo_amount > 0
@@ -17325,141 +17686,80 @@ async def paymongo_webhook(
             expected_cart_amount
         ):
 
-            print("=" * 70)
             print(
                 "STORE CART AMOUNT MISMATCH"
             )
-            print(
-                "PayMongo:",
-                paymongo_amount
-            )
-            print(
-                "Expected:",
-                expected_cart_amount
-            )
-            print("=" * 70)
 
             db.rollback()
 
             return {
-
                 "received": True,
-
                 "processed": False,
-
                 "payment_type":
                     "store",
-
                 "store_order_id":
                     store_order_id,
-
-                "item_count":
-                    len(
-                        store_payments
-                    ),
-
                 "paymongo_amount":
                     paymongo_amount,
-
                 "expected_amount":
                     expected_cart_amount,
-
                 "message":
                     "Payment amount does not match the store cart total."
-
             }
 
-        # ====================================================
-        # CHECK IF ENTIRE ORDER IS ALREADY PAID
-        #
-        # This prevents duplicate webhook deliveries from
-        # reducing inventory a second time.
-        # ====================================================
+        # ----------------------------------------------------
+        # CHECK ALREADY PAID
+        # ----------------------------------------------------
 
         all_already_paid = all(
-
             str(
                 getattr(
-                    store_payment,
+                    p,
                     "status",
                     ""
                 )
                 or ""
             ).strip().lower()
-            == "paid"
-
-            for store_payment
-            in store_payments
+            ==
+            "paid"
+            for p in store_payments
         )
 
         if all_already_paid:
 
-            print("=" * 70)
-            print(
-                "STORE ORDER ALREADY FULLY PAID"
-            )
-            print(
-                "Store Order ID:",
-                store_order_id
-            )
-            print(
-                "Item Count:",
-                len(store_payments)
-            )
-            print("=" * 70)
-
             try:
-
                 db.commit()
-
             except Exception:
-
                 db.rollback()
 
             return {
-
                 "received": True,
-
                 "processed": True,
-
                 "already_processed": True,
-
                 "payment_type":
                     "store",
-
                 "store_order_id":
                     store_order_id,
-
                 "payment_id":
                     payment.id,
-
                 "payment_ids":
                     [
                         p.id
                         for p in store_payments
                     ],
-
-                "item_count":
-                    len(store_payments),
-
                 "payment_status":
                     "Paid",
-
                 "payment_success":
                     True
-
             }
 
-        # ====================================================
-        # PREPARE UNPAID ITEMS
-        # ====================================================
+        # ----------------------------------------------------
+        # PROCESS UNPAID STORE ROWS
+        # ----------------------------------------------------
 
         unpaid_payments = [
-
             p
-
             for p in store_payments
-
             if str(
                 getattr(
                     p,
@@ -17469,42 +17769,15 @@ async def paymongo_webhook(
                 or ""
             ).strip().lower()
             != "paid"
-
         ]
-
-        print("=" * 70)
-        print(
-            "STORE ITEMS ALREADY PAID:",
-            len(store_payments) -
-            len(unpaid_payments)
-        )
-        print(
-            "STORE ITEMS STILL TO PROCESS:",
-            len(unpaid_payments)
-        )
-        print("=" * 70)
-
-        # ====================================================
-        # PROCESS EVERY UNPAID CART ITEM
-        #
-        # We first validate ALL inventory.
-        #
-        # This is important:
-        #
-        # If a 10-item cart has one item unavailable,
-        # we do NOT mark the first 9 as paid and leave
-        # the 10th unpaid.
-        #
-        # The transaction is rolled back instead.
-        # ====================================================
 
         store_items_to_update = []
 
-        for store_payment in unpaid_payments:
+        # ----------------------------------------------------
+        # VALIDATE ALL INVENTORY FIRST
+        # ----------------------------------------------------
 
-            # ------------------------------------------------
-            # STORE ITEM ID
-            # ------------------------------------------------
+        for store_payment in unpaid_payments:
 
             store_item_id = getattr(
                 store_payment,
@@ -17517,28 +17790,17 @@ async def paymongo_webhook(
                 db.rollback()
 
                 return {
-
                     "received": True,
-
                     "processed": False,
-
                     "payment_type":
                         "store",
-
                     "store_order_id":
                         store_order_id,
-
                     "payment_id":
                         store_payment.id,
-
                     "message":
                         "Store item ID is missing."
-
                 }
-
-            # ------------------------------------------------
-            # QUANTITY
-            # ------------------------------------------------
 
             try:
 
@@ -17563,34 +17825,17 @@ async def paymongo_webhook(
                 db.rollback()
 
                 return {
-
                     "received": True,
-
                     "processed": False,
-
                     "payment_type":
                         "store",
-
                     "store_order_id":
                         store_order_id,
-
                     "payment_id":
                         store_payment.id,
-
-                    "store_item_id":
-                        store_item_id,
-
                     "message":
                         "Invalid store quantity."
-
                 }
-
-            # ------------------------------------------------
-            # FIND STORE ITEM
-            #
-            # with_for_update() locks the inventory row while
-            # this order is being processed.
-            # ------------------------------------------------
 
             store_item = (
                 db.query(
@@ -17609,36 +17854,25 @@ async def paymongo_webhook(
                 db.rollback()
 
                 return {
-
                     "received": True,
-
                     "processed": False,
-
                     "payment_type":
                         "store",
-
                     "store_order_id":
                         store_order_id,
-
                     "payment_id":
                         store_payment.id,
-
                     "store_item_id":
                         store_item_id,
-
                     "message":
                         "Store item not found."
-
                 }
-
-            # ------------------------------------------------
-            # INVENTORY
-            # ------------------------------------------------
 
             try:
 
                 current_inventory = int(
-                    store_item.quantity or 0
+                    store_item.quantity
+                    or 0
                 )
 
             except (
@@ -17650,84 +17884,41 @@ async def paymongo_webhook(
 
             if current_inventory < store_quantity:
 
-                print("=" * 70)
-                print(
-                    "INSUFFICIENT INVENTORY"
-                )
-                print(
-                    "Store Order:",
-                    store_order_id
-                )
-                print(
-                    "Item:",
-                    store_item.item_name
-                )
-                print(
-                    "Requested:",
-                    store_quantity
-                )
-                print(
-                    "Available:",
-                    current_inventory
-                )
-                print("=" * 70)
-
                 db.rollback()
 
                 return {
-
                     "received": True,
-
                     "processed": False,
-
                     "payment_type":
                         "store",
-
                     "store_order_id":
                         store_order_id,
-
                     "payment_id":
                         store_payment.id,
-
                     "store_item_id":
                         store_item.id,
-
                     "item_name":
                         store_item.item_name,
-
                     "requested_quantity":
                         store_quantity,
-
                     "available_quantity":
                         current_inventory,
-
                     "message":
                         "Insufficient inventory."
-
                 }
 
-            # ------------------------------------------------
-            # STORE FOR LATER UPDATE
-            # ------------------------------------------------
-
             store_items_to_update.append({
-
                 "payment":
                     store_payment,
-
                 "store_item":
                     store_item,
-
                 "quantity":
                     store_quantity
-
             })
 
-        # ====================================================
-        # ALL INVENTORY VALIDATED
-        #
-        # Now safely process every cart item.
-        # ====================================================
+        # ----------------------------------------------------
+        # PROCESS ALL VALIDATED STORE ITEMS
+        # ----------------------------------------------------
 
         processed_items = []
 
@@ -17748,7 +17939,7 @@ async def paymongo_webhook(
             ]
 
             # ------------------------------------------------
-            # MARK PAYMENT PAID
+            # MARK PAID
             # ------------------------------------------------
 
             store_payment.status = (
@@ -17765,7 +17956,7 @@ async def paymongo_webhook(
                 )
 
             # ------------------------------------------------
-            # SAVE PAYMONGO DATA
+            # PAYMONGO IDS
             # ------------------------------------------------
 
             if (
@@ -17809,7 +18000,8 @@ async def paymongo_webhook(
             # ------------------------------------------------
 
             old_inventory = int(
-                store_item.quantity or 0
+                store_item.quantity
+                or 0
             )
 
             store_item.quantity = (
@@ -17826,12 +18018,7 @@ async def paymongo_webhook(
                     now
                 )
 
-            # ------------------------------------------------
-            # RESULT
-            # ------------------------------------------------
-
             processed_items.append({
-
                 "payment_id":
                     store_payment.id,
 
@@ -17849,348 +18036,120 @@ async def paymongo_webhook(
 
                 "payment_status":
                     store_payment.status
-
             })
 
-            print(
-                "STORE ITEM PAID:",
-                store_item.item_name,
-                "x",
-                store_quantity,
-                "| Remaining:",
-                store_item.quantity
-            )
-
-        # ====================================================
-        # COMMIT ENTIRE CART AS ONE TRANSACTION
-        #
-        # Either every pending cart item is processed,
-        # or the transaction is rolled back.
-        # ====================================================
+        # ----------------------------------------------------
+        # COMMIT STORE TRANSACTION
+        # ----------------------------------------------------
 
         try:
 
             db.commit()
 
-            print("=" * 70)
-            print(
-                "STORE CART DATABASE UPDATE SUCCESSFUL"
-            )
-            print(
-                "Store Order ID:",
-                store_order_id
-            )
-            print(
-                "Total Cart Items:",
-                len(store_payments)
-            )
-            print(
-                "Items Processed:",
-                len(processed_items)
-            )
-            print("=" * 70)
-
         except Exception as e:
 
             db.rollback()
 
-            print("=" * 70)
             print(
-                "STORE CART DATABASE COMMIT FAILED"
-            )
-            print(
-                "Error Type:",
-                type(e).__name__
-            )
-            print(
-                "Error:",
+                "Store commit failed:",
                 repr(e)
             )
-            print("=" * 70)
 
             return JSONResponse(
                 status_code=500,
                 content={
-
                     "received": True,
-
                     "processed": False,
-
                     "payment_type":
                         "store",
-
                     "store_order_id":
                         store_order_id,
-
                     "message":
                         "Store cart database update failed."
-
                 }
             )
 
-        # ====================================================
-        # REFRESH ALL PAYMENT ROWS
-        # ====================================================
-
-        for store_payment in store_payments:
-
-            try:
-
-                db.refresh(
-                    store_payment
-                )
-
-            except Exception as e:
-
-                print(
-                    "Payment refresh failed:",
-                    repr(e)
-                )
-
-        # ====================================================
-        # FINAL ITEM INFORMATION
-        # ====================================================
-
-        final_items = []
-
-        for store_payment in store_payments:
-
-            store_item_id = getattr(
-                store_payment,
-                "store_item_id",
-                None
-            )
-
-            store_item = (
-                db.query(
-                    StoreItem
-                )
-                .filter(
-                    StoreItem.id ==
-                    store_item_id
-                )
-                .first()
-            )
-
-            try:
-
-                final_quantity = int(
-                    getattr(
-                        store_payment,
-                        "store_quantity",
-                        1
-                    )
-                    or 1
-                )
-
-            except (
-                ValueError,
-                TypeError
-            ):
-
-                final_quantity = 1
-
-            final_items.append({
-
-                "payment_id":
-                    store_payment.id,
-
-                "store_item_id":
-                    store_item_id,
-
-                "item_name":
-                    (
-                        store_item.item_name
-                        if store_item
-                        else None
-                    ),
-
-                "quantity":
-                    final_quantity,
-
-                "size":
-                    getattr(
-                        store_payment,
-                        "store_size",
-                        None
-                    ),
-
-                "amount":
-                    getattr(
-                        store_payment,
-                        "amount",
-                        None
-                    ),
-
-                "payment_status":
-                    getattr(
-                        store_payment,
-                        "status",
-                        None
-                    ),
-
-                "remaining_inventory":
-                    (
-                        getattr(
-                            store_item,
-                            "quantity",
-                            None
-                        )
-                        if store_item
-                        else None
-                    )
-
-            })
-
-        # ====================================================
-        # FINAL ORDER STATUS
-        # ====================================================
-
-        all_paid = all(
-
-            str(
-                getattr(
-                    p,
-                    "status",
-                    ""
-                )
-                or ""
-            ).strip().lower()
-            == "paid"
-
-            for p in store_payments
-        )
+        # ----------------------------------------------------
+        # FINAL STATUS
+        # ----------------------------------------------------
 
         final_order_status = (
             "Paid"
-            if all_paid
-            else "Pending"
+            if all(
+                str(
+                    getattr(
+                        p,
+                        "status",
+                        ""
+                    )
+                    or ""
+                ).strip().lower()
+                ==
+                "paid"
+                for p in store_payments
+            )
+            else
+            "Pending"
         )
 
-        print("=" * 70)
+        print("=" * 80)
         print(
-            "FINAL STORE ORDER STATUS"
+            "STORE PAYMENT COMPLETED"
         )
         print(
             "Store Order ID:",
             store_order_id
         )
         print(
-            "Item Count:",
-            len(store_payments)
-        )
-        print(
-            "All Items Paid:",
-            all_paid
+            "Payment Rows:",
+            len(
+                store_payments
+            )
         )
         print(
             "Order Status:",
             final_order_status
         )
-        print("=" * 70)
-
-        # ====================================================
-        # STORE SUCCESS
-        # ====================================================
-
-        print("=" * 70)
-        print(
-            "STORE PAYMENT COMPLETED"
-        )
-        print(
-            "STORE CART ITEM COUNT:",
-            len(store_payments)
-        )
-        print(
-            "STORE ORDER:",
-            store_order_id
-        )
-        print("=" * 70)
+        print("=" * 80)
 
         return {
-
             "received": True,
-
             "processed": True,
-
             "payment_type":
                 "store",
-
             "event_id":
                 event_id,
-
             "store_order_id":
                 store_order_id,
-
-            # ------------------------------------------------
-            # ORIGINAL PAYMENT
-            # ------------------------------------------------
-
             "payment_id":
                 payment.id,
-
-            # ------------------------------------------------
-            # ALL PAYMENT ROWS
-            # ------------------------------------------------
-
             "payment_ids":
                 [
                     p.id
                     for p in store_payments
                 ],
-
-            # ------------------------------------------------
-            # CART COUNT
-            # ------------------------------------------------
-
             "item_count":
-                len(store_payments),
-
-            # ------------------------------------------------
-            # ITEMS
-            # ------------------------------------------------
-
+                len(
+                    store_payments
+                ),
             "items":
-                final_items,
-
-            # ------------------------------------------------
-            # TOTAL
-            # ------------------------------------------------
-
+                processed_items,
             "paymongo_amount":
                 paymongo_amount,
-
             "expected_cart_amount":
                 expected_cart_amount,
-
             "total_amount":
-                (
-                    expected_cart_amount / 100
-                ),
-
-            # ------------------------------------------------
-            # STATUS
-            # ------------------------------------------------
-
+                expected_cart_amount / 100,
             "payment_status":
                 final_order_status,
-
             "payment_success":
-                all_paid,
-
-            # ------------------------------------------------
-            # PAYMONGO
-            # ------------------------------------------------
-
+                final_order_status == "Paid",
             "paymongo_reference":
                 paymongo_reference,
-
             "paymongo_payment_id":
                 paymongo_payment_id,
-
             "paymongo_link_id":
                 paymongo_link_id
-
         }
 
     # ========================================================
@@ -18199,7 +18158,7 @@ async def paymongo_webhook(
 
     db.rollback()
 
-    print("=" * 70)
+    print("=" * 80)
     print(
         "UNSUPPORTED PAYMENT TYPE"
     )
@@ -18207,23 +18166,17 @@ async def paymongo_webhook(
         "Payment Type:",
         payment_type
     )
-    print("=" * 70)
+    print("=" * 80)
 
     return {
-
         "received": True,
-
         "processed": False,
-
         "payment_id":
             payment.id,
-
         "payment_type":
             payment_type,
-
         "message":
             "Payment type is not supported."
-
     }
 
 
