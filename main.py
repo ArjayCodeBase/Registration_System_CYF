@@ -2852,15 +2852,68 @@ class StaffUpdateSchema(BaseModel):
 # PAYMENT CREATE SCHEMA
 # ======================================================
 
+# ======================================================
+# PAYMENT CREATE SCHEMA
+# SUPPORTS SINGLE + BULK PARTICIPANTS
+# ======================================================
+
 class PaymentCreateSchema(BaseModel):
 
-    participant_id: int
+    # --------------------------------------------------
+    # SINGLE PARTICIPANT
+    # --------------------------------------------------
+
+    participant_id: Optional[int] = None
+
+
+    # --------------------------------------------------
+    # BULK PARTICIPANTS
+    # --------------------------------------------------
+
+    participant_ids: Optional[List[int]] = None
+
+
+    # --------------------------------------------------
+    # ITEM SELECTION
+    # --------------------------------------------------
 
     tshirt_selected: bool = False
 
     lanyard_selected: bool = False
 
+
+    # --------------------------------------------------
+    # OPTIONAL ALIASES
+    #
+    # Allows frontend to send:
+    #
+    # "tshirt"
+    # "lanyard"
+    #
+    # in addition to:
+    #
+    # "tshirt_selected"
+    # "lanyard_selected"
+    # --------------------------------------------------
+
+    tshirt: Optional[bool] = None
+
+    lanyard: Optional[bool] = None
+
+
+    # --------------------------------------------------
+    # T-SHIRT SIZE
+    # --------------------------------------------------
+
     tshirt_size: Optional[str] = None
+
+
+    # --------------------------------------------------
+    # BULK FLAG
+    # --------------------------------------------------
+
+    bulk: bool = False
+    
 
 
 # ============================================================
