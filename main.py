@@ -54,7 +54,6 @@ import hashlib
 import time
 import uuid
 import os
-import smtplib
 from dotenv import load_dotenv
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -79,7 +78,9 @@ app = FastAPI(
 
 app.mount(
     "/uploads",
-    StaticFiles(directory="uploads"),
+    StaticFiles(
+        directory="/app/data/uploads"
+    ),
     name="uploads"
 )
 
@@ -93,16 +94,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-import httpx
-import base64
 
-from fastapi_mail import (
-    FastMail,
-    MessageSchema,
-    ConnectionConfig
-)
 
-from pydantic import EmailStr
+
+
 
 load_dotenv()
 
@@ -130,45 +125,425 @@ PAYMONGO_WEBHOOK_SECRET = os.getenv(
 )
 
 
+
 # ======================================================
-# GMAIL CONFIGURATION
+# GMAIL API CONFIGURATION
+# ======================================================
+#
+# Gmail API is used for ALL system emails.
+#
+# Railway environment variables required:
+#
+#   GMAIL_CLIENT_ID
+#   GMAIL_CLIENT_SECRET
+#   GMAIL_REFRESH_TOKEN
+#   GMAIL_SENDER_EMAIL
+#
+# No credentials.json is required.
+# No token.json is required.
+# No custom domain is required.
+#
+# The Gmail account associated with the refresh token
+# is the account that sends the system emails.
 # ======================================================
 
-GMAIL_USERNAME = os.getenv(
-    "GMAIL_USERNAME"
-)
+import os
+import json
+import base64
+import httpx
+import asyncio
 
-GMAIL_APP_PASSWORD = os.getenv(
-    "GMAIL_APP_PASSWORD"
-)
+from dotenv import load_dotenv
+
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
+from google.oauth2.credentials import Credentials
+from googleapiclient.discovery import build
+
+
+# ======================================================
+# LOAD ENVIRONMENT VARIABLES
+# ======================================================
+
+load_dotenv()
+
+
+# ======================================================
+# GMAIL SETTINGS
+# ======================================================
+
+GMAIL_CLIENT_ID = os.getenv(
+    "GMAIL_CLIENT_ID",
+    ""
+).strip()
+
+
+GMAIL_CLIENT_SECRET = os.getenv(
+    "GMAIL_CLIENT_SECRET",
+    ""
+).strip()
+
+
+GMAIL_REFRESH_TOKEN = os.getenv(
+    "GMAIL_REFRESH_TOKEN",
+    ""
+).strip()
+
+
+GMAIL_SENDER_EMAIL = os.getenv(
+    "GMAIL_SENDER_EMAIL",
+    ""
+).strip()
+
 
 GMAIL_FROM_NAME = os.getenv(
     "GMAIL_FROM_NAME",
     "Event Registration System"
-)
+).strip()
 
 
+GMAIL_SCOPES = [
+    "https://www.googleapis.com/auth/gmail.send"
+]
 
 
+# ======================================================
+# VALIDATE GMAIL CONFIGURATION
+# ======================================================
+
+def _validate_gmail_config():
+    """
+    Make sure all required Gmail environment variables
+    are configured.
+
+    This does NOT expose the secret values.
+    """
+
+    missing = []
+
+    if not GMAIL_CLIENT_ID:
+        missing.append("GMAIL_CLIENT_ID")
+
+    if not GMAIL_CLIENT_SECRET:
+        missing.append("GMAIL_CLIENT_SECRET")
+
+    if not GMAIL_REFRESH_TOKEN:
+        missing.append("GMAIL_REFRESH_TOKEN")
+
+    if not GMAIL_SENDER_EMAIL:
+        missing.append("GMAIL_SENDER_EMAIL")
+
+    if missing:
+        raise RuntimeError(
+            "Gmail environment variables are missing: "
+            + ", ".join(missing)
+        )
 
 
+# ======================================================
+# LOAD GMAIL OAUTH CREDENTIALS
+# ======================================================
+
+def _load_gmail_credentials():
+    """
+    Create Gmail OAuth credentials directly from Railway
+    environment variables.
+
+    No credentials.json.
+    No token.json.
+    No local browser authorization.
+    """
+
+    _validate_gmail_config()
+
+    try:
+
+        creds = Credentials(
+            token=None,
+
+            refresh_token=GMAIL_REFRESH_TOKEN,
+
+            token_uri="https://oauth2.googleapis.com/token",
+
+            client_id=GMAIL_CLIENT_ID,
+
+            client_secret=GMAIL_CLIENT_SECRET,
+
+            scopes=GMAIL_SCOPES
+        )
+
+        return creds
+
+    except Exception as exc:
+
+        raise RuntimeError(
+            "Unable to create Gmail OAuth credentials "
+            "from environment variables."
+        ) from exc
 
 
-mail_conf = ConnectionConfig(
-    MAIL_USERNAME=GMAIL_USERNAME,
-    MAIL_PASSWORD=GMAIL_APP_PASSWORD,
-    MAIL_FROM=GMAIL_USERNAME,
-    MAIL_PORT=587,
-    MAIL_SERVER="smtp.gmail.com",
-    MAIL_STARTTLS=True,
-    MAIL_SSL_TLS=False,
-    USE_CREDENTIALS=True,
-    VALIDATE_CERTS=True
-)
+# ======================================================
+# GET GMAIL SERVICE
+# ======================================================
+
+def get_gmail_service():
+    """
+    Return an authenticated Gmail API service.
+
+    The Gmail API client automatically uses the refresh
+    token to obtain an access token when necessary.
+    """
+
+    creds = _load_gmail_credentials()
+
+    return build(
+        "gmail",
+        "v1",
+        credentials=creds,
+        cache_discovery=False
+    )
 
 
+# ======================================================
+# SEND EMAIL THROUGH GMAIL
+# ======================================================
+
+def send_gmail(
+    recipient_email: str,
+    subject: str,
+    html_body: str | None = None,
+    plain_body: str | None = None,
+    reply_to: str | None = None
+):
+    """
+    Send an email through the Gmail API.
+
+    Sender:
+        GMAIL_SENDER_EMAIL
+
+    Recipient:
+        recipient_email
+
+    No Resend.
+    No custom domain.
+    No credentials.json.
+    No token.json.
+    """
+
+    # --------------------------------------------------
+    # CLEAN INPUT
+    # --------------------------------------------------
+
+    recipient_email = str(
+        recipient_email or ""
+    ).strip()
 
 
+    subject = str(
+        subject or ""
+    ).replace(
+        "\r",
+        " "
+    ).replace(
+        "\n",
+        " "
+    ).strip()
+
+
+    # --------------------------------------------------
+    # VALIDATE
+    # --------------------------------------------------
+
+    if not recipient_email:
+
+        raise ValueError(
+            "Recipient email is empty."
+        )
+
+
+    if not subject:
+
+        raise ValueError(
+            "Email subject is empty."
+        )
+
+
+    _validate_gmail_config()
+
+
+    # --------------------------------------------------
+    # DEFAULT PLAIN TEXT
+    # --------------------------------------------------
+
+    if plain_body is None:
+
+        plain_body = (
+            "This email contains HTML content. "
+            "Please use an HTML-compatible email client."
+        )
+
+
+    if html_body is None:
+
+        html_body = ""
+
+
+    # --------------------------------------------------
+    # CREATE MIME MESSAGE
+    # --------------------------------------------------
+
+    message = MIMEMultipart(
+        "alternative"
+    )
+
+
+    message["To"] = recipient_email
+
+
+    message["From"] = (
+        f"{GMAIL_FROM_NAME} "
+        f"<{GMAIL_SENDER_EMAIL}>"
+    )
+
+
+    message["Subject"] = subject
+
+
+    if reply_to:
+
+        message["Reply-To"] = str(
+            reply_to
+        ).strip()
+
+
+    # --------------------------------------------------
+    # PLAIN TEXT PART
+    # --------------------------------------------------
+
+    message.attach(
+        MIMEText(
+            str(plain_body),
+            "plain",
+            "utf-8"
+        )
+    )
+
+
+    # --------------------------------------------------
+    # HTML PART
+    # --------------------------------------------------
+
+    if html_body:
+
+        message.attach(
+            MIMEText(
+                str(html_body),
+                "html",
+                "utf-8"
+            )
+        )
+
+
+    # --------------------------------------------------
+    # ENCODE MESSAGE
+    # --------------------------------------------------
+
+    raw_message = (
+        base64.urlsafe_b64encode(
+            message.as_bytes()
+        )
+        .decode("utf-8")
+    )
+
+
+    # --------------------------------------------------
+    # SEND THROUGH GMAIL API
+    # --------------------------------------------------
+
+    try:
+
+        service = get_gmail_service()
+
+
+        result = (
+            service
+            .users()
+            .messages()
+            .send(
+                userId="me",
+                body={
+                    "raw": raw_message
+                }
+            )
+            .execute()
+        )
+
+
+    except Exception as exc:
+
+        print(
+            "GMAIL SEND ERROR:",
+            repr(exc)
+        )
+
+        raise RuntimeError(
+            f"Unable to send Gmail message: {exc}"
+        ) from exc
+
+
+    # --------------------------------------------------
+    # RETURN RESULT
+    # --------------------------------------------------
+
+    return {
+
+        "success": True,
+
+        "provider": "gmail_api",
+
+        "sender":
+            GMAIL_SENDER_EMAIL,
+
+        "recipient":
+            recipient_email,
+
+        "subject":
+            subject,
+
+        "message_id":
+            result.get("id")
+
+    }
+
+
+# ======================================================
+# ASYNC GMAIL SENDER
+# ======================================================
+
+async def send_gmail_async(
+    recipient_email: str,
+    subject: str,
+    html_body: str | None = None,
+    plain_body: str | None = None,
+    reply_to: str | None = None
+):
+    """
+    Async Gmail API sender.
+
+    Gmail's Python client is synchronous, so the actual
+    send operation runs in a worker thread so that it does
+    not block FastAPI.
+    """
+
+    return await asyncio.to_thread(
+        send_gmail,
+        recipient_email,
+        subject,
+        html_body,
+        plain_body,
+        reply_to
+    )
 
 
 
@@ -916,6 +1291,18 @@ class Payment(Base):
     # PayMongo metadata.
     #
 
+
+    # ========================================================
+    # STORE
+    # ========================================================
+
+    store_order_id = Column(
+        String(100),
+        nullable=True,
+        index=True
+    )
+
+    
     store_item_id = Column(
         Integer,
         ForeignKey("store_items.id"),
@@ -1553,437 +1940,437 @@ class CashDonationTotal(Base):
 
 
 
-def migrate_cash_sponsorship_cash_total_added():
-
-    with engine.connect() as connection:
-
-        # ====================================================
-        # CHECK EXISTING COLUMNS
-        # ====================================================
-
-        result = connection.execute(
-            text("""
-                PRAGMA table_info(cash_sponsorships)
-            """)
-        )
-
-        columns = {
-            row[1]: row
-            for row in result
-        }
-
-        # ====================================================
-        # COLUMN DOES NOT EXIST
-        # ====================================================
-        #
-        # If the column does not exist at all, simply create
-        # it as INTEGER.
-        #
-        # ====================================================
-
-        if "cash_total_added" not in columns:
-
-            connection.execute(
-                text("""
-                    ALTER TABLE cash_sponsorships
-                    ADD COLUMN cash_total_added
-                    INTEGER NOT NULL DEFAULT 0
-                """)
-            )
-
-            connection.commit()
-
-            print(
-                "Created cash_total_added INTEGER column."
-            )
-
-            return
-
-        # ====================================================
-        # EXISTING COLUMN
-        #
-        # SQLite cannot directly change BOOLEAN -> INTEGER.
-        #
-        # Rename the old column first.
-        # ====================================================
-
-        old_column = columns[
-            "cash_total_added"
-        ]
-
-        old_type = str(
-            old_column[2] or ""
-        ).upper()
-
-        print(
-            "Existing cash_total_added type:",
-            old_type
-        )
-
-        # ====================================================
-        # ALREADY INTEGER
-        # ====================================================
-
-        if old_type in [
-            "INTEGER",
-            "INT",
-            "BIGINT"
-        ]:
-
-            print(
-                "cash_total_added is already INTEGER."
-            )
-
-            connection.commit()
-
-            return
-
-        # ====================================================
-        # RENAME OLD BOOLEAN COLUMN
-        # ====================================================
-
-        connection.execute(
-            text("""
-                ALTER TABLE cash_sponsorships
-                RENAME COLUMN cash_total_added
-                TO cash_total_added_old
-            """)
-        )
-
-        # ====================================================
-        # CREATE CORRECT INTEGER COLUMN
-        # ====================================================
-
-        connection.execute(
-            text("""
-                ALTER TABLE cash_sponsorships
-                ADD COLUMN cash_total_added
-                INTEGER NOT NULL DEFAULT 0
-            """)
-        )
-
-        # ====================================================
-        # BACKFILL OLD PAID CASH SPONSORSHIPS
-        # ====================================================
-        #
-        # Old records did not have cash_total_added.
-        #
-        # If an old sponsorship is already Paid, assume its
-        # donation amount has already been received.
-        #
-        # donation_amount is stored in centavos.
-        #
-        # Example:
-        #
-        # donation_amount = 50000
-        # cash_total_added = 500
-        #
-        # This prevents old paid sponsorships from being added
-        # again when the webhook is triggered.
-        #
-        # ====================================================
-
-        connection.execute(
-            text("""
-                UPDATE cash_sponsorships
-                SET cash_total_added =
-                    CAST(
-                        COALESCE(
-                            donation_amount,
-                            0
-                        ) / 100
-                        AS INTEGER
-                    )
-                WHERE LOWER(
-                    COALESCE(
-                        payment_status,
-                        ''
-                    )
-                ) = 'paid'
-            """)
-        )
-
-        # ====================================================
-        # OLD PENDING / FAILED RECORDS
-        #
-        # These should remain 0 because their donation has not
-        # been added to CashDonationTotal.
-        # ====================================================
-
-        connection.execute(
-            text("""
-                UPDATE cash_sponsorships
-                SET cash_total_added = 0
-                WHERE LOWER(
-                    COALESCE(
-                        payment_status,
-                        ''
-                    )
-                ) != 'paid'
-            """)
-        )
-
-        # ====================================================
-        # DROP OLD BOOLEAN COLUMN
-        # ====================================================
-        #
-        # SQLite versions supporting DROP COLUMN can remove it.
-        #
-        # ====================================================
-
-        try:
-
-            connection.execute(
-                text("""
-                    ALTER TABLE cash_sponsorships
-                    DROP COLUMN cash_total_added_old
-                """)
-            )
-
-        except Exception as e:
-
-            print(
-                "WARNING: Could not drop old "
-                "cash_total_added_old column:",
-                repr(e)
-            )
-
-            print(
-                "The old column can remain temporarily."
-            )
-
-        # ====================================================
-        # COMMIT
-        # ====================================================
-
-        connection.commit()
-
-        print(
-            "cash_total_added successfully migrated "
-            "to INTEGER."
-        )
-
-
-
-
-
-
-
-def migrate_staff_table():
-    inspector = inspect(engine)
-
-    columns = {
-        column["name"]
-        for column in inspector.get_columns("staff")
-    }
-
-    with engine.begin() as conn:
-
-        if "position" not in columns:
-            conn.execute(
-                text("ALTER TABLE staff ADD COLUMN position VARCHAR")
-            )
-
-        if "sex" in columns:
-            pass
-
-        if "birthday" in columns:
-            pass
-
-        if "contact" in columns:
-            pass
-
-        if "local_church" in columns:
-            pass
-
-        if "sector" in columns:
-            pass
-
-
-# ============================================================
-# MIGRATE CASH SPONSORSHIP COLUMNS
-# ============================================================
-
-def migrate_cash_sponsorship_columns():
-
-    with engine.connect() as connection:
-
-        # ----------------------------------------------------
-        # CHECK EXISTING COLUMNS
-        # ----------------------------------------------------
-
-        result = connection.execute(
-            text(
-                "PRAGMA table_info(cash_sponsorships)"
-            )
-        )
-
-        columns = [
-            row[1]
-            for row in result
-        ]
-
-        # ----------------------------------------------------
-        # ADD CASH TOTAL ADDED
-        # ----------------------------------------------------
-
-        if "cash_total_added" not in columns:
-
-            connection.execute(
-                text("""
-                    ALTER TABLE cash_sponsorships
-                    ADD COLUMN cash_total_added
-                    BOOLEAN
-                    DEFAULT 0
-                    NOT NULL
-                """)
-            )
-
-            connection.commit()
-
-        # ----------------------------------------------------
-        # IMPORTANT:
-        #
-        # OLD PAID SPONSORSHIPS
-        #
-        # These records existed before
-        # cash_total_added was created.
-        #
-        # Mark them as already added so the new
-        # sponsorship logic does NOT add them again.
-        # ----------------------------------------------------
-
-        connection.execute(
-            text("""
-                UPDATE cash_sponsorships
-
-                SET cash_total_added = 1
-
-                WHERE
-                    LOWER(
-                        TRIM(
-                            COALESCE(
-                                payment_status,
-                                ''
-                            )
-                        )
-                    )
-
-                    IN (
-                        'paid',
-                        'success',
-                        'succeeded',
-                        'completed'
-                    )
-            """)
-        )
-
-        # ----------------------------------------------------
-        # OLD PENDING / FAILED RECORDS
-        #
-        # These should NOT be added to the cash total.
-        # ----------------------------------------------------
-
-        connection.execute(
-            text("""
-                UPDATE cash_sponsorships
-
-                SET cash_total_added = 0
-
-                WHERE
-                    LOWER(
-                        TRIM(
-                            COALESCE(
-                                payment_status,
-                                ''
-                            )
-                        )
-                    )
-
-                    NOT IN (
-                        'paid',
-                        'success',
-                        'succeeded',
-                        'completed'
-                    )
-            """)
-        )
-
-        # ----------------------------------------------------
-        # COMMIT
-        # ----------------------------------------------------
-
-        connection.commit()
-
-
-
-
-# ============================================================
-# MIGRATE STORE ITEM TABLE
-# ============================================================
-
-def migrate_store_item_columns():
-
-    with engine.connect() as connection:
-
-        result = connection.execute(
-            text("PRAGMA table_info(store_items)")
-        )
-
-        columns = [
-            row[1]
-            for row in result
-        ]
-
-        # ----------------------------------------------------
-        # CATEGORY
-        # ----------------------------------------------------
-
-        if "category" not in columns:
-
-            connection.execute(
-                text("""
-                    ALTER TABLE store_items
-                    ADD COLUMN category
-                    VARCHAR(50)
-                    NOT NULL
-                    DEFAULT 'others'
-                """)
-            )
-
-        # ----------------------------------------------------
-        # SIZES
-        # ----------------------------------------------------
-
-        if "sizes" not in columns:
-
-            connection.execute(
-                text("""
-                    ALTER TABLE store_items
-                    ADD COLUMN sizes
-                    TEXT
-                """)
-            )
-
-        # ----------------------------------------------------
-        # IMAGE
-        # ----------------------------------------------------
-
-        if "image_url" not in columns:
-
-            connection.execute(
-                text("""
-                    ALTER TABLE store_items
-                    ADD COLUMN image_url
-                    TEXT
-                """)
-            )
-
-        # ----------------------------------------------------
-        # COMMIT
-        # ----------------------------------------------------
-
-        connection.commit()
+# def migrate_cash_sponsorship_cash_total_added():
+
+#     with engine.connect() as connection:
+
+#         # ====================================================
+#         # CHECK EXISTING COLUMNS
+#         # ====================================================
+
+#         result = connection.execute(
+#             text("""
+#                 PRAGMA table_info(cash_sponsorships)
+#             """)
+#         )
+
+#         columns = {
+#             row[1]: row
+#             for row in result
+#         }
+
+#         # ====================================================
+#         # COLUMN DOES NOT EXIST
+#         # ====================================================
+#         #
+#         # If the column does not exist at all, simply create
+#         # it as INTEGER.
+#         #
+#         # ====================================================
+
+#         if "cash_total_added" not in columns:
+
+#             connection.execute(
+#                 text("""
+#                     ALTER TABLE cash_sponsorships
+#                     ADD COLUMN cash_total_added
+#                     INTEGER NOT NULL DEFAULT 0
+#                 """)
+#             )
+
+#             connection.commit()
+
+#             print(
+#                 "Created cash_total_added INTEGER column."
+#             )
+
+#             return
+
+#         # ====================================================
+#         # EXISTING COLUMN
+#         #
+#         # SQLite cannot directly change BOOLEAN -> INTEGER.
+#         #
+#         # Rename the old column first.
+#         # ====================================================
+
+#         old_column = columns[
+#             "cash_total_added"
+#         ]
+
+#         old_type = str(
+#             old_column[2] or ""
+#         ).upper()
+
+#         print(
+#             "Existing cash_total_added type:",
+#             old_type
+#         )
+
+#         # ====================================================
+#         # ALREADY INTEGER
+#         # ====================================================
+
+#         if old_type in [
+#             "INTEGER",
+#             "INT",
+#             "BIGINT"
+#         ]:
+
+#             print(
+#                 "cash_total_added is already INTEGER."
+#             )
+
+#             connection.commit()
+
+#             return
+
+#         # ====================================================
+#         # RENAME OLD BOOLEAN COLUMN
+#         # ====================================================
+
+#         connection.execute(
+#             text("""
+#                 ALTER TABLE cash_sponsorships
+#                 RENAME COLUMN cash_total_added
+#                 TO cash_total_added_old
+#             """)
+#         )
+
+#         # ====================================================
+#         # CREATE CORRECT INTEGER COLUMN
+#         # ====================================================
+
+#         connection.execute(
+#             text("""
+#                 ALTER TABLE cash_sponsorships
+#                 ADD COLUMN cash_total_added
+#                 INTEGER NOT NULL DEFAULT 0
+#             """)
+#         )
+
+#         # ====================================================
+#         # BACKFILL OLD PAID CASH SPONSORSHIPS
+#         # ====================================================
+#         #
+#         # Old records did not have cash_total_added.
+#         #
+#         # If an old sponsorship is already Paid, assume its
+#         # donation amount has already been received.
+#         #
+#         # donation_amount is stored in centavos.
+#         #
+#         # Example:
+#         #
+#         # donation_amount = 50000
+#         # cash_total_added = 500
+#         #
+#         # This prevents old paid sponsorships from being added
+#         # again when the webhook is triggered.
+#         #
+#         # ====================================================
+
+#         connection.execute(
+#             text("""
+#                 UPDATE cash_sponsorships
+#                 SET cash_total_added =
+#                     CAST(
+#                         COALESCE(
+#                             donation_amount,
+#                             0
+#                         ) / 100
+#                         AS INTEGER
+#                     )
+#                 WHERE LOWER(
+#                     COALESCE(
+#                         payment_status,
+#                         ''
+#                     )
+#                 ) = 'paid'
+#             """)
+#         )
+
+#         # ====================================================
+#         # OLD PENDING / FAILED RECORDS
+#         #
+#         # These should remain 0 because their donation has not
+#         # been added to CashDonationTotal.
+#         # ====================================================
+
+#         connection.execute(
+#             text("""
+#                 UPDATE cash_sponsorships
+#                 SET cash_total_added = 0
+#                 WHERE LOWER(
+#                     COALESCE(
+#                         payment_status,
+#                         ''
+#                     )
+#                 ) != 'paid'
+#             """)
+#         )
+
+#         # ====================================================
+#         # DROP OLD BOOLEAN COLUMN
+#         # ====================================================
+#         #
+#         # SQLite versions supporting DROP COLUMN can remove it.
+#         #
+#         # ====================================================
+
+#         try:
+
+#             connection.execute(
+#                 text("""
+#                     ALTER TABLE cash_sponsorships
+#                     DROP COLUMN cash_total_added_old
+#                 """)
+#             )
+
+#         except Exception as e:
+
+#             print(
+#                 "WARNING: Could not drop old "
+#                 "cash_total_added_old column:",
+#                 repr(e)
+#             )
+
+#             print(
+#                 "The old column can remain temporarily."
+#             )
+
+#         # ====================================================
+#         # COMMIT
+#         # ====================================================
+
+#         connection.commit()
+
+#         print(
+#             "cash_total_added successfully migrated "
+#             "to INTEGER."
+#         )
+
+
+
+
+
+
+
+# def migrate_staff_table():
+#     inspector = inspect(engine)
+
+#     columns = {
+#         column["name"]
+#         for column in inspector.get_columns("staff")
+#     }
+
+#     with engine.begin() as conn:
+
+#         if "position" not in columns:
+#             conn.execute(
+#                 text("ALTER TABLE staff ADD COLUMN position VARCHAR")
+#             )
+
+#         if "sex" in columns:
+#             pass
+
+#         if "birthday" in columns:
+#             pass
+
+#         if "contact" in columns:
+#             pass
+
+#         if "local_church" in columns:
+#             pass
+
+#         if "sector" in columns:
+#             pass
+
+
+# # ============================================================
+# # MIGRATE CASH SPONSORSHIP COLUMNS
+# # ============================================================
+
+# def migrate_cash_sponsorship_columns():
+
+#     with engine.connect() as connection:
+
+#         # ----------------------------------------------------
+#         # CHECK EXISTING COLUMNS
+#         # ----------------------------------------------------
+
+#         result = connection.execute(
+#             text(
+#                 "PRAGMA table_info(cash_sponsorships)"
+#             )
+#         )
+
+#         columns = [
+#             row[1]
+#             for row in result
+#         ]
+
+#         # ----------------------------------------------------
+#         # ADD CASH TOTAL ADDED
+#         # ----------------------------------------------------
+
+#         if "cash_total_added" not in columns:
+
+#             connection.execute(
+#                 text("""
+#                     ALTER TABLE cash_sponsorships
+#                     ADD COLUMN cash_total_added
+#                     BOOLEAN
+#                     DEFAULT 0
+#                     NOT NULL
+#                 """)
+#             )
+
+#             connection.commit()
+
+#         # ----------------------------------------------------
+#         # IMPORTANT:
+#         #
+#         # OLD PAID SPONSORSHIPS
+#         #
+#         # These records existed before
+#         # cash_total_added was created.
+#         #
+#         # Mark them as already added so the new
+#         # sponsorship logic does NOT add them again.
+#         # ----------------------------------------------------
+
+#         connection.execute(
+#             text("""
+#                 UPDATE cash_sponsorships
+
+#                 SET cash_total_added = 1
+
+#                 WHERE
+#                     LOWER(
+#                         TRIM(
+#                             COALESCE(
+#                                 payment_status,
+#                                 ''
+#                             )
+#                         )
+#                     )
+
+#                     IN (
+#                         'paid',
+#                         'success',
+#                         'succeeded',
+#                         'completed'
+#                     )
+#             """)
+#         )
+
+#         # ----------------------------------------------------
+#         # OLD PENDING / FAILED RECORDS
+#         #
+#         # These should NOT be added to the cash total.
+#         # ----------------------------------------------------
+
+#         connection.execute(
+#             text("""
+#                 UPDATE cash_sponsorships
+
+#                 SET cash_total_added = 0
+
+#                 WHERE
+#                     LOWER(
+#                         TRIM(
+#                             COALESCE(
+#                                 payment_status,
+#                                 ''
+#                             )
+#                         )
+#                     )
+
+#                     NOT IN (
+#                         'paid',
+#                         'success',
+#                         'succeeded',
+#                         'completed'
+#                     )
+#             """)
+#         )
+
+#         # ----------------------------------------------------
+#         # COMMIT
+#         # ----------------------------------------------------
+
+#         connection.commit()
+
+
+
+
+# # ============================================================
+# # MIGRATE STORE ITEM TABLE
+# # ============================================================
+
+# def migrate_store_item_columns():
+
+#     with engine.connect() as connection:
+
+#         result = connection.execute(
+#             text("PRAGMA table_info(store_items)")
+#         )
+
+#         columns = [
+#             row[1]
+#             for row in result
+#         ]
+
+#         # ----------------------------------------------------
+#         # CATEGORY
+#         # ----------------------------------------------------
+
+#         if "category" not in columns:
+
+#             connection.execute(
+#                 text("""
+#                     ALTER TABLE store_items
+#                     ADD COLUMN category
+#                     VARCHAR(50)
+#                     NOT NULL
+#                     DEFAULT 'others'
+#                 """)
+#             )
+
+#         # ----------------------------------------------------
+#         # SIZES
+#         # ----------------------------------------------------
+
+#         if "sizes" not in columns:
+
+#             connection.execute(
+#                 text("""
+#                     ALTER TABLE store_items
+#                     ADD COLUMN sizes
+#                     TEXT
+#                 """)
+#             )
+
+#         # ----------------------------------------------------
+#         # IMAGE
+#         # ----------------------------------------------------
+
+#         if "image_url" not in columns:
+
+#             connection.execute(
+#                 text("""
+#                     ALTER TABLE store_items
+#                     ADD COLUMN image_url
+#                     TEXT
+#                 """)
+#             )
+
+#         # ----------------------------------------------------
+#         # COMMIT
+#         # ----------------------------------------------------
+
+#         connection.commit()
 
 
 
@@ -1993,11 +2380,509 @@ def migrate_store_item_columns():
 
     
     
-# ======================================================
+# # # ======================================================
+# # # MIGRATE PAYMENT TABLE
+# # # ======================================================
+
+# # def migrate_payment_columns():
+
+# #     with engine.connect() as connection:
+
+# #         result = connection.execute(
+# #             text("PRAGMA table_info(payments)")
+# #         )
+
+# #         columns = [
+# #             row[1]
+# #             for row in result
+# #         ]
+
+# #         # ----------------------------------------------
+# #         # PAYMENT TYPE
+# #         # ----------------------------------------------
+
+# #         if "payment_type" not in columns:
+
+# #             connection.execute(
+# #                 text("""
+# #                     ALTER TABLE payments
+# #                     ADD COLUMN payment_type
+# #                     VARCHAR(30)
+# #                     NOT NULL
+# #                     DEFAULT 'Participant'
+# #                 """)
+# #             )
+
+# #         # ----------------------------------------------
+# #         # SPONSORSHIP TIER
+# #         # ----------------------------------------------
+
+# #         if "sponsorship_tier" not in columns:
+
+# #             connection.execute(
+# #                 text("""
+# #                     ALTER TABLE payments
+# #                     ADD COLUMN sponsorship_tier
+# #                     VARCHAR(30)
+# #                 """)
+# #             )
+
+# #         # ----------------------------------------------
+# #         # SPONSOR ID
+# #         # ----------------------------------------------
+
+# #         if "sponsor_id" not in columns:
+
+# #             connection.execute(
+# #                 text("""
+# #                     ALTER TABLE payments
+# #                     ADD COLUMN sponsor_id
+# #                     INTEGER
+# #                 """)
+# #             )
+
+# #         # ----------------------------------------------
+# #         # DESCRIPTION
+# #         # ----------------------------------------------
+
+# #         if "description" not in columns:
+
+# #             connection.execute(
+# #                 text("""
+# #                     ALTER TABLE payments
+# #                     ADD COLUMN description
+# #                     VARCHAR(500)
+# #                 """)
+# #             )
+
+# #         # ----------------------------------------------
+# #         # CUSTOMER NAME
+# #         # ----------------------------------------------
+
+# #         if "customer_name" not in columns:
+
+# #             connection.execute(
+# #                 text("""
+# #                     ALTER TABLE payments
+# #                     ADD COLUMN customer_name
+# #                     VARCHAR(150)
+# #                 """)
+# #             )
+
+# #         # ----------------------------------------------
+# #         # CUSTOMER CONTACT
+# #         # ----------------------------------------------
+
+# #         if "customer_contact" not in columns:
+
+# #             connection.execute(
+# #                 text("""
+# #                     ALTER TABLE payments
+# #                     ADD COLUMN customer_contact
+# #                     VARCHAR(50)
+# #                 """)
+# #             )
+
+# #         # ----------------------------------------------
+# #         # CUSTOMER EMAIL
+# #         # ----------------------------------------------
+
+# #         if "customer_email" not in columns:
+
+# #             connection.execute(
+# #                 text("""
+# #                     ALTER TABLE payments
+# #                     ADD COLUMN customer_email
+# #                     VARCHAR(255)
+# #                 """)
+# #             )
+
+# #         connection.commit()
+
+
+# # # ======================================================
+# # # MAKE PARTICIPANT ID NULLABLE
+# # #
+# # # REQUIRED FOR STORE PAYMENTS
+# # # ======================================================
+
+# # def migrate_payment_participant_nullable():
+
+# #     with engine.connect() as connection:
+
+# #         # --------------------------------------------------
+# #         # CHECK PAYMENTS TABLE
+# #         # --------------------------------------------------
+
+# #         result = connection.execute(
+# #             text("""
+# #                 PRAGMA table_info(payments)
+# #             """)
+# #         )
+
+# #         columns = list(result)
+
+# #         participant_column = None
+
+# #         for column in columns:
+
+# #             # PRAGMA table_info:
+# #             #
+# #             # column[0] = cid
+# #             # column[1] = name
+# #             # column[2] = type
+# #             # column[3] = notnull
+# #             # column[4] = default
+# #             # column[5] = primary key
+
+# #             if column[1] == "participant_id":
+
+# #                 participant_column = column
+
+# #                 break
+
+# #         # --------------------------------------------------
+# #         # PARTICIPANT COLUMN NOT FOUND
+# #         # --------------------------------------------------
+
+# #         if participant_column is None:
+
+# #             raise RuntimeError(
+# #                 "payments.participant_id column was not found."
+# #             )
+
+# #         # --------------------------------------------------
+# #         # ALREADY NULLABLE
+# #         # --------------------------------------------------
+
+# #         if participant_column[3] == 0:
+
+# #             print(
+# #                 "Payment migration: "
+# #                 "participant_id is already nullable."
+# #             )
+
+# #             return
+
+# #         # --------------------------------------------------
+# #         # GET ORIGINAL TABLE SQL
+# #         # --------------------------------------------------
+
+# #         result = connection.execute(
+# #             text("""
+# #                 SELECT sql
+# #                 FROM sqlite_master
+# #                 WHERE type = 'table'
+# #                 AND name = 'payments'
+# #             """)
+# #         )
+
+# #         row = result.fetchone()
+
+# #         if not row or not row[0]:
+
+# #             raise RuntimeError(
+# #                 "Unable to read payments table definition."
+# #             )
+
+# #         original_sql = row[0]
+
+# #         # --------------------------------------------------
+# #         # RENAME ORIGINAL TABLE
+# #         # --------------------------------------------------
+
+# #         connection.execute(
+# #             text("""
+# #                 ALTER TABLE payments
+# #                 RENAME TO payments_old
+# #             """)
+# #         )
+
+# #         # --------------------------------------------------
+# #         # CHANGE PARTICIPANT_ID
+# #         #
+# #         # Remove NOT NULL from participant_id only.
+# #         # --------------------------------------------------
+
+# #         new_sql = original_sql
+
+# #         replacements = [
+
+# #             (
+# #                 '"participant_id" INTEGER NOT NULL',
+# #                 '"participant_id" INTEGER'
+# #             ),
+
+# #             (
+# #                 '`participant_id` INTEGER NOT NULL',
+# #                 '`participant_id` INTEGER'
+# #             ),
+
+# #             (
+# #                 'participant_id INTEGER NOT NULL',
+# #                 'participant_id INTEGER'
+# #             ),
+
+# #             (
+# #                 '"participant_id" INTEGER NOT NULL DEFAULT',
+# #                 '"participant_id" INTEGER DEFAULT'
+# #             ),
+
+# #             (
+# #                 '`participant_id` INTEGER NOT NULL DEFAULT',
+# #                 '`participant_id` INTEGER DEFAULT'
+# #             ),
+
+# #             (
+# #                 'participant_id INTEGER NOT NULL DEFAULT',
+# #                 'participant_id INTEGER DEFAULT'
+# #             )
+# #         ]
+
+# #         for old_text, new_text in replacements:
+
+# #             new_sql = new_sql.replace(
+# #                 old_text,
+# #                 new_text
+# #             )
+
+# #         # --------------------------------------------------
+# #         # CHANGE TABLE NAME
+# #         # --------------------------------------------------
+
+# #         new_sql = new_sql.replace(
+# #             '"payments"',
+# #             '"payments_new"',
+# #             1
+# #         )
+
+# #         new_sql = new_sql.replace(
+# #             '`payments`',
+# #             '`payments_new`',
+# #             1
+# #         )
+
+# #         # Handle unquoted CREATE TABLE payments
+# #         if (
+# #             "CREATE TABLE payments_new"
+# #             not in new_sql
+# #         ):
+
+# #             new_sql = new_sql.replace(
+# #                 "CREATE TABLE payments",
+# #                 "CREATE TABLE payments_new",
+# #                 1
+# #             )
+
+# #         # --------------------------------------------------
+# #         # VERIFY PARTICIPANT_ID IS NOW NULLABLE
+# #         # --------------------------------------------------
+
+# #         if (
+# #             'participant_id INTEGER NOT NULL'
+# #             in new_sql
+# #             or
+# #             '"participant_id" INTEGER NOT NULL'
+# #             in new_sql
+# #             or
+# #             '`participant_id` INTEGER NOT NULL'
+# #             in new_sql
+# #         ):
+
+# #             # Roll back before raising the error.
+# #             connection.rollback()
+
+# #             raise RuntimeError(
+# #                 "Unable to make payments.participant_id nullable. "
+# #                 "The existing SQLite table definition has an "
+# #                 "unexpected format."
+# #             )
+
+# #         # --------------------------------------------------
+# #         # CREATE NEW PAYMENTS TABLE
+# #         # --------------------------------------------------
+
+# #         connection.execute(
+# #             text(new_sql)
+# #         )
+
+# #         # --------------------------------------------------
+# #         # GET COLUMN NAMES
+# #         # --------------------------------------------------
+
+# #         column_result = connection.execute(
+# #             text("""
+# #                 PRAGMA table_info(payments_old)
+# #             """)
+# #         )
+
+# #         column_names = [
+# #             row[1]
+# #             for row in column_result
+# #         ]
+
+# #         if not column_names:
+
+# #             connection.rollback()
+
+# #             raise RuntimeError(
+# #                 "Unable to read columns from payments_old."
+# #             )
+
+# #         column_list = ", ".join(
+# #             f'"{column}"'
+# #             for column in column_names
+# #         )
+
+# #         # --------------------------------------------------
+# #         # COPY EXISTING PAYMENT DATA
+# #         # --------------------------------------------------
+
+# #         connection.execute(
+# #             text(
+# #                 f"""
+# #                 INSERT INTO payments_new (
+# #                     {column_list}
+# #                 )
+# #                 SELECT
+# #                     {column_list}
+# #                 FROM payments_old
+# #                 """
+# #             )
+# #         )
+
+# #         # --------------------------------------------------
+# #         # REMOVE OLD TABLE
+# #         # --------------------------------------------------
+
+# #         connection.execute(
+# #             text("""
+# #                 DROP TABLE payments_old
+# #             """)
+# #         )
+
+# #         # --------------------------------------------------
+# #         # RENAME NEW TABLE
+# #         # --------------------------------------------------
+
+# #         connection.execute(
+# #             text("""
+# #                 ALTER TABLE payments_new
+# #                 RENAME TO payments
+# #             """)
+# #         )
+
+# #         connection.commit()
+
+# #         print(
+# #             "Payment migration: "
+# #             "participant_id is now nullable."
+# #         )
+
+
+# # ======================================================
+# # STAFF DATABASE MIGRATION
+# # ======================================================
+
+# def migrate_staff_columns():
+#     """Add Staff.position and allow profile fields to remain empty for admin-created placeholders."""
+#     from sqlalchemy import text
+
+#     with engine.begin() as connection:
+#         columns = connection.execute(text("PRAGMA table_info(staff)")).fetchall()
+#         if not columns:
+#             return
+
+#         names = {row[1] for row in columns}
+#         if "position" not in names:
+#             connection.execute(text("ALTER TABLE staff ADD COLUMN position VARCHAR(100)"))
+
+#         # SQLite cannot directly change NOT NULL columns. Rebuild only when the
+#         # existing staff table still has the old NOT NULL profile columns.
+#         info = connection.execute(text("PRAGMA table_info(staff)")).fetchall()
+#         notnull = {row[1]: row[3] for row in info}
+#         needs_rebuild = any(notnull.get(col) == 1 for col in [
+#             "sex", "birthday", "contact", "local_church", "sector"
+#         ])
+
+#         if not needs_rebuild:
+#             return
+
+#         connection.execute(text("PRAGMA foreign_keys=OFF"))
+#         connection.execute(text("DROP TABLE IF EXISTS staff_new"))
+#         connection.execute(text("""
+#             CREATE TABLE staff_new (
+#                 id INTEGER PRIMARY KEY,
+#                 event_id INTEGER NOT NULL,
+#                 fname VARCHAR(100) NOT NULL,
+#                 mname VARCHAR(100),
+#                 lname VARCHAR(100) NOT NULL,
+#                 position VARCHAR(100) NOT NULL DEFAULT '',
+#                 sex VARCHAR(20),
+#                 birthday DATE,
+#                 contact VARCHAR(20),
+#                 local_church VARCHAR(150),
+#                 sector VARCHAR(100),
+#                 is_archived INTEGER DEFAULT 0,
+#                 created_at DATETIME,
+#                 updated_at DATETIME
+#             )
+#         """))
+#         connection.execute(text("""
+#             INSERT INTO staff_new
+#             (id,event_id,fname,mname,lname,position,sex,birthday,contact,local_church,sector,is_archived,created_at,updated_at)
+#             SELECT id,event_id,fname,mname,lname,COALESCE(position,''),sex,birthday,contact,local_church,sector,is_archived,created_at,updated_at
+#             FROM staff
+#         """))
+#         connection.execute(text("DROP TABLE staff"))
+#         connection.execute(text("ALTER TABLE staff_new RENAME TO staff"))
+#         connection.execute(text("CREATE INDEX IF NOT EXISTS ix_staff_id ON staff (id)"))
+#         connection.execute(text("PRAGMA foreign_keys=ON"))
+
+
+# # ======================================================
+# # CREATE TABLES
+# # ======================================================
+
+# Base.metadata.create_all(
+#     bind=engine
+# )
+
+
+# # ======================================================
+# # RUN STAFF MIGRATION
+# # ======================================================
+
+# migrate_staff_columns()
+
+
+# # ======================================================
+# # RUN PAYMENT MIGRATIONS
+# # ======================================================
+
+# # migrate_payment_columns()
+
+
+# # ======================================================
+# # MAKE STORE PAYMENTS POSSIBLE
+# # ======================================================
+
+# # migrate_payment_participant_nullable()
+
+# migrate_store_item_columns()
+
+# migrate_cash_sponsorship_columns()
+
+# migrate_staff_table()
+
+
+
+# ============================================================
 # MIGRATE PAYMENT TABLE
-# ======================================================
+# ADD STORE ORDER ID
+# ============================================================
 
-def migrate_payment_columns():
+def migrate_payment_store_order_id():
 
     with engine.connect() as connection:
 
@@ -2010,483 +2895,36 @@ def migrate_payment_columns():
             for row in result
         ]
 
-        # ----------------------------------------------
-        # PAYMENT TYPE
-        # ----------------------------------------------
+        # ----------------------------------------------------
+        # STORE ORDER ID
+        # ----------------------------------------------------
 
-        if "payment_type" not in columns:
-
-            connection.execute(
-                text("""
-                    ALTER TABLE payments
-                    ADD COLUMN payment_type
-                    VARCHAR(30)
-                    NOT NULL
-                    DEFAULT 'Participant'
-                """)
-            )
-
-        # ----------------------------------------------
-        # SPONSORSHIP TIER
-        # ----------------------------------------------
-
-        if "sponsorship_tier" not in columns:
+        if "store_order_id" not in columns:
 
             connection.execute(
                 text("""
                     ALTER TABLE payments
-                    ADD COLUMN sponsorship_tier
-                    VARCHAR(30)
+                    ADD COLUMN store_order_id
+                    VARCHAR(100)
                 """)
             )
 
-        # ----------------------------------------------
-        # SPONSOR ID
-        # ----------------------------------------------
-
-        if "sponsor_id" not in columns:
-
-            connection.execute(
-                text("""
-                    ALTER TABLE payments
-                    ADD COLUMN sponsor_id
-                    INTEGER
-                """)
-            )
-
-        # ----------------------------------------------
-        # DESCRIPTION
-        # ----------------------------------------------
-
-        if "description" not in columns:
-
-            connection.execute(
-                text("""
-                    ALTER TABLE payments
-                    ADD COLUMN description
-                    VARCHAR(500)
-                """)
-            )
-
-        # ----------------------------------------------
-        # CUSTOMER NAME
-        # ----------------------------------------------
-
-        if "customer_name" not in columns:
-
-            connection.execute(
-                text("""
-                    ALTER TABLE payments
-                    ADD COLUMN customer_name
-                    VARCHAR(150)
-                """)
-            )
-
-        # ----------------------------------------------
-        # CUSTOMER CONTACT
-        # ----------------------------------------------
-
-        if "customer_contact" not in columns:
-
-            connection.execute(
-                text("""
-                    ALTER TABLE payments
-                    ADD COLUMN customer_contact
-                    VARCHAR(50)
-                """)
-            )
-
-        # ----------------------------------------------
-        # CUSTOMER EMAIL
-        # ----------------------------------------------
-
-        if "customer_email" not in columns:
-
-            connection.execute(
-                text("""
-                    ALTER TABLE payments
-                    ADD COLUMN customer_email
-                    VARCHAR(255)
-                """)
-            )
+        # ----------------------------------------------------
+        # COMMIT
+        # ----------------------------------------------------
 
         connection.commit()
 
 
-# ======================================================
-# MAKE PARTICIPANT ID NULLABLE
-#
-# REQUIRED FOR STORE PAYMENTS
-# ======================================================
+migrate_payment_store_order_id()
 
-def migrate_payment_participant_nullable():
 
-    with engine.connect() as connection:
 
-        # --------------------------------------------------
-        # CHECK PAYMENTS TABLE
-        # --------------------------------------------------
 
-        result = connection.execute(
-            text("""
-                PRAGMA table_info(payments)
-            """)
-        )
 
-        columns = list(result)
 
-        participant_column = None
 
-        for column in columns:
 
-            # PRAGMA table_info:
-            #
-            # column[0] = cid
-            # column[1] = name
-            # column[2] = type
-            # column[3] = notnull
-            # column[4] = default
-            # column[5] = primary key
-
-            if column[1] == "participant_id":
-
-                participant_column = column
-
-                break
-
-        # --------------------------------------------------
-        # PARTICIPANT COLUMN NOT FOUND
-        # --------------------------------------------------
-
-        if participant_column is None:
-
-            raise RuntimeError(
-                "payments.participant_id column was not found."
-            )
-
-        # --------------------------------------------------
-        # ALREADY NULLABLE
-        # --------------------------------------------------
-
-        if participant_column[3] == 0:
-
-            print(
-                "Payment migration: "
-                "participant_id is already nullable."
-            )
-
-            return
-
-        # --------------------------------------------------
-        # GET ORIGINAL TABLE SQL
-        # --------------------------------------------------
-
-        result = connection.execute(
-            text("""
-                SELECT sql
-                FROM sqlite_master
-                WHERE type = 'table'
-                AND name = 'payments'
-            """)
-        )
-
-        row = result.fetchone()
-
-        if not row or not row[0]:
-
-            raise RuntimeError(
-                "Unable to read payments table definition."
-            )
-
-        original_sql = row[0]
-
-        # --------------------------------------------------
-        # RENAME ORIGINAL TABLE
-        # --------------------------------------------------
-
-        connection.execute(
-            text("""
-                ALTER TABLE payments
-                RENAME TO payments_old
-            """)
-        )
-
-        # --------------------------------------------------
-        # CHANGE PARTICIPANT_ID
-        #
-        # Remove NOT NULL from participant_id only.
-        # --------------------------------------------------
-
-        new_sql = original_sql
-
-        replacements = [
-
-            (
-                '"participant_id" INTEGER NOT NULL',
-                '"participant_id" INTEGER'
-            ),
-
-            (
-                '`participant_id` INTEGER NOT NULL',
-                '`participant_id` INTEGER'
-            ),
-
-            (
-                'participant_id INTEGER NOT NULL',
-                'participant_id INTEGER'
-            ),
-
-            (
-                '"participant_id" INTEGER NOT NULL DEFAULT',
-                '"participant_id" INTEGER DEFAULT'
-            ),
-
-            (
-                '`participant_id` INTEGER NOT NULL DEFAULT',
-                '`participant_id` INTEGER DEFAULT'
-            ),
-
-            (
-                'participant_id INTEGER NOT NULL DEFAULT',
-                'participant_id INTEGER DEFAULT'
-            )
-        ]
-
-        for old_text, new_text in replacements:
-
-            new_sql = new_sql.replace(
-                old_text,
-                new_text
-            )
-
-        # --------------------------------------------------
-        # CHANGE TABLE NAME
-        # --------------------------------------------------
-
-        new_sql = new_sql.replace(
-            '"payments"',
-            '"payments_new"',
-            1
-        )
-
-        new_sql = new_sql.replace(
-            '`payments`',
-            '`payments_new`',
-            1
-        )
-
-        # Handle unquoted CREATE TABLE payments
-        if (
-            "CREATE TABLE payments_new"
-            not in new_sql
-        ):
-
-            new_sql = new_sql.replace(
-                "CREATE TABLE payments",
-                "CREATE TABLE payments_new",
-                1
-            )
-
-        # --------------------------------------------------
-        # VERIFY PARTICIPANT_ID IS NOW NULLABLE
-        # --------------------------------------------------
-
-        if (
-            'participant_id INTEGER NOT NULL'
-            in new_sql
-            or
-            '"participant_id" INTEGER NOT NULL'
-            in new_sql
-            or
-            '`participant_id` INTEGER NOT NULL'
-            in new_sql
-        ):
-
-            # Roll back before raising the error.
-            connection.rollback()
-
-            raise RuntimeError(
-                "Unable to make payments.participant_id nullable. "
-                "The existing SQLite table definition has an "
-                "unexpected format."
-            )
-
-        # --------------------------------------------------
-        # CREATE NEW PAYMENTS TABLE
-        # --------------------------------------------------
-
-        connection.execute(
-            text(new_sql)
-        )
-
-        # --------------------------------------------------
-        # GET COLUMN NAMES
-        # --------------------------------------------------
-
-        column_result = connection.execute(
-            text("""
-                PRAGMA table_info(payments_old)
-            """)
-        )
-
-        column_names = [
-            row[1]
-            for row in column_result
-        ]
-
-        if not column_names:
-
-            connection.rollback()
-
-            raise RuntimeError(
-                "Unable to read columns from payments_old."
-            )
-
-        column_list = ", ".join(
-            f'"{column}"'
-            for column in column_names
-        )
-
-        # --------------------------------------------------
-        # COPY EXISTING PAYMENT DATA
-        # --------------------------------------------------
-
-        connection.execute(
-            text(
-                f"""
-                INSERT INTO payments_new (
-                    {column_list}
-                )
-                SELECT
-                    {column_list}
-                FROM payments_old
-                """
-            )
-        )
-
-        # --------------------------------------------------
-        # REMOVE OLD TABLE
-        # --------------------------------------------------
-
-        connection.execute(
-            text("""
-                DROP TABLE payments_old
-            """)
-        )
-
-        # --------------------------------------------------
-        # RENAME NEW TABLE
-        # --------------------------------------------------
-
-        connection.execute(
-            text("""
-                ALTER TABLE payments_new
-                RENAME TO payments
-            """)
-        )
-
-        connection.commit()
-
-        print(
-            "Payment migration: "
-            "participant_id is now nullable."
-        )
-
-
-# ======================================================
-# STAFF DATABASE MIGRATION
-# ======================================================
-
-def migrate_staff_columns():
-    """Add Staff.position and allow profile fields to remain empty for admin-created placeholders."""
-    from sqlalchemy import text
-
-    with engine.begin() as connection:
-        columns = connection.execute(text("PRAGMA table_info(staff)")).fetchall()
-        if not columns:
-            return
-
-        names = {row[1] for row in columns}
-        if "position" not in names:
-            connection.execute(text("ALTER TABLE staff ADD COLUMN position VARCHAR(100)"))
-
-        # SQLite cannot directly change NOT NULL columns. Rebuild only when the
-        # existing staff table still has the old NOT NULL profile columns.
-        info = connection.execute(text("PRAGMA table_info(staff)")).fetchall()
-        notnull = {row[1]: row[3] for row in info}
-        needs_rebuild = any(notnull.get(col) == 1 for col in [
-            "sex", "birthday", "contact", "local_church", "sector"
-        ])
-
-        if not needs_rebuild:
-            return
-
-        connection.execute(text("PRAGMA foreign_keys=OFF"))
-        connection.execute(text("DROP TABLE IF EXISTS staff_new"))
-        connection.execute(text("""
-            CREATE TABLE staff_new (
-                id INTEGER PRIMARY KEY,
-                event_id INTEGER NOT NULL,
-                fname VARCHAR(100) NOT NULL,
-                mname VARCHAR(100),
-                lname VARCHAR(100) NOT NULL,
-                position VARCHAR(100) NOT NULL DEFAULT '',
-                sex VARCHAR(20),
-                birthday DATE,
-                contact VARCHAR(20),
-                local_church VARCHAR(150),
-                sector VARCHAR(100),
-                is_archived INTEGER DEFAULT 0,
-                created_at DATETIME,
-                updated_at DATETIME
-            )
-        """))
-        connection.execute(text("""
-            INSERT INTO staff_new
-            (id,event_id,fname,mname,lname,position,sex,birthday,contact,local_church,sector,is_archived,created_at,updated_at)
-            SELECT id,event_id,fname,mname,lname,COALESCE(position,''),sex,birthday,contact,local_church,sector,is_archived,created_at,updated_at
-            FROM staff
-        """))
-        connection.execute(text("DROP TABLE staff"))
-        connection.execute(text("ALTER TABLE staff_new RENAME TO staff"))
-        connection.execute(text("CREATE INDEX IF NOT EXISTS ix_staff_id ON staff (id)"))
-        connection.execute(text("PRAGMA foreign_keys=ON"))
-
-
-# ======================================================
-# CREATE TABLES
-# ======================================================
-
-Base.metadata.create_all(
-    bind=engine
-)
-
-
-# ======================================================
-# RUN STAFF MIGRATION
-# ======================================================
-
-migrate_staff_columns()
-
-
-# ======================================================
-# RUN PAYMENT MIGRATIONS
-# ======================================================
-
-migrate_payment_columns()
-
-
-# ======================================================
-# MAKE STORE PAYMENTS POSSIBLE
-# ======================================================
-
-migrate_payment_participant_nullable()
-
-migrate_store_item_columns()
-
-migrate_cash_sponsorship_columns()
-
-migrate_staff_table()
 
 
 
@@ -2848,9 +3286,12 @@ class StaffUpdateSchema(BaseModel):
 
     sector: Optional[str] = None
 
-# ======================================================
-# PAYMENT CREATE SCHEMA
-# ======================================================
+
+
+
+
+
+
 
 # ======================================================
 # PAYMENT CREATE SCHEMA
@@ -2914,7 +3355,13 @@ class PaymentCreateSchema(BaseModel):
 
     bulk: bool = False
     
-
+    
+    
+    
+    
+    
+    
+    
 
 # ============================================================
 # CASH SPONSORSHIP SCHEMA
@@ -2946,6 +3393,14 @@ class CashSponsorshipCreate(BaseModel):
     donation_amount: float
 
 
+
+
+
+
+
+
+
+
 # ============================================================
 # ITEM SPONSORSHIP SCHEMA
 # ============================================================
@@ -2974,6 +3429,14 @@ class ItemSponsorshipCreate(BaseModel):
     email: Optional[str] = None
 
     items: List[ItemSponsorshipItem]
+
+
+
+
+
+
+
+
 
 # ============================================================
 # CREATE SPONSORSHIP ITEM
@@ -3052,6 +3515,15 @@ def create_sponsorship_item(
 
     }
 
+
+
+
+
+
+
+
+
+
 # ======================================================
 # CREATE SPONSORSHIP ITEM SCHEMA
 # ======================================================
@@ -3065,9 +3537,13 @@ class SponsorshipItemCreateSchema(BaseModel):
 
 
 
-# ============================================================
-# STORE SCHEMAS
-# ============================================================
+
+
+
+
+
+
+
 
 # ============================================================
 # STORE ITEM CREATE SCHEMA
@@ -3093,19 +3569,52 @@ class StoreItemUpdateSchema(BaseModel):
     sizes: list[str] | None = None
 
 
+
+
+
+
+
+
+
+
+
 # ============================================================
-# STORE PURCHASE SCHEMA
+# STORE CART ITEM
+# ============================================================
+
+class StorePurchaseItemSchema(BaseModel):
+
+    store_item_id: int
+
+    quantity: int
+
+    size: Optional[str] = None
+
+
+
+
+
+
+
+
+# ============================================================
+# STORE PURCHASE
 # ============================================================
 
 class StorePurchaseSchema(BaseModel):
-    store_item_id: int
-    quantity: int = 1
 
     customer_name: str
-    customer_contact: str
-    customer_email: str
 
-    size: str | None = None
+    customer_contact: str
+
+    customer_email: EmailStr
+
+    items: List[StorePurchaseItemSchema]
+
+
+
+
+
 
 
 
@@ -3134,22 +3643,13 @@ class ContactRequest(BaseModel):
     message: str
 
 
+
+
+
+
 # ==========================================================
 # EMAIL CONFIGURATION
 # ==========================================================
-
-GMAIL_USERNAME = os.getenv(
-    "GMAIL_USERNAME"
-)
-
-GMAIL_APP_PASSWORD = os.getenv(
-    "GMAIL_APP_PASSWORD"
-)
-
-GMAIL_FROM_NAME = os.getenv(
-    "GMAIL_FROM_NAME",
-    "Event Registration System"
-)
 
 CONTACT_RECEIVER = (
     "matulacarianjay1@gmail.com"
@@ -3157,25 +3657,22 @@ CONTACT_RECEIVER = (
 
 
 
+
+
+
+
 # ==========================================================
-# GMAIL SMTP EMAIL CONFIGURATION
+# GMAIL API EMAIL CONFIGURATION
 # ==========================================================
 
-# The Gmail account configured here is the account the
-# registration system uses to SEND all system emails.
-#
-# GMAIL_APP_PASSWORD must be a Google App Password.
-# Do NOT use the normal Gmail account password.
+# The authorized Gmail account is the sender.
+# No custom domain and no Gmail App Password are required.
 
 CONTACT_RECEIVER_EMAIL = (
     os.getenv("CONTACT_RECEIVER_EMAIL")
-    or GMAIL_USERNAME
+    or GMAIL_SENDER_EMAIL
 )
 
-
-# ==========================================================
-# GMAIL SMTP SENDER
-# ==========================================================
 
 def send_gmail_smtp(
     recipient_email,
@@ -3185,133 +3682,29 @@ def send_gmail_smtp(
     reply_to=None
 ):
     """
-    Send an email through Gmail SMTP.
+    Backward-compatible function name.
 
-    Sender:
-        GMAIL_USERNAME
-
-    Recipient:
-        recipient_email
-
-    Authentication:
-        GMAIL_APP_PASSWORD
-
-    This function is synchronous so it can also be used by
-    normal/synchronous FastAPI code such as the Contact API.
+    This no longer uses SMTP. It sends through the Gmail API.
     """
 
-    if not GMAIL_USERNAME:
-        raise RuntimeError(
-            "GMAIL_USERNAME is not configured."
-        )
-
-    if not GMAIL_APP_PASSWORD:
-        raise RuntimeError(
-            "GMAIL_APP_PASSWORD is not configured."
-        )
-
-    if not recipient_email:
-        raise RuntimeError(
-            "Recipient email is empty."
-        )
-
-    recipient_email = str(
-        recipient_email
-    ).strip()
-
-    subject = str(
-        subject or ""
-    ).replace(
-        "\r",
-        " "
-    ).replace(
-        "\n",
-        " "
-    ).strip()
-
-    if not subject:
-        raise RuntimeError(
-            "Email subject is empty."
-        )
-
-    # --------------------------------------------------------
-    # CREATE EMAIL
-    # --------------------------------------------------------
-
-    message = EmailMessage()
-
-    message["From"] = (
-        f"{GMAIL_FROM_NAME} "
-        f"<{GMAIL_USERNAME}>"
+    return send_gmail(
+        recipient_email,
+        subject,
+        html_body=html_body,
+        plain_body=text_body,
+        reply_to=reply_to
     )
 
-    message["To"] = recipient_email
 
-    message["Subject"] = subject
 
-    if reply_to:
-        message["Reply-To"] = str(
-            reply_to
-        ).strip()
 
-    # --------------------------------------------------------
-    # TEXT BODY
-    # --------------------------------------------------------
 
-    if text_body is None:
-        text_body = ""
-
-    message.set_content(
-        str(text_body)
-    )
-
-    # --------------------------------------------------------
-    # OPTIONAL HTML BODY
-    # --------------------------------------------------------
-
-    if html_body:
-        message.add_alternative(
-            str(html_body),
-            subtype="html"
-        )
-
-    # --------------------------------------------------------
-    # SEND THROUGH GMAIL SMTP
-    # --------------------------------------------------------
-
-    with smtplib.SMTP(
-        "smtp.gmail.com",
-        587,
-        timeout=30
-    ) as smtp:
-
-        smtp.ehlo()
-
-        smtp.starttls()
-
-        smtp.ehlo()
-
-        smtp.login(
-            GMAIL_USERNAME,
-            GMAIL_APP_PASSWORD
-        )
-
-        smtp.send_message(
-            message
-        )
-
-    return {
-        "success": True,
-        "provider": "gmail_smtp",
-        "sender": GMAIL_USERNAME,
-        "recipient": recipient_email,
-        "subject": subject
-    }
 
 
 # ==========================================================
 # ASYNC GMAIL SMTP SENDER
 # ==========================================================
+
 
 async def send_gmail_smtp_async(
     recipient_email,
@@ -3321,20 +3714,24 @@ async def send_gmail_smtp_async(
     reply_to=None
 ):
     """
-    Async wrapper around the Gmail SMTP sender.
+    Backward-compatible async function name.
 
-    SMTP itself is blocking, so run it in a worker thread
-    instead of blocking the FastAPI event loop.
+    This no longer uses SMTP. It sends through the Gmail API.
     """
 
-    return await asyncio.to_thread(
-        send_gmail_smtp,
+    return await send_gmail_async(
         recipient_email,
         subject,
-        text_body,
-        html_body,
-        reply_to
+        html_body=html_body,
+        plain_body=text_body,
+        reply_to=reply_to
     )
+
+
+
+
+
+
 
 
 # ==========================================================
@@ -3349,14 +3746,9 @@ def send_contact_email(
     # Check Gmail configuration
     # ------------------------------------------------------
 
-    if not GMAIL_USERNAME:
+    if not GMAIL_SENDER_EMAIL:
         raise RuntimeError(
-            "GMAIL_USERNAME is not configured."
-        )
-
-    if not GMAIL_APP_PASSWORD:
-        raise RuntimeError(
-            "GMAIL_APP_PASSWORD is not configured."
+            "GMAIL_SENDER_EMAIL is not configured."
         )
 
     if not CONTACT_RECEIVER_EMAIL:
@@ -3484,6 +3876,15 @@ def send_contact_email(
     return response
 
 
+
+
+
+
+
+
+
+
+
 # ==========================================================
 # CONTACT API
 # ==========================================================
@@ -3544,8 +3945,6 @@ async def contact_us(
 # ITEM SPONSORSHIP RESPONSE
 # ============================================================
 
-
-
 class ItemSponsorshipResponse(BaseModel):
 
     id: int
@@ -3574,6 +3973,15 @@ class ItemSponsorshipResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+
+
+
+
+
+
+
 
 
 # ============================================================
@@ -3659,6 +4067,13 @@ class PaymentResponse(BaseModel):
 
     class Config:
         from_attributes = True
+ 
+ 
+ 
+ 
+ 
+ 
+ 
         
         
 # ============================================================
@@ -3698,6 +4113,13 @@ class RegistrationItemResponse(BaseModel):
     class Config:
         from_attributes = True        
         
+ 
+ 
+ 
+ 
+ 
+ 
+ 
         
         
 # ============================================================
@@ -4415,33 +4837,17 @@ async def send_payment_email(
 
     </html>
     """
-
     # --------------------------------------------------
-    # CREATE MESSAGE
-    # --------------------------------------------------
-
-    message = MessageSchema(
-
-        subject=subject,
-
-        recipients=[
-            participant.email
-        ],
-
-        body=html,
-
-        subtype="html"
-    )
-
-    # --------------------------------------------------
-    # SEND
+    # SEND THROUGH GMAIL API
     # --------------------------------------------------
 
     try:
 
-        fm = FastMail(mail_conf)
-
-        await fm.send_message(message)
+        await send_gmail_async(
+            participant.email,
+            subject,
+            html_body=html
+        )
 
         print(
             f"Payment email sent to "
@@ -4705,29 +5111,19 @@ async def send_payment_confirmation_email(
 
     </html>
     """
+    # --------------------------------------------------
+    # SEND THROUGH GMAIL API
+    # --------------------------------------------------
 
-    message = MessageSchema(
-
-        subject=(
-            "Payment Confirmed - "
-            f"{participant.registration_number}"
-        ),
-
-        recipients=[
-            participant.email
-        ],
-
-        body=html_body,
-
-        subtype="html"
+    subject = (
+        "Payment Confirmed - "
+        f"{participant.registration_number}"
     )
 
-    fm = FastMail(
-        mail_conf
-    )
-
-    await fm.send_message(
-        message
+    await send_gmail_async(
+        participant.email,
+        subject,
+        html_body=html_body
     )
 
     print(
@@ -5400,48 +5796,25 @@ async def send_sponsored_participant_confirmation_email(
 
     </html>
     """
-
-
     # ==================================================
-    # CREATE MESSAGE
+    # SEND THROUGH GMAIL API
     # ==================================================
 
-    message = MessageSchema(
-
-        subject=(
-            "Registration Completed Through Sponsorship - "
-            f"{participant.registration_number}"
-        ),
-
-        recipients=[
-            participant.email
-        ],
-
-        body=html_body,
-
-        subtype="html"
+    subject = (
+        "Registration Completed Through Sponsorship - "
+        f"{participant.registration_number}"
     )
 
-
-    # ==================================================
-    # USE YOUR EXISTING MAIL CONFIGURATION
-    # ==================================================
-
-    fm = FastMail(
-        mail_conf
+    await send_gmail_async(
+        participant.email,
+        subject,
+        html_body=html_body
     )
-
-
-    await fm.send_message(
-        message
-    )
-
 
     print(
         "Finding Sponsor participant email sent to",
         participant.email
     )
-
 
     return True
 
@@ -6216,6 +6589,31 @@ def add_cash_donation_to_total(
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # ======================================================
 # STARTUP
 # ======================================================
@@ -6492,6 +6890,33 @@ def report_page():
     return FileResponse(
         os.path.join(BASE_DIR, "report_rt.html")
     )
+
+@app.get("/privacy")
+def privacy_page():
+    return FileResponse(
+        os.path.join(BASE_DIR, "privacy.html")
+    )
+
+@app.get("/terms")
+def terms_page():
+    return FileResponse(
+        os.path.join(BASE_DIR, "terms.html")
+    )
+
+@app.get("/sitemap.xml")
+def sitemap_page():
+    return FileResponse(
+        os.path.join(BASE_DIR, "sitemap.xml")
+    )
+
+@app.get("/favicon.png")
+def favicon_page():
+    return FileResponse(
+        os.path.join(BASE_DIR, "favicon.png"),
+        media_type="image/png"
+    )
+
+
 
 
 
@@ -8861,6 +9286,15 @@ def registration_create_participant(
     }
 
 
+
+
+
+
+
+
+
+
+
 # ======================================================
 # SEARCH PARTICIPANT
 # ======================================================
@@ -8871,13 +9305,34 @@ def registration_search_participant(
     db: Session = Depends(get_db)
 ):
 
+    # ==================================================
+    # CLEAN SEARCH KEYWORD
+    # ==================================================
+
+    keyword = (keyword or "").strip().lower()
+
+    # ==================================================
+    # PREVENT SINGLE-LETTER SEARCH
+    # ==================================================
+    #
+    # Example:
+    # "c"  -> no results
+    # "cy" -> search
+    #
+    # ==================================================
+
+    if len(keyword) < 2:
+        return []
+
+    # ==================================================
+    # GET ACTIVE PARTICIPANTS
+    # ==================================================
+
     participants = db.query(Participant).filter(
         Participant.is_archived == 0
     ).all()
 
     result = []
-
-    keyword = (keyword or "").strip().lower()
 
     for participant in participants:
 
@@ -8897,38 +9352,77 @@ def registration_search_participant(
         fullname_lower = fullname.lower()
 
         # ==================================================
-        # SAFE STRING VALUES
+        # SEARCHABLE VALUES
+        # ==================================================
+        #
+        # SEARCH ONLY:
+        #   1. Name
+        #   2. Event name
+        #   3. Registration ID
+        #
+        # DO NOT SEARCH:
+        #   - Paid
+        #   - Unpaid
+        #   - Partial
+        #   - T-shirt status
+        #   - Lanyard status
+        #   - Email
+        #   - Contact number
+        #   - Registration phase
+        #   - Registration status
+        #   - Participant type
+        #   - Sponsorship status
+        #   - Participant tier
+        #
         # ==================================================
 
         registration_number = str(
             participant.registration_number or ""
-        ).lower()
-
-        email = str(
-            participant.email or ""
-        ).lower()
-
-        contact_number = str(
-            participant.contact_number or ""
-        ).lower()
+        ).strip().lower()
 
         event_name = str(
             participant.event_name or ""
-        ).lower()
+        ).strip().lower()
 
-        registration_phase = str(
-            participant.registration_phase or ""
-        ).lower()
+        searchable_values = [
+            fullname_lower,
+            event_name,
+            registration_number
+        ]
 
-        registration_status = str(
-            participant.registration_status or ""
-        ).lower()
+        # ==================================================
+        # MATCH SEARCH
+        # ==================================================
+
+        matched = any(
+            keyword in value
+            for value in searchable_values
+        )
+
+        if not matched:
+            continue
+
+        # ==================================================
+        # PARTICIPANT TYPE
+        # ==================================================
 
         participant_type = str(
             participant.participant_type or ""
         ).strip()
 
-        participant_type_lower = participant_type.lower()
+        is_sponsor_participant = (
+            participant_type.lower()
+            == "finding sponsor"
+        )
+
+        # ==================================================
+        # PAYMENT STATUS
+        # ==================================================
+        #
+        # This is returned to the frontend for display
+        # only. It is NOT searchable.
+        #
+        # ==================================================
 
         tshirt_status = str(
             participant.tshirt_status or "Unpaid"
@@ -8941,50 +9435,31 @@ def registration_search_participant(
         tshirt_status_lower = tshirt_status.lower()
         lanyard_status_lower = lanyard_status.lower()
 
-        # ==================================================
-        # DETERMINE PARTICIPANT TYPE
-        # ==================================================
+        if (
+            tshirt_status_lower == "paid"
+            and lanyard_status_lower == "paid"
+        ):
 
-        is_sponsor_participant = (
-            participant_type_lower
-            == "finding sponsor"
-        )
+            payment_status = "Paid"
+
+        elif (
+            tshirt_status_lower == "paid"
+            or lanyard_status_lower == "paid"
+        ):
+
+            payment_status = "Partial"
+
+        else:
+
+            payment_status = "Unpaid"
 
         # ==================================================
-        # MERCHANDISE / PAYMENT STATUS
-        # ==================================================
-        #
-        # REGULAR PARTICIPANT
-        #
-        # Lanyard paid + shirt paid
-        #       -> Paid
-        #
-        # Lanyard paid + shirt unpaid
-        #       -> Partial
-        #
-        # Nothing paid
-        #       -> Unpaid
-        #
-        #
-        # FINDING SPONSOR
-        #
-        # No payment button should be displayed.
-        #
-        # Sponsorship is handled separately.
-        #
+        # SPONSORSHIP STATUS
         # ==================================================
 
         if is_sponsor_participant:
 
-            # ----------------------------------------------
-            # SPONSORSHIP STATUS
-            # ----------------------------------------------
-
             sponsorship_status = "Sponsored in Review"
-
-            # ----------------------------------------------
-            # CHECK MERCHANDISE
-            # ----------------------------------------------
 
             if (
                 tshirt_status_lower == "paid"
@@ -9008,30 +9483,7 @@ def registration_search_participant(
 
         else:
 
-            # ----------------------------------------------
-            # NORMAL PARTICIPANT
-            # ----------------------------------------------
-
-            if (
-                tshirt_status_lower == "paid"
-                and lanyard_status_lower == "paid"
-            ):
-
-                payment_status = "Paid"
-
-            elif (
-                tshirt_status_lower == "paid"
-                or lanyard_status_lower == "paid"
-            ):
-
-                payment_status = "Partial"
-
-            else:
-
-                payment_status = "Unpaid"
-
             sponsorship_status = None
-
             merchandise_status = payment_status
 
         # ==================================================
@@ -9050,58 +9502,6 @@ def registration_search_participant(
             if evaluation
             else None
         )
-
-        participant_tier_lower = str(
-            participant_tier or ""
-        ).lower()
-
-        # ==================================================
-        # SEARCH
-        # ==================================================
-
-        searchable_values = [
-
-            fullname_lower,
-
-            registration_number,
-
-            email,
-
-            contact_number,
-
-            event_name,
-
-            registration_phase,
-
-            registration_status,
-
-            participant_type_lower,
-
-            payment_status.lower(),
-
-            tshirt_status_lower,
-
-            lanyard_status_lower,
-
-            participant_tier_lower,
-
-            str(
-                sponsorship_status or ""
-            ).lower(),
-
-            str(
-                merchandise_status or ""
-            ).lower()
-
-        ]
-
-        matched = any(
-            keyword in value
-            for value in searchable_values
-        )
-
-        if not matched:
-            continue
 
         # ==================================================
         # RESULT
@@ -9152,6 +9552,11 @@ def registration_search_participant(
             # ----------------------------------------------
             # PAYMENT
             # ----------------------------------------------
+            #
+            # Returned for display only.
+            # NOT used for search.
+            #
+            # ----------------------------------------------
 
             "payment_status":
                 payment_status,
@@ -9171,12 +9576,10 @@ def registration_search_participant(
                 merchandise_status,
 
             "tshirt_status":
-                participant.tshirt_status
-                or "Unpaid",
+                participant.tshirt_status or "Unpaid",
 
             "lanyard_status":
-                participant.lanyard_status
-                or "Unpaid",
+                participant.lanyard_status or "Unpaid",
 
             # ----------------------------------------------
             # EVALUATION
@@ -9188,6 +9591,15 @@ def registration_search_participant(
         })
 
     return result
+
+
+
+
+
+
+
+
+
 
 
 # ======================================================
@@ -10303,10 +10715,7 @@ def payment_status(
 
     print("=" * 70)
     print("PAYMENT STATUS CHECK")
-    print(
-        "Participant ID:",
-        participant_id
-    )
+    print("Participant ID:", participant_id)
     print("=" * 70)
 
     # ==================================================
@@ -10314,9 +10723,7 @@ def payment_status(
     # ==================================================
 
     participant = (
-        db.query(
-            Participant
-        )
+        db.query(Participant)
         .filter(
             Participant.id == participant_id,
             Participant.is_archived == 0
@@ -10350,9 +10757,7 @@ def payment_status(
     # ==================================================
 
     registration_items = (
-        db.query(
-            RegistrationItem
-        )
+        db.query(RegistrationItem)
         .filter(
             RegistrationItem.is_active == True
         )
@@ -10406,13 +10811,11 @@ def payment_status(
     )
 
     # ==================================================
-    # 7. GET PAYMENTS
+    # 7. GET ALL PAYMENTS
     # ==================================================
 
     payments = (
-        db.query(
-            Payment
-        )
+        db.query(Payment)
         .filter(
             Payment.participant_id ==
             participant.id
@@ -10424,7 +10827,7 @@ def payment_status(
     )
 
     # ==================================================
-    # 8. SUCCESSFUL STATUSES
+    # 8. SUCCESSFUL PAYMENT STATUSES
     # ==================================================
 
     successful_statuses = {
@@ -10435,11 +10838,10 @@ def payment_status(
     }
 
     # ==================================================
-    # 9. CHECK T-SHIRT
+    # 9. CHECK T-SHIRT PAYMENT
     # ==================================================
 
     tshirt_paid = any(
-
         bool(
             getattr(
                 p,
@@ -10447,8 +10849,8 @@ def payment_status(
                 False
             )
         )
-
-        and str(
+        and
+        str(
             getattr(
                 p,
                 "status",
@@ -10462,11 +10864,10 @@ def payment_status(
     )
 
     # ==================================================
-    # 10. CHECK LANYARD
+    # 10. CHECK LANYARD PAYMENT
     # ==================================================
 
     lanyard_paid = any(
-
         bool(
             getattr(
                 p,
@@ -10474,8 +10875,8 @@ def payment_status(
                 False
             )
         )
-
-        and str(
+        and
+        str(
             getattr(
                 p,
                 "status",
@@ -10489,33 +10890,37 @@ def payment_status(
     )
 
     # ==================================================
-    # 11. FALLBACK TO PARTICIPANT STATUS
+    # 11. FALLBACK TO PARTICIPANT ITEM STATUS
     # ==================================================
 
-    if str(
+    participant_tshirt_status = str(
         getattr(
             participant,
             "tshirt_status",
             ""
         )
         or ""
-    ).strip().lower() == "paid":
+    ).strip().lower()
 
-        tshirt_paid = True
-
-    if str(
+    participant_lanyard_status = str(
         getattr(
             participant,
             "lanyard_status",
             ""
         )
         or ""
-    ).strip().lower() == "paid":
+    ).strip().lower()
+
+    if participant_tshirt_status == "paid":
+
+        tshirt_paid = True
+
+    if participant_lanyard_status == "paid":
 
         lanyard_paid = True
 
     # ==================================================
-    # 12. UPDATE PARTICIPANT STATUS
+    # 12. UPDATE ITEM STATUS
     # ==================================================
 
     if hasattr(
@@ -10540,6 +10945,45 @@ def payment_status(
             else "Unpaid"
         )
 
+    # ==================================================
+    # 13. MANDATORY PAYMENT STATUS
+    #
+    # IMPORTANT:
+    #
+    # The Lanyard is mandatory.
+    #
+    # Therefore:
+    #
+    #     Lanyard Paid = mandatory payment complete
+    #
+    # The T-shirt does NOT affect this.
+    # ==================================================
+
+    mandatory_payment_complete = (
+        lanyard_paid
+        if lanyard_item
+        else True
+    )
+
+    # ==================================================
+    # 14. REGISTRATION STATUS
+    # ==================================================
+
+    if mandatory_payment_complete:
+
+        if hasattr(
+            participant,
+            "registration_status"
+        ):
+
+            participant.registration_status = (
+                "Confirmed"
+            )
+
+    # ==================================================
+    # 15. UPDATED TIMESTAMP
+    # ==================================================
+
     if hasattr(
         participant,
         "updated_at"
@@ -10552,7 +10996,7 @@ def payment_status(
     db.commit()
 
     # ==================================================
-    # 13. PAYMENT SUCCESS
+    # 16. PAID ITEMS
     # ==================================================
 
     paid_items = []
@@ -10569,12 +11013,8 @@ def payment_status(
             "Lanyard"
         )
 
-    payment_success = (
-        len(paid_items) > 0
-    )
-
     # ==================================================
-    # 14. ALL REQUESTED ITEMS PAID
+    # 17. REQUESTED ITEMS
     # ==================================================
 
     requested_items = []
@@ -10611,6 +11051,20 @@ def payment_status(
         )
     )
 
+    # ==================================================
+    # 18. ALL REQUESTED ITEMS PAID
+    #
+    # This is NOT the same as mandatory payment complete.
+    #
+    # Example:
+    #
+    # Lanyard = Paid
+    # T-Shirt  = Unpaid
+    #
+    # mandatory_payment_complete = True
+    # all_items_paid = False
+    # ==================================================
+
     all_items_paid = (
         len(requested_items) > 0
         and
@@ -10621,7 +11075,32 @@ def payment_status(
     )
 
     # ==================================================
-    # 15. RETURN
+    # 19. PAYMENT SUCCESS
+    #
+    # IMPORTANT:
+    #
+    # Payment success for registration is based on
+    # the mandatory Lanyard.
+    #
+    # T-shirt is optional.
+    # ==================================================
+
+    payment_success = (
+        mandatory_payment_complete
+    )
+
+    # ==================================================
+    # 20. REGISTRATION STATUS
+    # ==================================================
+
+    registration_status = getattr(
+        participant,
+        "registration_status",
+        None
+    )
+
+    # ==================================================
+    # 21. DEBUG LOGGING
     # ==================================================
 
     print(
@@ -10653,6 +11132,11 @@ def payment_status(
     )
 
     print(
+        "Mandatory Payment Complete:",
+        mandatory_payment_complete
+    )
+
+    print(
         "Payment Success:",
         payment_success
     )
@@ -10662,7 +11146,16 @@ def payment_status(
         all_items_paid
     )
 
+    print(
+        "Registration Status:",
+        registration_status
+    )
+
     print("=" * 70)
+
+    # ==================================================
+    # 22. RETURN RESPONSE
+    # ==================================================
 
     return {
 
@@ -10683,12 +11176,19 @@ def payment_status(
             participant.participant_type,
 
         # ==================================================
-        # IMPORTANT FRONTEND FLAGS
+        # MAIN PAYMENT FLAGS
         # ==================================================
 
+        # Mandatory Lanyard payment is complete.
+        "mandatory_payment_complete":
+            mandatory_payment_complete,
+
+        # Registration payment is successful when
+        # the mandatory Lanyard is paid.
         "payment_success":
             payment_success,
 
+        # True only when every requested item is paid.
         "all_items_paid":
             all_items_paid,
 
@@ -10697,6 +11197,20 @@ def payment_status(
 
         "requested_items":
             requested_items,
+
+        # ==================================================
+        # EXPLICIT LANYARD FLAG
+        # ==================================================
+
+        "lanyard_paid":
+            lanyard_paid,
+
+        # ==================================================
+        # EXPLICIT T-SHIRT FLAG
+        # ==================================================
+
+        "tshirt_paid":
+            tshirt_paid,
 
         # ==================================================
         # T-SHIRT
@@ -10763,7 +11277,7 @@ def payment_status(
         },
 
         # ==================================================
-        # PARTICIPANT STATUS
+        # PARTICIPANT ITEM STATUS
         # ==================================================
 
         "tshirt_status":
@@ -10780,15 +11294,15 @@ def payment_status(
                 None
             ),
 
+        # ==================================================
+        # REGISTRATION STATUS
+        # ==================================================
+
         "registration_status":
-            getattr(
-                participant,
-                "registration_status",
-                None
-            ),
+            registration_status,
 
         # ==================================================
-        # PAYMENTS
+        # PAYMENT HISTORY
         # ==================================================
 
         "payments": [
@@ -10876,6 +11390,8 @@ def payment_status(
 
         ]
     }
+
+
 
 
     
@@ -11838,6 +12354,7 @@ def event_participant_count(
 
 # ======================================================
 # CREATE PAYMONGO PAYMENT
+# SUPPORTS SINGLE + BULK PARTICIPANTS
 # ======================================================
 
 @app.post("/create_payment")
@@ -11845,54 +12362,10 @@ def create_payment(
     data: PaymentCreateSchema,
     db: Session = Depends(get_db)
 ):
-
     print()
     print("=" * 70)
     print("CREATE PAYMENT REQUEST")
     print("=" * 70)
-
-    print(
-        "Participant ID:",
-        data.participant_id
-    )
-
-    print(
-        "Participant IDs:",
-        data.participant_ids
-    )
-
-    print(
-        "Raw T-Shirt:",
-        getattr(data, "tshirt", None)
-    )
-
-    print(
-        "Raw Lanyard:",
-        getattr(data, "lanyard", None)
-    )
-
-    print(
-        "Raw T-Shirt Selected:",
-        getattr(data, "tshirt_selected", None)
-    )
-
-    print(
-        "Raw Lanyard Selected:",
-        getattr(data, "lanyard_selected", None)
-    )
-
-    print(
-        "T-Shirt Size:",
-        getattr(data, "tshirt_size", None)
-    )
-
-    print(
-        "Bulk:",
-        getattr(data, "bulk", False)
-    )
-
-    print("=" * 70)
-
 
     # ==================================================
     # DETERMINE PARTICIPANT IDS
@@ -11900,149 +12373,62 @@ def create_payment(
 
     participant_ids = []
 
-
-    # --------------------------------------------------
-    # BULK PARTICIPANTS
-    # --------------------------------------------------
-
     if data.participant_ids:
-
         for pid in data.participant_ids:
-
             try:
-
                 participant_id = int(pid)
 
                 if participant_id > 0:
-                    participant_ids.append(
-                        participant_id
-                    )
+                    participant_ids.append(participant_id)
 
-            except (
-                ValueError,
-                TypeError
-            ):
-
+            except (ValueError, TypeError):
                 continue
 
-
-    # --------------------------------------------------
-    # SINGLE PARTICIPANT
-    # --------------------------------------------------
-
     elif data.participant_id is not None:
-
         try:
-
-            participant_id = int(
-                data.participant_id
-            )
+            participant_id = int(data.participant_id)
 
             if participant_id > 0:
+                participant_ids = [participant_id]
 
-                participant_ids = [
-                    participant_id
-                ]
-
-        except (
-            ValueError,
-            TypeError
-        ):
-
+        except (ValueError, TypeError):
             participant_ids = []
-
 
     # ==================================================
     # VALIDATE PARTICIPANTS
     # ==================================================
 
     if not participant_ids:
-
         raise HTTPException(
             status_code=400,
-            detail=(
-                "At least one participant "
-                "is required for payment."
-            )
+            detail="At least one participant is required for payment."
         )
 
-
-    # ==================================================
-    # REMOVE DUPLICATES
-    # PRESERVE ORIGINAL ORDER
-    # ==================================================
-
-    participant_ids = list(
-        dict.fromkeys(
-            participant_ids
-        )
-    )
-
-
-    # ==================================================
-    # DETERMINE PAYMENT TYPE
-    # ==================================================
+    # Remove duplicates but preserve order
+    participant_ids = list(dict.fromkeys(participant_ids))
 
     is_bulk_payment = (
         len(participant_ids) > 1
-        or bool(
-            getattr(
-                data,
-                "bulk",
-                False
-            )
-        )
+        or bool(getattr(data, "bulk", False))
     )
-
-
-    print()
-    print("=" * 70)
-    print("PAYMENT TYPE")
-    print("=" * 70)
-
-    print(
-        "Bulk Payment:",
-        is_bulk_payment
-    )
-
-    print(
-        "Participant Count:",
-        len(participant_ids)
-    )
-
-    print(
-        "Participant IDs:",
-        participant_ids
-    )
-
-    print("=" * 70)
-
 
     # ==================================================
-    # FIND PARTICIPANTS
+    # LOAD PARTICIPANTS
     # ==================================================
 
     participants = (
         db.query(Participant)
         .filter(
-            Participant.id.in_(
-                participant_ids
-            ),
+            Participant.id.in_(participant_ids),
             Participant.is_archived == 0
         )
         .all()
     )
 
-
-    # ==================================================
-    # VALIDATE ALL PARTICIPANTS EXIST
-    # ==================================================
-
     found_ids = {
         participant.id
         for participant in participants
     }
-
 
     missing_ids = [
         pid
@@ -12050,122 +12436,76 @@ def create_payment(
         if pid not in found_ids
     ]
 
-
     if missing_ids:
-
         db.rollback()
 
         raise HTTPException(
             status_code=404,
             detail={
-                "message":
-                    "One or more participants were not found.",
-
-                "missing_participant_ids":
-                    missing_ids
+                "message": "One or more participants were not found.",
+                "missing_participant_ids": missing_ids
             }
         )
 
-
-    # ==================================================
-    # PRESERVE REQUEST ORDER
-    # ==================================================
-
+    # Preserve requested order
     participant_map = {
-        participant.id:
-            participant
+        participant.id: participant
         for participant in participants
     }
-
 
     participants = [
         participant_map[pid]
         for pid in participant_ids
     ]
 
-
     # ==================================================
-    # NORMALIZE BOOLEAN VALUES
+    # NORMALIZE BOOLEAN
     # ==================================================
 
     def normalize_bool(value):
 
-        if isinstance(
-            value,
-            bool
-        ):
+        if isinstance(value, bool):
             return value
 
         if value is None:
-
             return False
 
-        if isinstance(
-            value,
-            int
-        ):
-
+        if isinstance(value, int):
             return value != 0
 
-        if isinstance(
-            value,
-            str
-        ):
-
-            return (
-                value.strip().lower()
-                in {
-                    "true",
-                    "1",
-                    "yes",
-                    "on",
-                    "selected",
-                    "checked"
-                }
-            )
+        if isinstance(value, str):
+            return value.strip().lower() in {
+                "true",
+                "1",
+                "yes",
+                "on",
+                "selected",
+                "checked"
+            }
 
         return bool(value)
 
-
     # ==================================================
-    # NORMALIZE T-SHIRT
+    # GLOBAL REQUEST ITEM VALUES
     # ==================================================
 
-    tshirt_value = getattr(
-        data,
-        "tshirt",
-        None
-    )
-
+    tshirt_value = getattr(data, "tshirt", None)
 
     if tshirt_value is None:
-
         tshirt_value = getattr(
             data,
             "tshirt_selected",
             False
         )
 
-
-    # ==================================================
-    # NORMALIZE LANYARD
-    # ==================================================
-
-    lanyard_value = getattr(
-        data,
-        "lanyard",
-        None
-    )
-
+    lanyard_value = getattr(data, "lanyard", None)
 
     if lanyard_value is None:
-
         lanyard_value = getattr(
             data,
             "lanyard_selected",
             False
         )
-
 
     tshirt_requested = normalize_bool(
         tshirt_value
@@ -12175,51 +12515,23 @@ def create_payment(
         lanyard_value
     )
 
-
-    print()
-    print("=" * 70)
-    print("NORMALIZED ITEM SELECTION")
-    print("=" * 70)
-
-    print(
-        "T-Shirt requested:",
-        tshirt_requested
-    )
-
-    print(
-        "Lanyard requested:",
-        lanyard_requested
-    )
-
-    print("=" * 70)
-
-
     # ==================================================
     # VALIDATE ITEM SELECTION
     # ==================================================
 
-    if (
-        not tshirt_requested
-        and not lanyard_requested
-    ):
-
+    if not tshirt_requested and not lanyard_requested:
         db.rollback()
 
         raise HTTPException(
             status_code=400,
-            detail=(
-                "Please select at least one "
-                "registration item."
-            )
+            detail="Please select at least one registration item."
         )
-
 
     # ==================================================
     # T-SHIRT SIZE
     # ==================================================
 
     tshirt_size = None
-
 
     if tshirt_requested:
 
@@ -12229,18 +12541,13 @@ def create_payment(
             None
         )
 
-
         if not requested_size:
-
             db.rollback()
 
             raise HTTPException(
                 status_code=400,
-                detail=(
-                    "Please select a T-shirt size."
-                )
+                detail="Please select a T-shirt size."
             )
-
 
         tshirt_size = (
             str(requested_size)
@@ -12248,44 +12555,30 @@ def create_payment(
             .upper()
         )
 
-
         allowed_sizes = {
             "M",
             "L",
             "XL"
         }
 
-
         if tshirt_size not in allowed_sizes:
-
             db.rollback()
 
             raise HTTPException(
                 status_code=400,
-                detail=(
-                    "Invalid T-shirt size. "
-                    "Please select M, L, or XL."
-                )
+                detail="Invalid T-shirt size. Please select M, L, or XL."
             )
-
 
     # ==================================================
     # PRICES
-    #
-    # Stored in CENTAVOS
+    # STORED IN CENTAVOS
     #
     # ₱350 = 35000
     # ₱90  = 9000
     # ==================================================
 
     TSHIRT_PRICE = 35000
-
     LANYARD_PRICE = 9000
-
-
-    # ==================================================
-    # SUCCESSFUL PAYMENT STATUSES
-    # ==================================================
 
     successful_statuses = {
         "paid",
@@ -12294,15 +12587,11 @@ def create_payment(
         "completed"
     }
 
-
     payment_rows = []
-
     total_amount = 0
 
     all_participant_items = []
-
     participant_payment_summary = []
-
 
     # ==================================================
     # PROCESS EACH PARTICIPANT
@@ -12312,22 +12601,18 @@ def create_payment(
 
         print()
         print("-" * 70)
-
         print(
             "PROCESSING PARTICIPANT:",
             participant.id
         )
-
         print(
             "Registration:",
             participant.registration_number
         )
-
         print("-" * 70)
 
-
         # ==================================================
-        # GET PAYMENTS
+        # LOAD EXISTING PAYMENTS
         # ==================================================
 
         payments = (
@@ -12342,20 +12627,17 @@ def create_payment(
             .all()
         )
 
-
         # ==================================================
-        # CHECK PAID T-SHIRT
+        # DETERMINE WHETHER T-SHIRT WAS ALREADY PAID
         # ==================================================
 
         tshirt_paid = False
-
 
         for payment in payments:
 
             payment_status = str(
                 payment.status or ""
             ).strip().lower()
-
 
             if (
                 bool(
@@ -12366,28 +12648,22 @@ def create_payment(
                     )
                 )
                 and
-                payment_status
-                in successful_statuses
+                payment_status in successful_statuses
             ):
-
                 tshirt_paid = True
-
                 break
 
-
         # ==================================================
-        # CHECK PAID LANYARD
+        # DETERMINE WHETHER LANYARD WAS ALREADY PAID
         # ==================================================
 
         lanyard_paid = False
-
 
         for payment in payments:
 
             payment_status = str(
                 payment.status or ""
             ).strip().lower()
-
 
             if (
                 bool(
@@ -12398,14 +12674,10 @@ def create_payment(
                     )
                 )
                 and
-                payment_status
-                in successful_statuses
+                payment_status in successful_statuses
             ):
-
                 lanyard_paid = True
-
                 break
-
 
         # ==================================================
         # FALLBACK TO PARTICIPANT STATUS
@@ -12413,41 +12685,30 @@ def create_payment(
 
         if not payments:
 
-            if str(
+            existing_tshirt_status = str(
                 getattr(
                     participant,
                     "tshirt_status",
                     ""
                 ) or ""
-            ).strip().lower() == "paid":
+            ).strip().lower()
 
+            if existing_tshirt_status == "paid":
                 tshirt_paid = True
 
-
-            if str(
+            existing_lanyard_status = str(
                 getattr(
                     participant,
                     "lanyard_status",
                     ""
                 ) or ""
-            ).strip().lower() == "paid":
+            ).strip().lower()
 
+            if existing_lanyard_status == "paid":
                 lanyard_paid = True
 
-
-        print(
-            "Existing T-Shirt Paid:",
-            tshirt_paid
-        )
-
-        print(
-            "Existing Lanyard Paid:",
-            lanyard_paid
-        )
-
-
         # ==================================================
-        # PARTICIPANT REQUESTED ITEMS
+        # PARTICIPANT-SPECIFIC REQUEST
         # ==================================================
 
         participant_tshirt_requested = (
@@ -12458,76 +12719,54 @@ def create_payment(
             lanyard_requested
         )
 
-
         # ==================================================
-        # REMOVE ALREADY PAID ITEMS
+        # REMOVE ALREADY PAID T-SHIRT
         # ==================================================
 
         if (
             participant_tshirt_requested
-            and
-            tshirt_paid
+            and tshirt_paid
         ):
-
             participant_tshirt_requested = False
 
-            print(
-                "T-Shirt already paid. "
-                "Removing from new payment."
-            )
-
+        # ==================================================
+        # REMOVE ALREADY PAID LANYARD
+        # ==================================================
 
         if (
             participant_lanyard_requested
-            and
-            lanyard_paid
+            and lanyard_paid
         ):
-
             participant_lanyard_requested = False
-
-            print(
-                "Lanyard already paid. "
-                "Removing from new payment."
-            )
-
 
         # ==================================================
         # CALCULATE PARTICIPANT AMOUNT
         # ==================================================
 
         participant_amount = 0
-
         participant_items = []
-
 
         if participant_tshirt_requested:
 
-            participant_amount += (
-                TSHIRT_PRICE
-            )
+            participant_amount += TSHIRT_PRICE
 
             participant_items.append(
                 f"T-Shirt ({tshirt_size})"
             )
 
-
         if participant_lanyard_requested:
 
-            participant_amount += (
-                LANYARD_PRICE
-            )
+            participant_amount += LANYARD_PRICE
 
             participant_items.append(
                 "Lanyard"
             )
-
 
         # ==================================================
         # NOTHING LEFT TO PAY
         # ==================================================
 
         if participant_amount <= 0:
-
             db.rollback()
 
             raise HTTPException(
@@ -12538,7 +12777,6 @@ def create_payment(
                     "has no remaining items to pay."
                 )
             )
-
 
         # ==================================================
         # CHECK EXISTING PENDING PAYMENT
@@ -12569,11 +12807,6 @@ def create_payment(
             .first()
         )
 
-
-        # ==================================================
-        # EXISTING PENDING PAYMENT
-        # ==================================================
-
         if existing_payment:
 
             if existing_payment.checkout_url:
@@ -12583,12 +12816,11 @@ def create_payment(
                 raise HTTPException(
                     status_code=400,
                     detail={
-                        "message":
-                            (
-                                "A pending payment already "
-                                "exists for participant "
-                                f"{participant.registration_number}."
-                            ),
+                        "message": (
+                            "A pending payment already "
+                            "exists for participant "
+                            f"{participant.registration_number}."
+                        ),
 
                         "participant_id":
                             participant.id,
@@ -12601,18 +12833,14 @@ def create_payment(
                     }
                 )
 
-
         # ==================================================
         # ADD TO TOTAL
         # ==================================================
 
-        total_amount += (
-            participant_amount
-        )
-
+        total_amount += participant_amount
 
         # ==================================================
-        # PARTICIPANT PAYMENT DETAILS
+        # FULL NAME
         # ==================================================
 
         fullname = (
@@ -12621,70 +12849,62 @@ def create_payment(
             f"{participant.lname or ''}"
         ).strip()
 
-
-        all_participant_items.append(
-            {
-                "participant_id":
-                    participant.id,
-
-                "registration_number":
-                    participant.registration_number,
-
-                "fullname":
-                    fullname,
-
-                "items":
-                    participant_items,
-
-                "amount":
-                    participant_amount,
-
-                "amount_display":
-                    (
-                        f"₱"
-                        f"{participant_amount / 100:,.2f}"
-                    )
-            }
-        )
-
-
         # ==================================================
-        # PARTICIPANT PAYMENT SUMMARY
+        # PARTICIPANT DETAILS
         # ==================================================
 
-        participant_payment_summary.append(
-            {
-                "participant_id":
-                    participant.id,
+        all_participant_items.append({
+            "participant_id":
+                participant.id,
 
-                "registration_number":
-                    participant.registration_number,
+            "registration_number":
+                participant.registration_number,
 
-                "tshirt_selected":
-                    int(
-                        participant_tshirt_requested
-                    ),
+            "fullname":
+                fullname,
 
-                "lanyard_selected":
-                    int(
-                        participant_lanyard_requested
-                    ),
+            "items":
+                participant_items,
 
-                "tshirt_size":
-                    tshirt_size,
+            "amount":
+                participant_amount,
 
-                "amount":
-                    participant_amount
-            }
-        )
+            "amount_display":
+                f"₱{participant_amount / 100:,.2f}"
+        })
 
+        participant_payment_summary.append({
+            "participant_id":
+                participant.id,
+
+            "registration_number":
+                participant.registration_number,
+
+            "tshirt_selected":
+                int(
+                    participant_tshirt_requested
+                ),
+
+            "lanyard_selected":
+                int(
+                    participant_lanyard_requested
+                ),
+
+            "tshirt_size":
+                tshirt_size,
+
+            "amount":
+                participant_amount
+        })
 
         # ==================================================
         # CREATE LOCAL PAYMENT ROW
+        #
+        # IMPORTANT:
+        # These flags belong to THIS participant.
         # ==================================================
 
         payment = Payment(
-
             participant_id =
                 participant.id,
 
@@ -12712,16 +12932,13 @@ def create_payment(
 
             tshirt_size =
                 tshirt_size
-
         )
-
 
         db.add(payment)
 
         payment_rows.append(
             payment
         )
-
 
     # ==================================================
     # VALIDATE TOTAL
@@ -12733,14 +12950,11 @@ def create_payment(
 
         raise HTTPException(
             status_code=400,
-            detail=(
-                "There is no remaining amount to pay."
-            )
+            detail="There is no remaining amount to pay."
         )
 
-
     # ==================================================
-    # FLUSH PAYMENT ROWS
+    # FLUSH SO PAYMENT IDS EXIST
     # ==================================================
 
     try:
@@ -12758,34 +12972,29 @@ def create_payment(
 
         raise HTTPException(
             status_code=500,
-            detail=(
-                "Failed to create local "
-                "payment records."
-            )
+            detail="Failed to create local payment records."
         )
 
-
     # ==================================================
-    # BUILD BULK REFERENCE
+    # CREATE INTERNAL BULK REFERENCE
     # ==================================================
 
     if is_bulk_payment:
 
         local_bulk_reference = (
-            f"CYF-BULK-"
+            "CYF-BULK-"
             f"{uuid.uuid4().hex[:12].upper()}"
         )
 
     else:
 
         local_bulk_reference = (
-            f"CYF-SINGLE-"
+            "CYF-SINGLE-"
             f"{uuid.uuid4().hex[:12].upper()}"
         )
 
-
     # ==================================================
-    # FIND EVENT NAME
+    # EVENT NAME
     # ==================================================
 
     event_names = list(
@@ -12796,16 +13005,14 @@ def create_payment(
         )
     )
 
-
     event_name = (
         event_names[0]
         if len(event_names) == 1
         else "Multiple Events"
     )
 
-
     # ==================================================
-    # BUILD DESCRIPTION
+    # DESCRIPTION
     # ==================================================
 
     if is_bulk_payment:
@@ -12822,13 +13029,11 @@ def create_payment(
             f"{participants[0].registration_number}"
         )
 
-
     # ==================================================
-    # BUILD REMARKS
+    # REMARKS
     # ==================================================
 
     participant_remarks = []
-
 
     for item in all_participant_items:
 
@@ -12841,7 +13046,6 @@ def create_payment(
             )
         )
 
-
     remarks = (
         "CYF Registration Payment | "
         f"Participants: {len(participants)} | "
@@ -12849,19 +13053,8 @@ def create_payment(
         f"{' || '.join(participant_remarks)}"
     )
 
-
     # ==================================================
-    # PAYMONGO URL
-    # ==================================================
-
-    url = (
-        f"{PAYMONGO_API_URL}"
-        "/v1/payment_links"
-    )
-
-
-    # ==================================================
-    # PARTICIPANT IDS FOR METADATA
+    # PAYMONGO IDS FOR METADATA
     # ==================================================
 
     participant_ids_metadata = ",".join(
@@ -12869,16 +13062,19 @@ def create_payment(
         for pid in participant_ids
     )
 
-
-    # ==================================================
-    # PAYMENT IDS FOR METADATA
-    # ==================================================
-
     payment_ids_metadata = ",".join(
         str(payment.id)
         for payment in payment_rows
     )
 
+    # ==================================================
+    # PAYMONGO PAYMENT LINK
+    # ==================================================
+
+    url = (
+        f"{PAYMONGO_API_URL}"
+        "/v1/payment_links"
+    )
 
     # ==================================================
     # PAYMONGO PAYLOAD
@@ -12900,181 +13096,94 @@ def create_payment(
 
         "metadata": {
 
-            # ------------------------------------------
-            # PAYMENT TYPE
-            # ------------------------------------------
+            # ------------------------------------------------
+            # INTERNAL PAYMENT TYPE
+            # ------------------------------------------------
 
             "payment_type":
-                "bulk"
-                if is_bulk_payment
-                else "single",
+                (
+                    "bulk"
+                    if is_bulk_payment
+                    else "single"
+                ),
 
-
-            # ------------------------------------------
-            # BULK REFERENCE
-            # ------------------------------------------
+            # ------------------------------------------------
+            # INTERNAL REFERENCE
+            # ------------------------------------------------
 
             "bulk_reference":
                 local_bulk_reference,
 
-
-            # ------------------------------------------
+            # ------------------------------------------------
             # PARTICIPANT COUNT
-            # ------------------------------------------
+            # ------------------------------------------------
 
             "participant_count":
-                str(
-                    len(participants)
-                ),
+                str(len(participants)),
 
-
-            # ------------------------------------------
-            # PARTICIPANT IDS
-            # ------------------------------------------
+            # ------------------------------------------------
+            # ALL PARTICIPANT IDS
+            # ------------------------------------------------
 
             "participant_ids":
                 participant_ids_metadata,
 
-
-            # ------------------------------------------
-            # PAYMENT IDS
-            # ------------------------------------------
+            # ------------------------------------------------
+            # ALL LOCAL PAYMENT IDS
+            #
+            # THIS IS CRITICAL FOR BULK WEBHOOKS.
+            # ------------------------------------------------
 
             "payment_ids":
                 payment_ids_metadata,
 
-
-            # ------------------------------------------
+            # ------------------------------------------------
             # EVENT
-            # ------------------------------------------
+            # ------------------------------------------------
 
             "event_name":
                 event_name,
 
-
-            # ------------------------------------------
-            # GLOBAL ITEM FLAGS
-            # ------------------------------------------
+            # ------------------------------------------------
+            # GLOBAL REQUEST VALUES
+            #
+            # These are informational only.
+            # The webhook MUST use the Payment row
+            # for the actual participant-specific flags.
+            # ------------------------------------------------
 
             "tshirt":
                 str(
-                    int(
-                        tshirt_requested
-                    )
+                    int(tshirt_requested)
                 ),
 
             "lanyard":
                 str(
-                    int(
-                        lanyard_requested
-                    )
+                    int(lanyard_requested)
                 ),
-
-
-            # ------------------------------------------
-            # T-SHIRT SIZE
-            # ------------------------------------------
 
             "tshirt_size":
                 tshirt_size or ""
-
         }
-
     }
-
 
     # ==================================================
     # IDEMPOTENCY KEY
     # ==================================================
 
     idempotency_key = (
-        f"cyf-payment-"
+        "cyf-payment-"
         f"{local_bulk_reference}-"
         f"{uuid.uuid4()}"
     )
 
-
     # ==================================================
-    # DEBUG
-    # ==================================================
-
-    print()
-    print("=" * 70)
-    print("PAYMONGO CREATE PAYMENT")
-    print("=" * 70)
-
-    print(
-        "Payment Type:",
-        "BULK"
-        if is_bulk_payment
-        else "SINGLE"
-    )
-
-    print(
-        "Participant Count:",
-        len(participants)
-    )
-
-    print(
-        "Participant IDs:",
-        participant_ids
-    )
-
-    print(
-        "Payment IDs:",
-        [
-            payment.id
-            for payment in payment_rows
-        ]
-    )
-
-    print(
-        "T-Shirt Selected:",
-        tshirt_requested
-    )
-
-    print(
-        "Lanyard Selected:",
-        lanyard_requested
-    )
-
-    print(
-        "Total Amount:",
-        total_amount
-    )
-
-    print(
-        "Total Amount Display:",
-        f"₱{total_amount / 100:,.2f}"
-    )
-
-    print(
-        "Bulk Reference:",
-        local_bulk_reference
-    )
-
-    print(
-        "Payload:"
-    )
-
-    print(
-        json.dumps(
-            payload,
-            indent=4
-        )
-    )
-
-    print("=" * 70)
-
-
-    # ==================================================
-    # SEND REQUEST TO PAYMONGO
+    # CREATE PAYMONGO LINK
     # ==================================================
 
     try:
 
         response = requests.post(
-
             url,
 
             auth=(
@@ -13083,7 +13192,6 @@ def create_payment(
             ),
 
             headers={
-
                 "Content-Type":
                     "application/json",
 
@@ -13092,31 +13200,24 @@ def create_payment(
 
                 "Idempotency-Key":
                     idempotency_key
-
             },
 
             json=payload,
 
             timeout=30
-
         )
-
 
     except requests.RequestException as e:
 
         for payment in payment_rows:
-
             payment.status = "Failed"
 
-
         db.commit()
-
 
         print(
             "PAYMONGO CONNECTION ERROR:",
             str(e)
         )
-
 
         raise HTTPException(
             status_code=502,
@@ -13126,64 +13227,33 @@ def create_payment(
             )
         )
 
-
     # ==================================================
-    # PAYMONGO RESPONSE
-    # ==================================================
-
-    print()
-    print("=" * 70)
-
-    print(
-        "PAYMONGO STATUS:",
-        response.status_code
-    )
-
-    print(
-        "PAYMONGO RESPONSE:"
-    )
-
-    print(
-        response.text
-    )
-
-    print("=" * 70)
-
-
-    # ==================================================
-    # HANDLE PAYMONGO ERROR
+    # PAYMONGO ERROR
     # ==================================================
 
     if not response.ok:
 
         for payment in payment_rows:
-
             payment.status = "Failed"
-
 
         db.commit()
 
-
         try:
-
             error_data = response.json()
 
         except Exception:
-
             error_data = {
                 "error":
                     response.text
             }
-
 
         raise HTTPException(
             status_code=502,
             detail=error_data
         )
 
-
     # ==================================================
-    # PARSE RESPONSE
+    # PARSE PAYMONGO RESPONSE
     # ==================================================
 
     try:
@@ -13193,24 +13263,19 @@ def create_payment(
     except Exception:
 
         for payment in payment_rows:
-
             payment.status = "Failed"
 
-
         db.commit()
-
 
         raise HTTPException(
             status_code=502,
             detail=(
-                "PayMongo returned "
-                "an invalid JSON response."
+                "PayMongo returned an invalid JSON response."
             )
         )
 
-
     # ==================================================
-    # GET DATA
+    # LINK DATA
     # ==================================================
 
     link_data = paymongo_data.get(
@@ -13218,110 +13283,82 @@ def create_payment(
         {}
     )
 
-
     if not link_data:
 
         for payment in payment_rows:
-
             payment.status = "Failed"
 
-
         db.commit()
-
 
         raise HTTPException(
             status_code=502,
             detail={
                 "message":
-                    (
-                        "PayMongo returned "
-                        "an empty data object."
-                    ),
+                    "PayMongo returned an empty data object.",
 
                 "paymongo_response":
                     paymongo_data
             }
         )
 
-
     # ==================================================
-    # GET LINK ID
+    # LINK ID
     # ==================================================
 
-    paymongo_link_id = (
-        link_data.get("id")
+    paymongo_link_id = link_data.get(
+        "id"
     )
 
-
     # ==================================================
-    # GET ATTRIBUTES
+    # LINK ATTRIBUTES
     # ==================================================
 
-    link_attributes = (
-        link_data.get(
-            "attributes",
-            {}
-        )
+    link_attributes = link_data.get(
+        "attributes",
+        {}
     )
-
 
     if not isinstance(
         link_attributes,
         dict
     ):
-
         link_attributes = {}
 
-
     # ==================================================
-    # GET CHECKOUT URL
+    # CHECKOUT URL
     # ==================================================
 
     checkout_url = (
-
         link_attributes.get(
             "checkout_url"
         )
-
         or
-
         link_attributes.get(
             "url"
         )
-
         or
-
         link_data.get(
             "checkout_url"
         )
-
         or
-
         link_data.get(
             "url"
         )
-
     )
 
-
     # ==================================================
-    # GET REFERENCE
+    # PAYMONGO REFERENCE
     # ==================================================
 
     paymongo_reference = (
-
         link_attributes.get(
             "reference_number"
         )
-
         or
-
         link_data.get(
             "reference_number"
         )
-
     )
-
 
     # ==================================================
     # VALIDATE LINK ID
@@ -13330,27 +13367,20 @@ def create_payment(
     if not paymongo_link_id:
 
         for payment in payment_rows:
-
             payment.status = "Failed"
 
-
         db.commit()
-
 
         raise HTTPException(
             status_code=502,
             detail={
                 "message":
-                    (
-                        "PayMongo did not return "
-                        "a payment link ID."
-                    ),
+                    "PayMongo did not return a payment link ID.",
 
                 "paymongo_response":
                     paymongo_data
             }
         )
-
 
     # ==================================================
     # VALIDATE CHECKOUT URL
@@ -13359,50 +13389,50 @@ def create_payment(
     if not checkout_url:
 
         for payment in payment_rows:
-
             payment.status = "Failed"
 
-
         db.commit()
-
 
         raise HTTPException(
             status_code=502,
             detail={
                 "message":
-                    (
-                        "PayMongo did not return "
-                        "a checkout URL."
-                    ),
+                    "PayMongo did not return a checkout URL.",
 
                 "paymongo_response":
                     paymongo_data
             }
         )
 
-
     # ==================================================
-    # SAVE PAYMONGO INFORMATION
-    # TO EVERY LOCAL PAYMENT ROW
+    # SAVE PAYMONGO DATA TO EVERY LOCAL PAYMENT ROW
     #
-    # IMPORTANT FOR BULK:
+    # BULK:
     #
-    # Participant 27
-    # Participant 28
-    # Participant 29
+    # Payment 101 -> Participant 27
+    # Payment 102 -> Participant 28
+    # Payment 103 -> Participant 29
     #
-    # ALL get the SAME PayMongo link ID.
+    # ALL share the SAME payment-link ID.
     # ==================================================
 
     for payment in payment_rows:
 
-        payment.paymongo_link_id = (
-            paymongo_link_id
-        )
+        if hasattr(
+            payment,
+            "paymongo_link_id"
+        ):
+            payment.paymongo_link_id = (
+                paymongo_link_id
+            )
 
-        payment.paymongo_reference = (
-            paymongo_reference
-        )
+        if hasattr(
+            payment,
+            "paymongo_reference"
+        ):
+            payment.paymongo_reference = (
+                paymongo_reference
+            )
 
         payment.checkout_url = (
             checkout_url
@@ -13410,9 +13440,8 @@ def create_payment(
 
         payment.status = "Pending"
 
-
     # ==================================================
-    # COMMIT EVERYTHING
+    # COMMIT
     # ==================================================
 
     try:
@@ -13436,7 +13465,6 @@ def create_payment(
             )
         )
 
-
     # ==================================================
     # REFRESH
     # ==================================================
@@ -13444,10 +13472,7 @@ def create_payment(
     for payment in payment_rows:
 
         try:
-
-            db.refresh(
-                payment
-            )
+            db.refresh(payment)
 
         except Exception as e:
 
@@ -13455,79 +13480,6 @@ def create_payment(
                 "Payment refresh failed:",
                 repr(e)
             )
-
-
-    # ==================================================
-    # SUCCESS LOG
-    # ==================================================
-
-    print()
-    print("=" * 70)
-    print("PAYMENT CREATED SUCCESSFULLY")
-    print("=" * 70)
-
-    print(
-        "Payment Type:",
-        "BULK"
-        if is_bulk_payment
-        else "SINGLE"
-    )
-
-    print(
-        "Participant Count:",
-        len(participants)
-    )
-
-    print(
-        "Participant IDs:",
-        participant_ids
-    )
-
-    print(
-        "Payment IDs:",
-        [
-            payment.id
-            for payment in payment_rows
-        ]
-    )
-
-    print(
-        "T-Shirt Selected:",
-        tshirt_requested
-    )
-
-    print(
-        "Lanyard Selected:",
-        lanyard_requested
-    )
-
-    print(
-        "Total Amount:",
-        total_amount
-    )
-
-    print(
-        "PayMongo Link ID:",
-        paymongo_link_id
-    )
-
-    print(
-        "Checkout URL:",
-        checkout_url
-    )
-
-    print(
-        "Reference:",
-        paymongo_reference
-    )
-
-    print(
-        "Bulk Reference:",
-        local_bulk_reference
-    )
-
-    print("=" * 70)
-
 
     # ==================================================
     # RETURN
@@ -13594,24 +13546,17 @@ def create_payment(
         "amount_display":
             f"₱{total_amount / 100:,.2f}",
 
-        "currency":
-            "PHP",
-
-        "status":
-            "Pending",
+        "paymongo_link_id":
+            paymongo_link_id,
 
         "checkout_url":
             checkout_url,
-
-        "paymongo_link_id":
-            paymongo_link_id,
 
         "paymongo_reference":
             paymongo_reference,
 
         "bulk_reference":
             local_bulk_reference
-
     }
 
 
@@ -14842,6 +14787,60 @@ async def process_finding_sponsor_queue_logic(
 
 # ======================================================
 # PAYMONGO WEBHOOK
+#
+# SUPPORTS:
+# - PARTICIPANT PAYMENTS
+# - CASH SPONSORSHIPS
+# - STORE PURCHASES
+#
+# STORE PURCHASES:
+# - 1 item
+# - 2 items
+# - 3 items
+# - 10 items
+# - Up to the cart limit configured in /store/purchase
+#
+# ONE STORE CART = ONE PAYMONGO PAYMENT LINK
+# ONE STORE CART ITEM = ONE PAYMENT DATABASE ROW
+#
+# ALL STORE PAYMENT ROWS SHARE:
+#     store_order_id
+#     paymongo_link_id
+#
+# When the webhook confirms payment:
+#
+#     ALL pending rows belonging to the same
+#     store_order_id are processed.
+#
+# Inventory is reduced for EVERY unpaid cart item.
+# ======================================================
+
+# ======================================================
+# PAYMONGO WEBHOOK
+# ======================================================
+#
+# Handles:
+#
+# 1. Participant payments
+# 2. Bulk participant payments
+# 3. Store payments
+# 4. Cash sponsorship payments
+#
+# IMPORTANT PARTICIPANT PAYMENT RULE:
+#
+# Payment.status being "Paid" does NOT mean that the
+# Participant merchandise statuses are already synchronized.
+#
+# Therefore, participant payment rows are ALWAYS synchronized
+# when payment.paid is received.
+#
+# This fixes cases such as:
+#
+# Payment.status       = Paid
+# Participant.lanyard_status = Pending
+#
+# The webhook will repair the participant status.
+#
 # ======================================================
 
 @app.post("/webhooks/paymongo")
@@ -18638,6 +18637,9 @@ async def paymongo_webhook(
 
 
 
+
+
+
     
     
 # ============================================================
@@ -20468,6 +20470,15 @@ def delete_store_item(
 
 # ============================================================
 # CREATE STORE PURCHASE PAYMENT
+#
+# SUPPORTS:
+# - ONE ITEM
+# - MULTIPLE ITEMS
+# - 1 TO 50 CART ITEMS
+#
+# ONE CART = ONE PAYMONGO PAYMENT LINK
+# ONE CART ITEM = ONE PAYMENT DATABASE ROW
+# ALL PAYMENT ROWS SHARE THE SAME store_order_id
 # ============================================================
 
 @app.post("/store/purchase")
@@ -20477,7 +20488,7 @@ def create_store_purchase(
 ):
 
     # ========================================================
-    # VALIDATE CUSTOMER INFORMATION
+    # VALIDATE CUSTOMER
     # ========================================================
 
     customer_name = (
@@ -20493,49 +20504,54 @@ def create_store_purchase(
     ).strip()
 
     if not customer_name:
+
         raise HTTPException(
             status_code=400,
             detail="Customer name is required."
         )
 
     if not customer_contact:
+
         raise HTTPException(
             status_code=400,
             detail="Customer contact number is required."
         )
 
     if not customer_email:
+
         raise HTTPException(
             status_code=400,
             detail="Customer email is required."
         )
 
     # ========================================================
-    # FIND STORE ITEM
+    # VALIDATE CART
     # ========================================================
 
-    item = (
-        db.query(StoreItem)
-        .filter(
-            StoreItem.id == data.store_item_id,
-            StoreItem.is_archived == False
-        )
-        .first()
-    )
+    if not data.items:
 
-    if not item:
         raise HTTPException(
-            status_code=404,
-            detail="Store item not found."
+            status_code=400,
+            detail="Your cart is empty."
         )
 
     # ========================================================
-    # NORMALIZE CATEGORY
+    # MAXIMUM CART ITEMS
+    #
+    # Supports 1 to 50 items.
+    # Change 50 if you want a different maximum.
     # ========================================================
 
-    category = (
-        item.category or "others"
-    ).strip().lower()
+    if len(data.items) > 50:
+
+        raise HTTPException(
+            status_code=400,
+            detail="Too many items in the cart."
+        )
+
+    # ========================================================
+    # ALLOWED CATEGORIES
+    # ========================================================
 
     allowed_categories = {
         "clothes",
@@ -20543,177 +20559,263 @@ def create_store_purchase(
         "others"
     }
 
-    if category not in allowed_categories:
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                "Invalid store item category. "
-                "Allowed categories are: "
-                "clothes, souvenir, others."
-            )
-        )
+    default_clothing_sizes = [
+        "S",
+        "M",
+        "L",
+        "XL",
+        "2XL"
+    ]
 
     # ========================================================
-    # CHECK INVENTORY
+    # PREPARE
     # ========================================================
 
-    if item.quantity <= 0:
-        raise HTTPException(
-            status_code=400,
-            detail="This item is currently out of stock."
-        )
+    validated_items = []
+
+    total_php = 0.0
 
     # ========================================================
-    # CHECK PURCHASE QUANTITY
+    # VALIDATE EVERY CART ITEM
     # ========================================================
 
-    if data.quantity <= 0:
-        raise HTTPException(
-            status_code=400,
-            detail="Quantity must be at least 1."
-        )
+    for cart_item in data.items:
 
-    if data.quantity > item.quantity:
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                f"Only {item.quantity} "
-                f"item(s) remaining."
-            )
-        )
+        # ----------------------------------------------------
+        # QUANTITY
+        # ----------------------------------------------------
 
-    # ========================================================
-    # SIZE VALIDATION
-    #
-    # CLOTHES REQUIRE A SIZE.
-    #
-    # Default:
-    # S
-    # M
-    # L
-    # XL
-    # 2XL
-    # ========================================================
+        if cart_item.quantity <= 0:
 
-    selected_size = None
-
-    if category == "clothes":
-
-        if not data.size:
             raise HTTPException(
                 status_code=400,
                 detail=(
-                    "Please select a size "
-                    "for this clothing item."
+                    f"Invalid quantity for "
+                    f"store item #{cart_item.store_item_id}."
                 )
             )
 
-        selected_size = (
-            str(data.size)
-            .strip()
-            .upper()
+        # ----------------------------------------------------
+        # FIND ITEM
+        # ----------------------------------------------------
+
+        item = (
+            db.query(StoreItem)
+            .filter(
+                StoreItem.id == cart_item.store_item_id,
+                StoreItem.is_archived == False
+            )
+            .first()
         )
 
-        default_clothing_sizes = [
-            "S",
-            "M",
-            "L",
-            "XL",
-            "2XL"
-        ]
+        if not item:
 
-        available_sizes = []
-
-        # ----------------------------------------------------
-        # READ SIZES FROM DATABASE
-        # ----------------------------------------------------
-
-        if item.sizes:
-
-            try:
-
-                parsed_sizes = json.loads(
-                    item.sizes
+            raise HTTPException(
+                status_code=404,
+                detail=(
+                    f"Store item "
+                    f"#{cart_item.store_item_id} "
+                    f"was not found."
                 )
+            )
 
-                if isinstance(
-                    parsed_sizes,
-                    list
-                ):
+        # ----------------------------------------------------
+        # CATEGORY
+        # ----------------------------------------------------
 
-                    available_sizes = [
-                        str(size)
-                        .strip()
-                        .upper()
-                        for size in parsed_sizes
-                        if str(size).strip()
-                    ]
+        category = (
+            item.category or "others"
+        ).strip().lower()
 
-            except Exception:
+        if category not in allowed_categories:
+
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Invalid category for "
+                    f"{item.item_name}."
+                )
+            )
+
+        # ----------------------------------------------------
+        # INVENTORY
+        # ----------------------------------------------------
+
+        current_quantity = int(
+            item.quantity or 0
+        )
+
+        if current_quantity <= 0:
+
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"{item.item_name} "
+                    f"is currently out of stock."
+                )
+            )
+
+        if cart_item.quantity > current_quantity:
+
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Only {current_quantity} "
+                    f"item(s) of "
+                    f"{item.item_name} "
+                    f"remaining."
+                )
+            )
+
+        # ----------------------------------------------------
+        # SIZE
+        # ----------------------------------------------------
+
+        selected_size = None
+
+        if category == "clothes":
+
+            if not cart_item.size:
 
                 raise HTTPException(
-                    status_code=500,
+                    status_code=400,
                     detail=(
-                        "The clothing item's "
-                        "size configuration is invalid."
+                        f"Please select a size "
+                        f"for {item.item_name}."
+                    )
+                )
+
+            selected_size = (
+                str(cart_item.size)
+                .strip()
+                .upper()
+            )
+
+            available_sizes = []
+
+            if item.sizes:
+
+                try:
+
+                    parsed_sizes = json.loads(
+                        item.sizes
+                    )
+
+                    if isinstance(
+                        parsed_sizes,
+                        list
+                    ):
+
+                        available_sizes = [
+                            str(size)
+                            .strip()
+                            .upper()
+                            for size in parsed_sizes
+                            if str(size).strip()
+                        ]
+
+                except Exception:
+
+                    raise HTTPException(
+                        status_code=500,
+                        detail=(
+                            f"The size configuration "
+                            f"for {item.item_name} "
+                            f"is invalid."
+                        )
+                    )
+
+            if not available_sizes:
+
+                available_sizes = (
+                    default_clothing_sizes
+                )
+
+            if selected_size not in available_sizes:
+
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"Invalid size "
+                        f"'{selected_size}' "
+                        f"for {item.item_name}. "
+                        f"Available sizes: "
+                        f"{', '.join(available_sizes)}."
                     )
                 )
 
         # ----------------------------------------------------
-        # USE DEFAULT SIZES IF NONE SAVED
+        # NON-CLOTHING
         # ----------------------------------------------------
 
-        if not available_sizes:
+        else:
 
-            available_sizes = (
-                default_clothing_sizes
-            )
+            selected_size = None
 
         # ----------------------------------------------------
-        # CHECK SELECTED SIZE
+        # PRICE
         # ----------------------------------------------------
 
-        if selected_size not in available_sizes:
+        unit_price = float(
+            item.price or 0
+        )
+
+        if unit_price <= 0:
 
             raise HTTPException(
                 status_code=400,
                 detail=(
-                    f"Invalid size '{selected_size}'. "
-                    f"Available sizes: "
-                    f"{', '.join(available_sizes)}."
+                    f"Invalid price for "
+                    f"{item.item_name}."
                 )
             )
 
-    else:
+        item_total = (
+            unit_price *
+            int(cart_item.quantity)
+        )
 
-        # Non-clothing items do not use sizes.
-        selected_size = None
+        total_php += item_total
+
+        # ----------------------------------------------------
+        # STORE VALIDATED ITEM
+        # ----------------------------------------------------
+
+        validated_items.append({
+
+            "item": item,
+
+            "store_item_id": item.id,
+
+            "item_name": item.item_name,
+
+            "category": category,
+
+            "quantity": int(
+                cart_item.quantity
+            ),
+
+            "size": selected_size,
+
+            "unit_price": unit_price,
+
+            "item_total": item_total
+
+        })
 
     # ========================================================
-    # CALCULATE TOTAL
+    # TOTAL
     # ========================================================
-
-    total_php = (
-        float(item.price) *
-        int(data.quantity)
-    )
 
     if total_php <= 0:
+
         raise HTTPException(
             status_code=400,
-            detail="Invalid payment amount."
+            detail="Invalid total payment amount."
         )
 
     # ========================================================
     # PAYMONGO AMOUNT
-    #
-    # Example:
-    #
-    # ₱350.00
-    #
-    # becomes:
-    #
-    # 35000 centavos
     # ========================================================
 
     paymongo_amount = int(
@@ -20723,89 +20825,165 @@ def create_store_purchase(
     )
 
     if paymongo_amount <= 0:
+
         raise HTTPException(
             status_code=400,
             detail="Invalid PayMongo payment amount."
         )
 
     # ========================================================
+    # GENERATE STORE ORDER ID
+    #
+    # ONE ID FOR THE ENTIRE CART.
+    #
+    # Example:
+    #
+    # STORE-20260829153045-ABC12345
+    #
+    # Whether the cart has:
+    #
+    # 1 item
+    # 2 items
+    # 3 items
+    # 10 items
+    # 50 items
+    #
+    # they all use ONE store_order_id.
+    # ========================================================
+
+    store_order_id = (
+        "STORE-"
+        + datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+        + "-"
+        + uuid.uuid4().hex[:8].upper()
+    )
+
+    # ========================================================
     # PAYMENT DESCRIPTION
     # ========================================================
 
-    if selected_size:
+    description_parts = []
 
-        payment_description = (
-            f"{item.item_name} "
-            f"x {data.quantity} "
-            f"({selected_size})"
-        )
+    for validated in validated_items:
 
-    else:
+        if validated["size"]:
 
-        payment_description = (
-            f"{item.item_name} "
-            f"x {data.quantity}"
-        )
+            description_parts.append(
+                f'{validated["item_name"]} '
+                f'x{validated["quantity"]} '
+                f'({validated["size"]})'
+            )
+
+        else:
+
+            description_parts.append(
+                f'{validated["item_name"]} '
+                f'x{validated["quantity"]}'
+            )
+
+    payment_description = (
+        "Store Order "
+        + store_order_id
+        + ": "
+        + ", ".join(description_parts)
+    )
 
     # ========================================================
-    # CREATE PAYMENT RECORD
+    # CREATE PAYMENT RECORDS
     #
-    # Store customers are NOT participants.
+    # ONE PAYMENT ROW PER CART ITEM.
     #
-    # participant_id = None
+    # Example 10-item cart:
+    #
+    # Payment 1  -> STORE-ABC
+    # Payment 2  -> STORE-ABC
+    # Payment 3  -> STORE-ABC
+    # ...
+    # Payment 10 -> STORE-ABC
+    #
+    # ALL ROWS BELONG TO THE SAME CART.
     # ========================================================
 
-    payment = Payment(
+    payments = []
 
-    # ==================================================
-    # STORE PAYMENT
-    # ==================================================
+    try:
 
-    participant_id=None,
+        for validated in validated_items:
 
-    payment_type="Store",
+            payment = Payment(
 
-    # ==================================================
-    # STORE PURCHASE INFORMATION
-    # ==================================================
+                participant_id=None,
 
-    store_item_id=item.id,
+                payment_type="Store",
 
-    store_quantity=data.quantity,
+                # ------------------------------------------------
+                # STORE ORDER
+                # ------------------------------------------------
 
-    store_size=selected_size,
+                store_order_id=store_order_id,
 
-    # Keep this field too for compatibility with
-    # existing participant/t-shirt logic.
-    tshirt_size=selected_size,
+                # ------------------------------------------------
+                # ITEM
+                # ------------------------------------------------
 
-    # ==================================================
-    # PAYMENT
-    # ==================================================
+                store_item_id=validated["store_item_id"],
 
-    amount=paymongo_amount,
+                store_quantity=validated["quantity"],
 
-    currency="PHP",
+                store_size=validated["size"],
 
-    status="Pending",
+                tshirt_size=validated["size"],
 
-    description=payment_description,
+                # ------------------------------------------------
+                # PAYMENT
+                # ------------------------------------------------
 
-    # ==================================================
-    # CUSTOMER
-    # ==================================================
+                amount=int(
+                    round(
+                        validated["item_total"] * 100
+                    )
+                ),
 
-    customer_name=customer_name,
+                currency="PHP",
 
-    customer_contact=customer_contact,
+                status="Pending",
 
-    customer_email=customer_email
-)
-    db.add(payment)
+                description=payment_description,
 
-    db.commit()
+                # ------------------------------------------------
+                # CUSTOMER
+                # ------------------------------------------------
 
-    db.refresh(payment)
+                customer_name=customer_name,
+
+                customer_contact=customer_contact,
+
+                customer_email=customer_email
+            )
+
+            db.add(payment)
+
+            payments.append(
+                payment
+            )
+
+        db.commit()
+
+        for payment in payments:
+
+            db.refresh(payment)
+
+    except Exception as e:
+
+        db.rollback()
+
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Unable to create "
+                f"store order: {str(e)}"
+            )
+        )
 
     # ========================================================
     # PAYMONGO CONFIG
@@ -20815,7 +20993,9 @@ def create_store_purchase(
 
     if not secret_key:
 
-        db.delete(payment)
+        for payment in payments:
+
+            db.delete(payment)
 
         db.commit()
 
@@ -20828,77 +21008,73 @@ def create_store_purchase(
         )
 
     # ========================================================
-    # PAYMONGO PAYMENT LINK
-    #
-    # IMPORTANT:
-    #
-    # DO NOT USE:
-    #
-    # {
-    #     "data": {
-    #         "attributes": {
-    #             ...
-    #         }
-    #     }
-    # }
-    #
-    # amount, currency and description are sent
-    # directly in the request body.
+    # PAYMONGO METADATA
+    # ========================================================
+
+    metadata_items = []
+
+    for validated in validated_items:
+
+        metadata_items.append({
+
+            "store_item_id": str(
+                validated["store_item_id"]
+            ),
+
+            "item_name": validated["item_name"],
+
+            "category": validated["category"],
+
+            "quantity": str(
+                validated["quantity"]
+            ),
+
+            "size": validated["size"] or ""
+
+        })
+
+    # ========================================================
+    # PAYMONGO PAYLOAD
     # ========================================================
 
     payload = {
 
-        "amount":
-            paymongo_amount,
+        "amount": paymongo_amount,
 
-        "currency":
-            "PHP",
+        "currency": "PHP",
 
-        "description":
-            payment_description,
+        "description": payment_description,
 
-        "remarks":
-            (
-                f"Store purchase "
-                f"#{payment.id}"
-            ),
+        "remarks": (
+            f"Store Order {store_order_id}"
+        ),
 
         "metadata": {
 
-            "type":
-                "store_purchase",
+            "type": "store_purchase",
 
-            "payment_id":
-                str(payment.id),
+            "store_order_id": store_order_id,
 
-            "store_item_id":
-                str(item.id),
+            "customer_name": customer_name,
 
-            "item_name":
-                item.item_name,
+            "customer_contact": customer_contact,
 
-            "category":
-                category,
+            "customer_email": customer_email,
 
-            "quantity":
-                str(data.quantity),
+            "item_count": str(
+                len(validated_items)
+            ),
 
-            "size":
-                selected_size or "",
+            "items": json.dumps(
+                metadata_items
+            )
 
-            "customer_name":
-                customer_name,
-
-            "customer_contact":
-                customer_contact,
-
-            "customer_email":
-                customer_email
         }
+
     }
 
     # ========================================================
-    # SEND PAYMENT LINK TO PAYMONGO
+    # CREATE PAYMONGO PAYMENT LINK
     # ========================================================
 
     try:
@@ -20914,32 +21090,30 @@ def create_store_purchase(
 
             headers={
 
-                "Content-Type":
-                    "application/json",
+                "Content-Type": "application/json",
 
-                "Idempotency-Key":
-                    (
-                        f"store-payment-"
-                        f"{payment.id}-"
-                        f"{uuid.uuid4()}"
-                    )
+                "Idempotency-Key": (
+                    f"store-order-{store_order_id}"
+                )
+
             },
 
             json=payload,
 
             timeout=30
+
         )
 
     except Exception as e:
 
-        db.delete(payment)
+        for payment in payments:
+
+            db.delete(payment)
 
         db.commit()
 
         raise HTTPException(
-
             status_code=502,
-
             detail=(
                 "Unable to connect to "
                 f"PayMongo: {str(e)}"
@@ -20965,26 +21139,25 @@ def create_store_purchase(
                 "detail": response.text
             }
 
-        db.delete(payment)
+        for payment in payments:
+
+            db.delete(payment)
 
         db.commit()
 
         raise HTTPException(
-
             status_code=502,
-
             detail={
-                "message":
+                "message": (
                     "PayMongo rejected "
-                    "the payment.",
-
-                "paymongo":
-                    error_data
+                    "the payment."
+                ),
+                "paymongo": error_data
             }
         )
 
     # ========================================================
-    # READ PAYMONGO RESPONSE
+    # READ RESPONSE
     # ========================================================
 
     try:
@@ -20993,14 +21166,14 @@ def create_store_purchase(
 
     except Exception as exc:
 
-        db.delete(payment)
+        for payment in payments:
+
+            db.delete(payment)
 
         db.commit()
 
         raise HTTPException(
-
             status_code=502,
-
             detail=(
                 "PayMongo returned "
                 "invalid JSON: "
@@ -21009,74 +21182,56 @@ def create_store_purchase(
         )
 
     # ========================================================
-    # GET PAYMENT DATA
+    # PAYMENT DATA
     # ========================================================
 
-    payment_data = (
-        result.get(
-            "data",
-            {}
-        )
+    payment_data = result.get(
+        "data",
+        {}
     )
 
-    payment_link_id = (
-        payment_data.get(
-            "id"
-        )
+    payment_link_id = payment_data.get(
+        "id"
     )
 
-    # ========================================================
-    # PAYMENT URL
-    #
-    # The URL can be returned directly.
-    # ========================================================
-
-    payment_url = (
-        payment_data.get(
-            "url"
-        )
+    payment_url = payment_data.get(
+        "url"
     )
 
-    reference_number = (
-        payment_data.get(
-            "reference_number"
-        )
+    reference_number = payment_data.get(
+        "reference_number"
     )
 
     # ========================================================
-    # CHECK PAYMENT LINK ID
+    # VALIDATE PAYMONGO RESPONSE
     # ========================================================
 
     if not payment_link_id:
 
-        db.delete(payment)
+        for payment in payments:
+
+            db.delete(payment)
 
         db.commit()
 
         raise HTTPException(
-
             status_code=502,
-
             detail=(
                 "PayMongo did not return "
                 "a payment link ID."
             )
         )
 
-    # ========================================================
-    # CHECK PAYMENT URL
-    # ========================================================
-
     if not payment_url:
 
-        db.delete(payment)
+        for payment in payments:
+
+            db.delete(payment)
 
         db.commit()
 
         raise HTTPException(
-
             status_code=502,
-
             detail=(
                 "PayMongo did not return "
                 "a payment URL."
@@ -21085,95 +21240,130 @@ def create_store_purchase(
 
     # ========================================================
     # SAVE PAYMONGO INFORMATION
+    #
+    # EVERY PAYMENT ROW GETS THE SAME:
+    #
+    # - payment link ID
+    # - reference
+    # - checkout URL
+    # - store order ID
+    #
     # ========================================================
 
-    payment.paymongo_link_id = (
-        payment_link_id
-    )
+    for payment in payments:
 
-    payment.paymongo_reference = (
-        reference_number
-    )
+        payment.paymongo_link_id = (
+            payment_link_id
+        )
 
-    payment.checkout_url = (
-        payment_url
-    )
+        payment.paymongo_reference = (
+            reference_number
+        )
 
-    payment.description = (
-        payment_description
-    )
+        payment.checkout_url = (
+            payment_url
+        )
 
-    payment.tshirt_size = (
-        selected_size
-    )
+        payment.description = (
+            payment_description
+        )
 
     db.commit()
 
-    db.refresh(payment)
-
     # ========================================================
-    # IMPORTANT
-    #
-    # DO NOT REDUCE INVENTORY HERE.
-    #
-    # Inventory is reduced ONLY after the
-    # PayMongo webhook confirms successful payment.
+    # RESPONSE
     # ========================================================
 
     return {
 
-        "success":
-            True,
+        "success": True,
 
-        "message":
-            "Payment created successfully.",
+        "message": (
+            "Store order created successfully."
+        ),
 
-        "payment_id":
-            payment.id,
+        "store_order_id": store_order_id,
 
-        "store_item_id":
-            item.id,
+        "payment_id": payments[0].id,
 
-        "item_name":
-            item.item_name,
+        "payment_ids": [
+            payment.id
+            for payment in payments
+        ],
 
-        "category":
-            category,
+        "item_count": len(
+            validated_items
+        ),
 
-        "quantity":
-            data.quantity,
+        "items": [
 
-        "size":
-            selected_size,
+            {
 
-        "unit_price":
-            float(item.price),
+                "payment_id": payment.id,
 
-        "total_amount":
-            float(total_php),
+                "store_item_id":
+                    validated["store_item_id"],
 
-        "checkout_url":
-            payment_url,
+                "item_name":
+                    validated["item_name"],
 
-        "payment_status":
-            "Pending"
+                "quantity":
+                    validated["quantity"],
+
+                "size":
+                    validated["size"],
+
+                "unit_price":
+                    validated["unit_price"],
+
+                "item_total":
+                    validated["item_total"]
+
+            }
+
+            for payment, validated
+            in zip(
+                payments,
+                validated_items
+            )
+
+        ],
+
+        "total_amount": float(
+            total_php
+        ),
+
+        "checkout_url": payment_url,
+
+        "payment_status": "Pending"
+
     }
     
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # ============================================================
-# CHECK STORE PURCHASE PAYMENT STATUS
+# STORE PURCHASE STATUS
 # ============================================================
 
 @app.get("/store/purchase/status/{payment_id}")
-def get_store_purchase_status(
+def store_purchase_status(
     payment_id: int,
     db: Session = Depends(get_db)
 ):
-
-    # --------------------------------------------------------
-    # FIND PAYMENT
-    # --------------------------------------------------------
 
     payment = (
         db.query(Payment)
@@ -21191,53 +21381,120 @@ def get_store_purchase_status(
             detail="Store payment not found."
         )
 
-    # --------------------------------------------------------
-    # RETURN PAYMENT STATUS
-    # --------------------------------------------------------
+    # ========================================================
+    # GET WHOLE STORE ORDER
+    # ========================================================
 
-    status = (
-        payment.status or "Pending"
-    ).strip()
+    if payment.store_order_id:
+
+        order_payments = (
+            db.query(Payment)
+            .filter(
+                Payment.store_order_id ==
+                    payment.store_order_id,
+
+                Payment.payment_type ==
+                    "Store"
+            )
+            .all()
+        )
+
+    else:
+
+        order_payments = [
+            payment
+        ]
+
+    # ========================================================
+    # DETERMINE ORDER STATUS
+    # ========================================================
+
+    statuses = [
+        str(
+            p.status or "Pending"
+        ).lower()
+        for p in order_payments
+    ]
+
+    if all(
+        status in (
+            "paid",
+            "success",
+            "successful",
+            "completed"
+        )
+        for status in statuses
+    ):
+
+        order_status = "Paid"
+
+    elif any(
+        status in (
+            "failed",
+            "cancelled",
+            "canceled"
+        )
+        for status in statuses
+    ):
+
+        order_status = "Failed"
+
+    else:
+
+        order_status = "Pending"
+
+    # ========================================================
+    # RETURN
+    # ========================================================
 
     return {
 
-        "success": True,
+        "success":
+            True,
 
         "payment_id":
             payment.id,
 
-        "payment_type":
-            payment.payment_type,
+        "store_order_id":
+            payment.store_order_id,
 
         "status":
-            status,
+            order_status,
 
         "payment_status":
-            status,
-
-        "customer_name":
-            payment.customer_name,
-
-        "customer_contact":
-            payment.customer_contact,
-
-        "customer_email":
-            payment.customer_email,
-
-        "description":
-            payment.description,
-
-        "checkout_url":
-            payment.checkout_url,
+            order_status,
 
         "paymongo_reference":
             payment.paymongo_reference,
 
-        "size":
-            payment.tshirt_size,
+        "item_count":
+            len(order_payments),
 
-        "paid_at":
-            payment.paid_at
+        "items": [
+
+            {
+
+                "payment_id":
+                    p.id,
+
+                "store_item_id":
+                    p.store_item_id,
+
+                "quantity":
+                    p.store_quantity,
+
+                "size":
+                    p.store_size,
+
+                "status":
+                    p.status
+
+            }
+
+            for p in order_payments
+
+        ]
+
     }
 
 
@@ -21307,7 +21564,9 @@ def view_store_items(
 # STORE IMAGE UPLOAD
 # =========================================================
 
-STORE_UPLOAD_DIR = Path("uploads/store")
+STORE_UPLOAD_DIR = Path(
+    "/app/data/uploads/store"
+)
 
 STORE_UPLOAD_DIR.mkdir(
     parents=True,
@@ -21413,7 +21672,7 @@ async def upload_store_image(
         "image_url":
             image_url
 
-    }        
+    }
     
 
 # ============================================================
