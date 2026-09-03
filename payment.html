@@ -1,1572 +1,581 @@
 <!DOCTYPE html>
-
 <html lang="en">
-
 <head>
-
 <meta charset="UTF-8">
-
-<meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0"
->
-
-<title>
-    Registration Payment
-</title>
-
-<!-- Favicon -->
-<link rel="icon" type="image/png" sizes="32x32" href="/favicon.png?v=3">
-<link rel="icon" type="image/png" sizes="16x16" href="/favicon.png?v=3">
-<link rel="shortcut icon" href="/favicon.png?v=3">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Registration Payment</title>
 
 <style>
-
-    * {
-        box-sizing: border-box;
-        margin: 0;
-        padding: 0;
-    }
-
-    :root {
-        --primary: #9d2b20;
-        --primary-dark: #7f2118;
-        --primary-light: #fdf0ee;
-        --primary-border: #e8bbb6;
-    }
-
-    body {
-        font-family:
-            Arial,
-            Helvetica,
-            sans-serif;
-
-        background: #f4f6f9;
-        color: #222;
-        min-height: 100vh;
-    }
-
-    /* =====================================================
-       HEADER
-       ===================================================== */
-
-    .header {
-        background: var(--primary);
-        color: white;
-
-        padding: 18px 30px;
-
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-
-        box-shadow:
-            0 2px 8px rgba(
-                0,
-                0,
-                0,
-                0.15
-            );
-    }
-
-    .header-title {
-        font-size: 22px;
-        font-weight: 700;
-    }
-
-    .header-subtitle {
-        font-size: 13px;
-        opacity: 0.9;
-        margin-top: 4px;
-    }
-
-    /* =====================================================
-       MAIN
-       ===================================================== */
-
-    .container {
-        width: min(
-            1100px,
-            calc(100% - 30px)
-        );
-
-        margin: 30px auto 50px;
-    }
-
-    /* =====================================================
-       LOADING
-       ===================================================== */
-
-    .loading {
-        background: white;
-        border-radius: 12px;
-
-        padding: 50px 20px;
-
-        text-align: center;
-
-        box-shadow:
-            0 2px 12px rgba(
-                0,
-                0,
-                0,
-                0.08
-            );
-    }
-
-    .spinner {
-        width: 42px;
-        height: 42px;
-
-        border:
-            4px solid #e5e7eb;
-
-        border-top:
-            4px solid var(--primary);
-
-        border-radius: 50%;
-
-        animation:
-            spin 0.8s linear infinite;
-
-        margin: 0 auto 15px;
-    }
-
-    @keyframes spin {
-
-        from {
-            transform: rotate(0deg);
-        }
-
-        to {
-            transform: rotate(360deg);
-        }
-
-    }
-
-    /* =====================================================
-       ERROR
-       ===================================================== */
-
-    .error-box {
-        background: #fff0f0;
-
-        border:
-            1px solid #ffcaca;
-
-        color: #b42318;
-
-        padding: 18px;
-
-        border-radius: 10px;
-
-        display: none;
-
-        margin-bottom: 20px;
-    }
-
-    /* =====================================================
-       CARDS
-       ===================================================== */
-
-    .participant-card,
-    .payment-card {
-        background: white;
-
-        border-radius: 12px;
-
-        padding: 25px;
-
-        margin-bottom: 20px;
-
-        box-shadow:
-            0 2px 12px rgba(
-                0,
-                0,
-                0,
-                0.08
-            );
-    }
-
-    .participant-title,
-    .section-title {
-        font-size: 20px;
-        font-weight: 700;
-
-        margin-bottom: 20px;
-    }
-
-    .participant-title {
-        color: var(--primary);
-    }
-
-    /* =====================================================
-       BULK HEADER
-       ===================================================== */
-
-    .bulk-summary {
-        display: none;
-
-        background:
-            var(--primary-light);
-
-        border:
-            1px solid var(--primary-border);
-
-        border-radius: 10px;
-
-        padding: 18px;
-
-        margin-bottom: 20px;
-    }
-
-    .bulk-summary.visible {
-        display: block;
-    }
-
-    .bulk-summary-title {
-        font-size: 18px;
-        font-weight: 700;
-
-        color: var(--primary);
-
-        margin-bottom: 7px;
-    }
-
-    .bulk-summary-text {
-        font-size: 14px;
-        color: #555;
-        line-height: 1.6;
-    }
-
-    .bulk-count {
-        font-weight: 800;
-        color: var(--primary);
-    }
-
-    /* =====================================================
-       PARTICIPANT LIST
-       ===================================================== */
-
-    .participant-list {
-        display: none;
-
-        flex-direction: column;
-
-        gap: 10px;
-
-        margin-top: 20px;
-    }
-
-    .participant-list.visible {
-        display: flex;
-    }
-
-    .bulk-participant {
-        border:
-            1px solid #e2e7ee;
-
-        border-radius: 9px;
-
-        padding: 14px 16px;
-
-        display: flex;
-
-        justify-content: space-between;
-
-        align-items: center;
-
-        gap: 15px;
-
-        background: #fafbfd;
-    }
-
-    .bulk-participant-main {
-        min-width: 0;
-    }
-
-    .bulk-participant-name {
-        font-weight: 700;
-        font-size: 15px;
-    }
-
-    .bulk-participant-registration {
-        font-size: 12px;
-        color: #777;
-        margin-top: 4px;
-    }
-
-    .bulk-participant-status {
-        flex-shrink: 0;
-    }
-
-    /* =====================================================
-       PARTICIPANT
-       ===================================================== */
-
-    .participant-grid {
-        display: grid;
-
-        grid-template-columns:
-            repeat(
-                2,
-                minmax(
-                    0,
-                    1fr
-                )
-            );
-
-        gap: 18px;
-    }
-
-    .info-label {
-        font-size: 12px;
-        color: #777;
-
-        margin-bottom: 5px;
-
-        text-transform: uppercase;
-
-        letter-spacing: 0.4px;
-    }
-
-    .info-value {
-        font-size: 16px;
-        font-weight: 600;
-        color: #222;
-    }
-
-    /* =====================================================
-       ITEMS
-       ===================================================== */
-
-    .item-list {
-        display: flex;
-        flex-direction: column;
-
-        gap: 14px;
-    }
-
-    .item {
-        border:
-            2px solid #e3e7eb;
-
-        border-radius: 10px;
-
-        padding: 18px;
-
-        display: flex;
-
-        align-items: center;
-
-        justify-content: space-between;
-
-        gap: 20px;
-
-        transition:
-            border-color 0.2s,
-            background 0.2s,
-            box-shadow 0.2s,
-            opacity 0.2s;
-    }
-
-    .item.selectable {
-        cursor: pointer;
-    }
-
-    .item.selectable:hover {
-        border-color:
-            var(--primary-border);
-
-        background:
-            var(--primary-light);
-    }
-
-    .item.selected {
-        border-color:
-            var(--primary);
-
-        background:
-            var(--primary-light);
-
-        box-shadow:
-            0 0 0 2px rgba(
-                157,
-                43,
-                32,
-                0.08
-            );
-    }
-
-    .item.paid {
-        background: #f8faf9;
-        border-color: #dcefe4;
-    }
-
-    .item.locked {
-        background: #f5f5f5;
-
-        border-color: #dedede;
-
-        opacity: 0.65;
-
-        cursor: not-allowed;
-    }
-
-    .item-left {
-        display: flex;
-
-        align-items: center;
-
-        gap: 14px;
-
-        min-width: 0;
-    }
-
-    .checkbox-wrapper {
-        width: 24px;
-        height: 24px;
-
-        flex-shrink: 0;
-    }
-
-    .checkbox-wrapper input {
-        width: 21px;
-        height: 21px;
-
-        cursor: pointer;
-
-        accent-color:
-            var(--primary);
-    }
-
-    .checkbox-wrapper input:disabled {
-        cursor: not-allowed;
-    }
-
-    .item-icon {
-        width: 45px;
-        height: 45px;
-
-        flex-shrink: 0;
-
-        border-radius: 10px;
-
-        background: #f5e4e1;
-
-        color: var(--primary);
-
-        display: flex;
-
-        align-items: center;
-
-        justify-content: center;
-
-        font-weight: 700;
-
-        font-size: 15px;
-    }
-
-    .item.paid .item-icon {
-        background: #e8f7ee;
-        color: #16834b;
-    }
-
-    .item.locked .item-icon {
-        background: #e8e8e8;
-        color: #777;
-    }
-
-    .item-name {
-        font-weight: 700;
-        font-size: 16px;
-    }
-
-    .item-price {
-        margin-top: 4px;
-
-        font-size: 14px;
-
-        color: #666;
-    }
-
-    .item-right {
-        display: flex;
-
-        align-items: center;
-
-        gap: 15px;
-    }
-
-    /* =====================================================
-       STATUS
-       ===================================================== */
-
-    .status {
-        display: inline-flex;
-
-        align-items: center;
-
-        justify-content: center;
-
-        padding: 7px 13px;
-
-        border-radius: 20px;
-
-        font-size: 12px;
-
-        font-weight: 700;
-
-        white-space: nowrap;
-    }
-
-    .status-paid {
-        background: #e8f7ee;
-        color: #16834b;
-    }
-
-    .status-unpaid {
-        background: #fff3e0;
-        color: #c56a00;
-    }
-
-    .status-pending {
-        background: #fff8d9;
-        color: #8a6d00;
-    }
-
-    .status-processing {
-        background: #eef4ff;
-        color: #315ea8;
-    }
-
-    /* =====================================================
-       T-SHIRT SIZE
-       ===================================================== */
-
-    .size-section {
-        display: none;
-
-        margin-top: 18px;
-
-        padding: 18px;
-
-        background: #f7f9fc;
-
-        border:
-            1px solid #e2e7ee;
-
-        border-radius: 10px;
-    }
-
-    .size-section.visible {
-        display: block;
-    }
-
-    .size-label {
-        display: block;
-
-        font-size: 13px;
-
-        font-weight: 700;
-
-        margin-bottom: 8px;
-    }
-
-    .size-select {
-        width: 100%;
-
-        max-width: 250px;
-
-        padding: 11px 12px;
-
-        border:
-            1px solid #cfd6df;
-
-        border-radius: 8px;
-
-        background: white;
-
-        font-size: 14px;
-
-        outline: none;
-    }
-
-    .size-select:focus {
-        border-color:
-            var(--primary);
-
-        box-shadow:
-            0 0 0 3px rgba(
-                157,
-                43,
-                32,
-                0.1
-            );
-    }
-
-    /* =====================================================
-       TOTAL
-       ===================================================== */
-
-    .total-row {
-        border-top:
-            1px solid #e5e7eb;
-
-        margin-top: 20px;
-
-        padding-top: 20px;
-
-        display: flex;
-
-        justify-content:
-            space-between;
-
-        align-items: center;
-    }
-
-    .total-label {
-        font-size: 17px;
-        font-weight: 700;
-    }
-
-    .total-amount {
-        font-size: 25px;
-        font-weight: 800;
-
-        color: var(--primary);
-    }
-
-    /* =====================================================
-       BULK TOTAL BREAKDOWN
-       ===================================================== */
-
-    .bulk-breakdown {
-        display: none;
-
-        margin-top: 20px;
-
-        border-top:
-            1px solid #e5e7eb;
-
-        padding-top: 18px;
-    }
-
-    .bulk-breakdown.visible {
-        display: block;
-    }
-
-    .bulk-breakdown-title {
-        font-weight: 700;
-        margin-bottom: 10px;
-    }
-
-    .bulk-breakdown-row {
-        display: flex;
-
-        justify-content: space-between;
-
-        gap: 15px;
-
-        padding: 8px 0;
-
-        font-size: 14px;
-
-        color: #555;
-    }
-
-    .bulk-breakdown-row strong {
-        color: #222;
-    }
-
-    /* =====================================================
-       MESSAGE
-       ===================================================== */
-
-    .selection-message {
-        margin-top: 15px;
-
-        padding: 12px 15px;
-
-        background: #fafafa;
-
-        border:
-            1px solid #e3e3e3;
-
-        border-radius: 8px;
-
-        color: #555;
-
-        font-size: 13px;
-
-        display: none;
-
-        line-height: 1.6;
-    }
-
-    /* =====================================================
-       SUCCESS
-       ===================================================== */
-
-    .success-message {
-        display: none;
-
-        background: #eaf8ef;
-
-        border:
-            1px solid #b9e8c9;
-
-        color: #176b3a;
-
-        border-radius: 10px;
-
-        padding: 20px;
-
-        margin-bottom: 20px;
-
-        text-align: center;
-    }
-
-    .success-message h3 {
-        margin-bottom: 7px;
-        font-size: 19px;
-    }
-
-    .success-message p {
-        line-height: 1.6;
-    }
-
-    /* =====================================================
-       BULK SUCCESS
-       ===================================================== */
-
-    .bulk-success-list {
-        margin-top: 15px;
-
-        display: flex;
-
-        flex-direction: column;
-
-        gap: 7px;
-
-        text-align: left;
-    }
-
-    .bulk-success-item {
-        background: white;
-
-        border:
-            1px solid #ccebd7;
-
-        border-radius: 7px;
-
-        padding: 9px 12px;
-
-        font-size: 13px;
-    }
-
-    /* =====================================================
-       CHECKOUT
-       ===================================================== */
-
-    .checkout-section {
-        margin-top: 25px;
-
-        text-align: center;
-    }
-
-    .pay-button {
-        border: none;
-
-        background:
-            var(--primary);
-
-        color: white;
-
-        padding: 14px 30px;
-
-        border-radius: 8px;
-
-        font-size: 16px;
-
-        font-weight: 700;
-
-        cursor: pointer;
-
-        transition: 0.2s;
-    }
-
-    .pay-button:hover {
-        background:
-            var(--primary-dark);
-
-        transform:
-            translateY(-1px);
-    }
-
-    .pay-button:disabled {
-        opacity: 0.6;
-
-        cursor: not-allowed;
-
-        transform: none;
-    }
-
-    /* =====================================================
-       WAITING
-       ===================================================== */
-
-    .payment-waiting {
-        display: none;
-
-        margin-top: 15px;
-
-        padding: 14px 16px;
-
-        background: #fff8e8;
-
-        border:
-            1px solid #f1dca8;
-
-        color: #7a5a00;
-
-        border-radius: 9px;
-
-        font-size: 13px;
-
-        text-align: center;
-
-        line-height: 1.6;
-    }
-
-    .spinner-small {
-        width: 18px;
-        height: 18px;
-
-        display: inline-block;
-
-        vertical-align: middle;
-
-        margin-right: 8px;
-
-        border:
-            2px solid #eadfbf;
-
-        border-top:
-            2px solid #9d2b20;
-
-        border-radius: 50%;
-
-        animation:
-            spin 0.8s linear infinite;
-    }
-
-    /* =====================================================
-       HISTORY
-       ===================================================== */
-
-    .history-table-wrapper {
-        overflow-x: auto;
-    }
-
-    table {
-        width: 100%;
-
-        border-collapse:
-            collapse;
-
-        min-width: 700px;
-    }
-
-    th {
-        background: #f5f7fa;
-
-        text-align: left;
-
-        padding: 13px;
-
-        font-size: 13px;
-
-        color: #555;
-
-        border-bottom:
-            1px solid #ddd;
-    }
-
-    td {
-        padding: 13px;
-
-        border-bottom:
-            1px solid #eee;
-
-        font-size: 14px;
-    }
-
-    .empty {
-        text-align: center;
-
-        padding: 30px;
-
-        color: #777;
-    }
-
-    /* =====================================================
-       BACK
-       ===================================================== */
-
-    .back-button {
-        background: transparent;
-
-        border:
-            1px solid rgba(
-                255,
-                255,
-                255,
-                0.6
-            );
-
-        color: white;
-
-        padding: 8px 16px;
-
-        border-radius: 7px;
-
-        cursor: pointer;
-
-        font-size: 13px;
-    }
-
-    .back-button:hover {
-        background:
-            rgba(
-                255,
-                255,
-                255,
-                0.12
-            );
-    }
-
-    /* =====================================================
-       MOBILE
-       ===================================================== */
-
-    @media (
-        max-width: 700px
-    ) {
-
-        .header {
-            padding: 15px;
-        }
-
-        .header-title {
-            font-size: 18px;
-        }
-
-        .container {
-            width:
-                calc(
-                    100% - 20px
-                );
-
-            margin-top: 20px;
-        }
-
-        .participant-grid {
-            grid-template-columns: 1fr;
-        }
-
-        .item {
-            align-items:
-                flex-start;
-        }
-
-        .item-right {
-            flex-shrink: 0;
-        }
-
-        .participant-card,
-        .payment-card {
-            padding: 18px;
-        }
-
-        .item-left {
-            flex: 1;
-        }
-
-        .bulk-participant {
-            align-items: flex-start;
-        }
-
-        .total-row {
-            align-items: flex-start;
-            gap: 15px;
-        }
-
-        .total-amount {
-            text-align: right;
-        }
-
-    }
-
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+    --primary:#9d2b20;
+    --primary-dark:#7f2118;
+    --primary-light:#fdf0ee;
+    --primary-border:#e8bbb6;
+}
+body{
+    font-family:Arial,Helvetica,sans-serif;
+    background:#f4f6f9;
+    color:#222;
+    min-height:100vh;
+}
+.header{
+    background:var(--primary);
+    color:white;
+    padding:18px 30px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    box-shadow:0 2px 8px rgba(0,0,0,.15);
+}
+.header-title{font-size:22px;font-weight:700}
+.header-subtitle{font-size:13px;opacity:.9;margin-top:4px}
+.container{width:min(1100px,calc(100% - 30px));margin:30px auto 50px}
+.loading{
+    background:white;border-radius:12px;padding:50px 20px;text-align:center;
+    box-shadow:0 2px 12px rgba(0,0,0,.08)
+}
+.spinner{
+    width:42px;height:42px;border:4px solid #e5e7eb;border-top:4px solid var(--primary);
+    border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 15px
+}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+.error-box{
+    background:#fff0f0;border:1px solid #ffcaca;color:#b42318;padding:18px;
+    border-radius:10px;display:none;margin-bottom:20px
+}
+.participant-card,.payment-card{
+    background:white;border-radius:12px;padding:25px;margin-bottom:20px;
+    box-shadow:0 2px 12px rgba(0,0,0,.08)
+}
+.participant-title,.section-title{font-size:20px;font-weight:700;margin-bottom:20px}
+.participant-title{color:var(--primary)}
+.participant-grid{
+    display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px
+}
+.info-label{
+    font-size:12px;color:#777;margin-bottom:5px;text-transform:uppercase;letter-spacing:.4px
+}
+.info-value{font-size:16px;font-weight:600;color:#222}
+.item-list{display:flex;flex-direction:column;gap:14px}
+.item{
+    border:2px solid #e3e7eb;border-radius:10px;padding:18px;display:flex;
+    align-items:center;justify-content:space-between;gap:20px;
+    transition:border-color .2s,background .2s,box-shadow .2s,opacity .2s
+}
+.item.selectable{cursor:pointer}
+.item.selectable:hover{border-color:var(--primary-border);background:var(--primary-light)}
+.item.selected{
+    border-color:var(--primary);background:var(--primary-light);
+    box-shadow:0 0 0 2px rgba(157,43,32,.08)
+}
+.item.paid{background:#f8faf9;border-color:#dcefe4}
+.item.locked{background:#f5f5f5;border-color:#dedede;opacity:.65;cursor:not-allowed}
+.item-left{display:flex;align-items:center;gap:14px;min-width:0}
+.checkbox-wrapper{width:24px;height:24px;flex-shrink:0}
+.checkbox-wrapper input{
+    width:21px;height:21px;cursor:pointer;accent-color:var(--primary)
+}
+.checkbox-wrapper input:disabled{cursor:not-allowed}
+.item-icon{
+    width:45px;height:45px;flex-shrink:0;border-radius:10px;background:#f5e4e1;color:var(--primary);
+    display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px
+}
+.item.paid .item-icon{background:#e8f7ee;color:#16834b}
+.item.locked .item-icon{background:#e8e8e8;color:#777}
+.item-name{font-weight:700;font-size:16px}
+.item-price{margin-top:4px;font-size:14px;color:#666}
+.item-right{display:flex;align-items:center;gap:15px}
+.status{
+    display:inline-flex;align-items:center;justify-content:center;padding:7px 13px;
+    border-radius:20px;font-size:12px;font-weight:700;white-space:nowrap
+}
+.status-paid{background:#e8f7ee;color:#16834b}
+.status-unpaid{background:#fff3e0;color:#c56a00}
+.status-pending{background:#fff8d9;color:#8a6d00}
+.size-section{
+    display:none;margin-top:18px;padding:18px;background:#f7f9fc;
+    border:1px solid #e2e7ee;border-radius:10px
+}
+.size-section.visible{display:block}
+.size-label{display:block;font-size:13px;font-weight:700;margin-bottom:8px}
+.size-select{
+    width:100%;max-width:250px;padding:11px 12px;border:1px solid #cfd6df;
+    border-radius:8px;background:white;font-size:14px;outline:none
+}
+.size-select:focus{
+    border-color:var(--primary);box-shadow:0 0 0 3px rgba(157,43,32,.1)
+}
+.total-row{
+    border-top:1px solid #e5e7eb;margin-top:20px;padding-top:20px;display:flex;
+    justify-content:space-between;align-items:center
+}
+.total-label{font-size:17px;font-weight:700}
+.total-amount{font-size:25px;font-weight:800;color:var(--primary)}
+.selection-message{
+    margin-top:15px;padding:12px 15px;background:#fafafa;border:1px solid #e3e3e3;
+    border-radius:8px;color:#555;font-size:13px;display:none
+}
+.success-message{
+    display:none;background:#eaf8ef;border:1px solid #b9e8c9;color:#176b3a;
+    border-radius:10px;padding:20px;margin-bottom:20px;text-align:center
+}
+.success-message h3{margin-bottom:7px;font-size:19px}
+.checkout-section{margin-top:25px;text-align:center}
+.pay-button{
+    border:none;background:var(--primary);color:white;padding:14px 30px;border-radius:8px;
+    font-size:16px;font-weight:700;cursor:pointer;transition:.2s
+}
+.pay-button:hover{background:var(--primary-dark);transform:translateY(-1px)}
+.pay-button:disabled{opacity:.6;cursor:not-allowed;transform:none}
+.payment-waiting{
+    display:none;margin-top:15px;padding:14px 16px;background:#fff8e8;
+    border:1px solid #f1dca8;color:#7a5a00;border-radius:9px;font-size:13px;text-align:center
+}
+.spinner-small{
+    width:18px;height:18px;display:inline-block;vertical-align:middle;margin-right:8px;
+    border:2px solid #eadfbf;border-top:2px solid #9d2b20;border-radius:50%;
+    animation:spin .8s linear infinite
+}
+.history-table-wrapper{overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:700px}
+th{
+    background:#f5f7fa;text-align:left;padding:13px;font-size:13px;color:#555;
+    border-bottom:1px solid #ddd
+}
+td{padding:13px;border-bottom:1px solid #eee;font-size:14px}
+.empty{text-align:center;padding:30px;color:#777}
+.back-button{
+    background:transparent;border:1px solid rgba(255,255,255,.6);color:white;padding:8px 16px;
+    border-radius:7px;cursor:pointer;font-size:13px
+}
+.back-button:hover{background:rgba(255,255,255,.12)}
+
+.bulk-summary{
+    display:none;
+    margin-bottom:20px;
+    background:white;
+    border-radius:12px;
+    padding:25px;
+    box-shadow:0 2px 12px rgba(0,0,0,.08)
+}
+.bulk-summary h2{color:var(--primary);font-size:20px;margin-bottom:10px}
+.bulk-summary p{color:#555;font-size:14px;line-height:1.55}
+.bulk-count{
+    display:inline-flex;
+    margin-top:12px;
+    padding:8px 13px;
+    border-radius:20px;
+    background:var(--primary-light);
+    color:var(--primary);
+    font-weight:700;
+    font-size:13px
+}
+.bulk-participant-list{
+    margin-top:15px;
+    display:flex;
+    flex-direction:column;
+    gap:8px
+}
+.bulk-participant-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:12px;
+    padding:11px 13px;
+    border:1px solid #e4e7eb;
+    border-radius:8px;
+    font-size:13px
+}
+.bulk-participant-row .name{font-weight:700}
+.bulk-participant-row .number{color:#666}
+.bulk-progress{
+    display:none;
+    margin-top:16px;
+    padding:14px;
+    border-radius:9px;
+    background:#f7f9fc;
+    border:1px solid #e2e7ee;
+    font-size:13px
+}
+.bulk-progress-bar{
+    height:8px;
+    background:#e7e9ed;
+    border-radius:10px;
+    overflow:hidden;
+    margin-top:10px
+}
+.bulk-progress-fill{
+    height:100%;
+    width:0%;
+    background:var(--primary);
+    transition:width .25s ease
+}
+.bulk-complete{
+    display:none;
+    margin-top:15px;
+    padding:14px;
+    border-radius:9px;
+    background:#eaf8ef;
+    border:1px solid #b9e8c9;
+    color:#176b3a;
+    font-weight:700;
+    font-size:14px
+}
+.bulk-payment-card{
+    display:none;
+    background:white;
+    border-radius:12px;
+    padding:25px;
+    margin-bottom:20px;
+    box-shadow:0 2px 12px rgba(0,0,0,.08)
+}
+.bulk-payment-card h2{font-size:20px;color:var(--primary);margin-bottom:10px}
+.bulk-payment-card p{font-size:14px;color:#555;line-height:1.55}
+.bulk-payment-details{
+    display:grid;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:12px;
+    margin-top:18px
+}
+.bulk-detail{
+    background:#f7f9fc;
+    border:1px solid #e2e7ee;
+    border-radius:9px;
+    padding:14px
+}
+.bulk-detail .label{font-size:11px;text-transform:uppercase;color:#777;margin-bottom:4px}
+.bulk-detail .value{font-weight:800;color:#222;font-size:16px}
+.queue-badge{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    min-width:28px;
+    height:28px;
+    padding:0 8px;
+    border-radius:50%;
+    background:var(--primary-light);
+    color:var(--primary);
+    font-weight:800;
+    margin-right:7px
+}
+
+@media(max-width:700px){
+    .header{padding:15px}
+    .header-title{font-size:18px}
+    .container{width:calc(100% - 20px);margin-top:20px}
+    .participant-grid{grid-template-columns:1fr}
+    .item{align-items:flex-start}
+    .item-right{flex-shrink:0}
+    .participant-card,.payment-card,.bulk-summary,.bulk-payment-card{padding:18px}
+    .item-left{flex:1}
+    .bulk-payment-details{grid-template-columns:1fr}
+}
 </style>
-
 </head>
 
 <body>
 
 <header class="header">
-
 <div>
-
-    <div class="header-title">
-        Registration Payment
-    </div>
-
-    <div class="header-subtitle">
-        Event Registration Merchandise
-    </div>
-
+    <div class="header-title">Registration Payment</div>
+    <div class="header-subtitle">Event Registration Merchandise</div>
 </div>
-
-<button
-    class="back-button"
-    onclick="goHome()"
->
-    Back
-</button>
-
+<button class="back-button" onclick="goHome()">Back</button>
 </header>
-
 
 <main class="container">
 
-
-<div
-    id="loading"
-    class="loading"
->
-
+<div id="loading" class="loading">
     <div class="spinner"></div>
-
-    <p id="loadingText">
-        Loading payment information...
-    </p>
-
+    <p id="loadingText">Loading payment information...</p>
 </div>
 
+<div id="errorBox" class="error-box"></div>
 
-<div
-    id="errorBox"
-    class="error-box"
-></div>
-
-
-<div
-    id="content"
-    style="display:none;"
->
-
+<div id="content" style="display:none;">
 
     <!-- =================================================
          BULK SUMMARY
          ================================================= -->
+    <section id="bulkSummary" class="bulk-summary">
+        <h2>Bulk Registration Payment</h2>
+        <p>
+            Multiple participants were submitted for payment.
+            The frontend will keep the participants in queue order and
+            send them to the backend as one bulk payment request.
+        </p>
 
-    <div
-        id="bulkSummary"
-        class="bulk-summary"
-    >
+        <div id="bulkCount" class="bulk-count">0 participants</div>
 
-        <div class="bulk-summary-title">
-            Bulk Registration Payment
-        </div>
+        <div id="bulkParticipantList" class="bulk-participant-list"></div>
 
-        <div
-            id="bulkSummaryText"
-            class="bulk-summary-text"
-        >
-            Preparing bulk payment...
-        </div>
-
-    </div>
-
-
-    <!-- =================================================
-         PARTICIPANT
-         ================================================= -->
-
-    <section class="participant-card">
-
-        <div class="participant-title">
-            Participant Information
-        </div>
-
-        <div
-            id="singleParticipantInfo"
-        >
-
-            <div class="participant-grid">
-
-                <div>
-
-                    <div class="info-label">
-                        Name
-                    </div>
-
-                    <div
-                        class="info-value"
-                        id="participantName"
-                    >
-                        —
-                    </div>
-
-                </div>
-
-
-                <div>
-
-                    <div class="info-label">
-                        Registration Number
-                    </div>
-
-                    <div
-                        class="info-value"
-                        id="registrationNumber"
-                    >
-                        —
-                    </div>
-
-                </div>
-
-
-                <div>
-
-                    <div class="info-label">
-                        Participant Type
-                    </div>
-
-                    <div
-                        class="info-value"
-                        id="participantType"
-                    >
-                        —
-                    </div>
-
-                </div>
-
-
-                <div>
-
-                    <div class="info-label">
-                        Participant ID
-                    </div>
-
-                    <div
-                        class="info-value"
-                        id="participantId"
-                    >
-                        —
-                    </div>
-
-                </div>
-
+        <div id="bulkProgress" class="bulk-progress">
+            <div id="bulkProgressText">Preparing bulk registration...</div>
+            <div class="bulk-progress-bar">
+                <div id="bulkProgressFill" class="bulk-progress-fill"></div>
             </div>
-
         </div>
 
-
-        <!-- BULK PARTICIPANT LIST -->
-
-        <div
-            id="participantList"
-            class="participant-list"
-        ></div>
-
+        <div id="bulkComplete" class="bulk-complete"></div>
     </section>
 
-
     <!-- =================================================
-         SUCCESS
+         BULK PAYMENT RESULT
          ================================================= -->
+    <section id="bulkPaymentCard" class="bulk-payment-card">
+        <h2>Bulk Payment Ready</h2>
+        <p id="bulkPaymentMessage">
+            All participants are registered and the combined payment is ready.
+        </p>
 
-    <div
-        id="successMessage"
-        class="success-message"
-    ></div>
-
-
-    <!-- =================================================
-         ITEMS
-         ================================================= -->
-
-    <section class="payment-card">
-
-        <div class="section-title">
-            Select Registration Items
+        <div class="bulk-payment-details">
+            <div class="bulk-detail">
+                <div class="label">Participants</div>
+                <div class="value" id="bulkPaymentCount">0</div>
+            </div>
+            <div class="bulk-detail">
+                <div class="label">Total Amount</div>
+                <div class="value" id="bulkPaymentAmount">₱0.00</div>
+            </div>
+            <div class="bulk-detail">
+                <div class="label">Payment Status</div>
+                <div class="value" id="bulkPaymentStatus">Pending</div>
+            </div>
         </div>
 
+        <div class="checkout-section">
+            <button id="bulkPayButton" class="pay-button" type="button" onclick="proceedToBulkPayment()">
+                Proceed to Bulk Payment
+            </button>
 
-        <div
-            id="itemList"
-            class="item-list"
-        ></div>
+            <div id="bulkPaymentWaiting" class="payment-waiting"></div>
+        </div>
+    </section>
 
+    <!-- =================================================
+         SINGLE PARTICIPANT
+         ================================================= -->
+    <section id="singleParticipantCard" class="participant-card">
 
-        <!-- T-SHIRT SIZE -->
+        <div class="participant-title">Participant Information</div>
 
-        <div
-            id="sizeSection"
-            class="size-section"
-        >
+        <div class="participant-grid">
+            <div>
+                <div class="info-label">Name</div>
+                <div class="info-value" id="participantName">—</div>
+            </div>
 
-            <label
-                class="size-label"
-                for="tshirtSize"
-            >
-                T-Shirt Size
-            </label>
+            <div>
+                <div class="info-label">Registration Number</div>
+                <div class="info-value" id="registrationNumber">—</div>
+            </div>
 
-            <select
-                id="tshirtSize"
-                class="size-select"
-            >
+            <div>
+                <div class="info-label">Participant Type</div>
+                <div class="info-value" id="participantType">—</div>
+            </div>
 
-                <option value="">
-                    Select T-Shirt Size
-                </option>
+            <div>
+                <div class="info-label">Participant ID</div>
+                <div class="info-value" id="participantId">—</div>
+            </div>
+        </div>
+    </section>
 
-                <option value="M">
-                    M
-                </option>
+    <div id="successMessage" class="success-message">
+        <h3>Registration Payment Complete</h3>
+        <p>
+            Your mandatory Lanyard payment has been confirmed.
+            The T-shirt is optional and may be purchased separately.
+        </p>
+    </div>
 
-                <option value="L">
-                    L
-                </option>
+    <section id="singlePaymentCard" class="payment-card">
 
-                <option value="XL">
-                    XL
-                </option>
+        <div class="section-title">Select Registration Items</div>
 
+        <div id="itemList" class="item-list"></div>
+
+        <div id="sizeSection" class="size-section">
+            <label class="size-label" for="tshirtSize">T-Shirt Size</label>
+            <select id="tshirtSize" class="size-select">
+                <option value="">Select T-Shirt Size</option>
+                <option value="M">M</option>
+                <option value="L">L</option>
+                <option value="XL">XL</option>
             </select>
-
         </div>
 
-
-        <!-- MESSAGE -->
-
-        <div
-            id="selectionMessage"
-            class="selection-message"
-        ></div>
-
-
-        <!-- TOTAL -->
+        <div id="selectionMessage" class="selection-message"></div>
 
         <div class="total-row">
-
-            <div class="total-label">
-                Amount Due
-            </div>
-
-            <div
-                class="total-amount"
-                id="totalAmount"
-            >
-                ₱0.00
-            </div>
-
+            <div class="total-label">Amount Due</div>
+            <div class="total-amount" id="totalAmount">₱0.00</div>
         </div>
 
-
-        <!-- BULK BREAKDOWN -->
-
-        <div
-            id="bulkBreakdown"
-            class="bulk-breakdown"
-        >
-
-            <div class="bulk-breakdown-title">
-                Bulk Payment Breakdown
-            </div>
-
-            <div
-                id="bulkBreakdownContent"
-            ></div>
-
-        </div>
-
-
-        <!-- CHECKOUT -->
-
-        <div
-            id="checkoutSection"
-            class="checkout-section"
-            style="display:none;"
-        >
-
-            <button
-                id="payButton"
-                class="pay-button"
-                type="button"
-                onclick="proceedToPayment()"
-            >
+        <div id="checkoutSection" class="checkout-section" style="display:none;">
+            <button id="payButton" class="pay-button" type="button" onclick="proceedToPayment()">
                 Proceed to Payment
             </button>
 
-
-            <div
-                id="paymentWaiting"
-                class="payment-waiting"
-            >
-
-                <span
-                    class="spinner-small"
-                ></span>
-
-                Waiting for payment confirmation...
-
-            </div>
-
+            <div id="paymentWaiting" class="payment-waiting"></div>
         </div>
-
     </section>
-
 
     <!-- =================================================
          HISTORY
          ================================================= -->
-
-    <section class="payment-card">
-
-        <div class="section-title">
-            Payment History
+    <section id="historyCard" class="payment-card">
+        <div class="section-title">Payment History</div>
+        <div id="historyContainer" class="history-table-wrapper">
+            <div class="empty">No payment history found.</div>
         </div>
-
-        <div
-            id="historyContainer"
-            class="history-table-wrapper"
-        >
-
-            <div class="empty">
-                No payment history found.
-            </div>
-
-        </div>
-
     </section>
 
-
 </div>
-
-
 </main>
-
 
 <script>
 
 /* =========================================================
-   API / URL STATE
+   API
    ========================================================= */
 
 const API_BASE = "";
 
-const urlParams =
-    new URLSearchParams(
-        window.location.search
+/*
+ * Single registration:
+ *   payment.html?participant_id=123
+ *
+ * Bulk registration:
+ *   payment.html?participant_ids=123,124,125,126
+ *
+ * The bulk flow uses one backend request:
+ *   POST /create_bulk_payment
+ *
+ * This is important: four sequential calls to /create_payment
+ * would create four PayMongo links, NOT one true bulk payment.
+ */
+const params = new URLSearchParams(window.location.search);
+
+const singleParticipantId = params.get("participant_id");
+
+const participantIds = parseParticipantIds(
+    params.get("participant_ids")
+);
+
+/*
+ * If both are present, participant_ids wins.
+ */
+const isBulkMode = participantIds.length > 1;
+
+const participantId = isBulkMode
+    ? null
+    : (
+        participantIds.length === 1
+            ? participantIds[0]
+            : singleParticipantId
     );
-
-const participantIdParam =
-    urlParams.get(
-        "participant_id"
-    );
-
-const participantIdsParam =
-    urlParams.get(
-        "participant_ids"
-    );
-
-
-/* =========================================================
-   PARTICIPANT IDS
-   ========================================================= */
-
-function getParticipantIds() {
-
-    const ids = [];
-
-    if (participantIdParam) {
-
-        const id =
-            Number(
-                participantIdParam
-            );
-
-        if (
-            Number.isFinite(id) &&
-            id > 0
-        ) {
-
-            ids.push(id);
-
-        }
-
-    }
-
-
-    if (participantIdsParam) {
-
-        participantIdsParam
-            .split(",")
-            .forEach(
-                value => {
-
-                    const id =
-                        Number(
-                            value.trim()
-                        );
-
-                    if (
-                        Number.isFinite(id) &&
-                        id > 0 &&
-                        !ids.includes(id)
-                    ) {
-
-                        ids.push(id);
-
-                    }
-
-                }
-            );
-
-    }
-
-
-    return ids;
-
-}
-
-
-const participantIds =
-    getParticipantIds();
-
-
-const isBulkPayment =
-    participantIds.length > 1;
-
 
 /* =========================================================
    STATE
    ========================================================= */
 
 let paymentData = null;
-
-let bulkParticipants = [];
-
 let paymentPollingTimer = null;
-
 let paymentWindow = null;
-
 let paymentCreated = false;
-
 let creatingPayment = false;
-
 let currentPaymentRequest = null;
 
-let paymentStartState = [];
+let paymentStartState = {
+    lanyardPaid: false,
+    tshirtPaid: false
+};
 
+/* Bulk state */
+let bulkParticipants = [];
+let bulkPaymentData = null;
+let bulkPaymentCreated = false;
+let creatingBulkPayment = false;
+let bulkPaymentPollingTimer = null;
+let bulkPaymentWindow = null;
+let bulkQueue = [];
+
+/* =========================================================
+   PARSE PARTICIPANT IDS
+   ========================================================= */
+
+function parseParticipantIds(raw) {
+
+    if (!raw) {
+        return [];
+    }
+
+    return String(raw)
+        .split(",")
+        .map(value => value.trim())
+        .filter(Boolean)
+        .map(value => Number(value))
+        .filter(value => Number.isInteger(value) && value > 0);
+
+}
 
 /* =========================================================
    CURRENCY
    ========================================================= */
 
-function formatCurrency(
-    amount
-) {
+function formatCurrency(value) {
 
-    const numericAmount =
-        Number(
-            amount || 0
-        );
+    const amount = Number(value || 0);
 
-
-    return new Intl.NumberFormat(
+    return "₱" + (
+        amount / 100
+    ).toLocaleString(
         "en-PH",
         {
-            style: "currency",
-            currency: "PHP"
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
         }
-    ).format(
-        numericAmount
     );
 
 }
 
-
 /* =========================================================
-   HTML ESCAPE
+   ESCAPE HTML
    ========================================================= */
 
-function escapeHtml(
-    value
-) {
+function escapeHtml(value) {
 
-    return String(
-        value ?? ""
-    )
-        .replace(
-            /&/g,
-            "&amp;"
-        )
-        .replace(
-            /</g,
-            "&lt;"
-        )
-        .replace(
-            />/g,
-            "&gt;"
-        )
-        .replace(
-            /"/g,
-            "&quot;"
-        )
-        .replace(
-            /'/g,
-            "&#039;"
-        );
+    if (value === null || value === undefined) {
+        return "";
+    }
+
+    return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
 
 }
 
-
 /* =========================================================
-   DATE FORMAT
+   DATE
    ========================================================= */
 
-function formatDate(
-    value
-) {
+function formatDate(value) {
 
     if (!value) {
         return "—";
     }
 
+    const date = new Date(value);
 
-    const date =
-        new Date(
-            value
-        );
-
-
-    if (
-        Number.isNaN(
-            date.getTime()
-        )
-    ) {
-
-        return String(
-            value
-        );
-
+    if (Number.isNaN(date.getTime())) {
+        return value;
     }
-
 
     return date.toLocaleString(
         "en-PH",
@@ -1581,270 +590,211 @@ function formatDate(
 
 }
 
-
 /* =========================================================
-   PAYMENT STATUS HELPERS
+   STATUS
    ========================================================= */
 
-function normalizeStatus(
-    value
-) {
+function getStatusClass(status) {
 
-    return String(
-        value || ""
-    )
-        .trim()
-        .toLowerCase();
+    const value = String(status || "").toLowerCase();
+
+    if (
+        value === "paid" ||
+        value === "success" ||
+        value === "succeeded" ||
+        value === "completed"
+    ) {
+        return "status-paid";
+    }
+
+    if (value === "pending") {
+        return "status-pending";
+    }
+
+    return "status-unpaid";
 
 }
 
+function getStatusText(status) {
 
-function isPaid(
-    item
-) {
-
-    if (!item) {
-        return false;
+    if (!status) {
+        return "Unpaid";
     }
 
+    return String(status).charAt(0).toUpperCase()
+        + String(status).slice(1).toLowerCase();
+
+}
+
+/* =========================================================
+   IS PAID
+   ========================================================= */
+
+function isPaid(item) {
 
     if (
-        item.paid === true
+        item &&
+        typeof item.paid === "boolean"
     ) {
-
-        return true;
-
+        return item.paid;
     }
 
+    const status = String(item?.status || "").toLowerCase();
 
-    const status =
-        normalizeStatus(
-            item.status
-        );
-
-
-    return [
-        "paid",
-        "success",
-        "succeeded",
-        "completed"
-    ].includes(
-        status
+    return (
+        status === "paid" ||
+        status === "success" ||
+        status === "succeeded" ||
+        status === "completed"
     );
 
 }
 
-
 /* =========================================================
-   ITEM PAYMENT HELPERS
+   MANDATORY PAYMENT COMPLETE
    ========================================================= */
 
-function participantLanyardPaid(
-    data
-) {
+function isMandatoryPaymentComplete(data) {
+
+    if (
+        typeof data?.mandatory_payment_complete === "boolean"
+    ) {
+        return data.mandatory_payment_complete;
+    }
+
+    if (
+        typeof data?.payment_success === "boolean"
+    ) {
+        return data.payment_success;
+    }
 
     return Boolean(
         data?.lanyard &&
-        isPaid(
-            data.lanyard
-        )
+        isPaid(data.lanyard)
     );
 
 }
-
-
-function participantTshirtPaid(
-    data
-) {
-
-    return Boolean(
-        data?.tshirt &&
-        isPaid(
-            data.tshirt
-        )
-    );
-
-}
-
 
 /* =========================================================
-   MANDATORY PAYMENT
+   GO HOME
    ========================================================= */
 
-function isMandatoryPaymentComplete(
-    data
-) {
+function goHome() {
 
-    if (!data) {
-        return false;
-    }
+    stopPaymentPolling();
+    stopBulkPaymentPolling();
+    closePaymentWindow();
+    closeBulkPaymentWindow();
 
-
-    if (
-        typeof data.mandatory_payment_complete ===
-        "boolean"
-    ) {
-
-        return data.mandatory_payment_complete;
-
-    }
-
-
-    if (
-        typeof data.payment_success ===
-        "boolean"
-    ) {
-
-        return data.payment_success;
-
-    }
-
-
-    return participantLanyardPaid(
-        data
-    );
+    window.location.href = "/home.html";
 
 }
-
 
 /* =========================================================
-   UNPAID ITEM CHECK
+   SHOW ERROR
    ========================================================= */
 
-/*
- * IMPORTANT:
- *
- * The checkout button is NOT based only on the mandatory
- * payment flag.
- *
- * If Lanyard is paid but T-shirt is unpaid, checkout MUST
- * remain visible.
- */
+function showError(message) {
 
-function participantHasUnpaidItems(
-    data
-) {
+    document.getElementById("loading").style.display = "none";
 
-    if (!data) {
-        return false;
-    }
+    const errorBox = document.getElementById("errorBox");
 
+    errorBox.textContent = message;
+    errorBox.style.display = "block";
 
-    const hasUnpaidLanyard =
-        Boolean(
-            data.lanyard &&
-            !isPaid(
-                data.lanyard
-            )
-        );
-
-
-    const hasUnpaidTshirt =
-        Boolean(
-            data.tshirt &&
-            !isPaid(
-                data.tshirt
-            )
-        );
-
-
-    return (
-        hasUnpaidLanyard ||
-        hasUnpaidTshirt
-    );
+    document.getElementById("content").style.display = "none";
 
 }
-
-
-function bulkHasUnpaidItems() {
-
-    return bulkParticipants.some(
-        participant =>
-            participantHasUnpaidItems(
-                participant
-            )
-    );
-
-}
-
 
 /* =========================================================
-   BULK MANDATORY STATUS
+   LOAD PAGE
    ========================================================= */
 
-function areAllBulkParticipantsPaid() {
+async function loadPage() {
 
-    if (
-        !isBulkPayment ||
-        bulkParticipants.length === 0
-    ) {
-
-        return false;
-
+    if (isBulkMode) {
+        await loadBulkPaymentStatus();
+        return;
     }
 
-
-    return bulkParticipants.every(
-        participant =>
-            isMandatoryPaymentComplete(
-                participant
-            )
-    );
+    await loadPaymentStatus();
 
 }
-
 
 /* =========================================================
    LOAD SINGLE PAYMENT STATUS
    ========================================================= */
 
-async function loadSinglePaymentStatus() {
+async function loadPaymentStatus(showLoading = true) {
 
-    const participantId =
-        participantIds[0];
+    if (!participantId) {
 
-
-    const response =
-        await fetch(
-            `${API_BASE}/payment_status/${participantId}`,
-            {
-                method: "GET",
-                cache: "no-store",
-                headers: {
-                    "Accept":
-                        "application/json"
-                }
-            }
+        showError(
+            "Participant ID is missing from the URL."
         );
 
-
-    if (!response.ok) {
-
-        throw new Error(
-            `Unable to load payment status (${response.status}).`
-        );
+        return;
 
     }
 
+    try {
 
-    const data =
-        await response.json();
+        if (showLoading) {
+            document.getElementById("loading").style.display = "block";
+        }
 
+        const response = await fetch(
+            `${API_BASE}/payment_status/${encodeURIComponent(participantId)}`,
+            {
+                cache: "no-store"
+            }
+        );
 
-    paymentData =
-        data;
+        let data = null;
 
+        try {
+            data = await response.json();
+        } catch {
+            data = null;
+        }
 
-    console.log(
-        "PAYMENT STATUS:",
-        paymentData
-    );
+        if (!response.ok) {
 
+            throw new Error(
+                data?.detail ||
+                "Unable to load payment information."
+            );
 
-    return data;
+        }
+
+        paymentData = data;
+
+        renderPage();
+
+        if (isMandatoryPaymentComplete(data)) {
+
+            stopPaymentPolling();
+            paymentCreated = false;
+
+        }
+
+    } catch (error) {
+
+        console.error("Payment status error:", error);
+
+        if (showLoading) {
+
+            showError(
+                error.message ||
+                "Unable to load payment information."
+            );
+
+        }
+
+    }
 
 }
-
 
 /* =========================================================
    LOAD BULK PAYMENT STATUS
@@ -1852,211 +802,175 @@ async function loadSinglePaymentStatus() {
 
 async function loadBulkPaymentStatus() {
 
-    const results = [];
+    if (participantIds.length < 2) {
 
-
-    for (
-        const participantId
-        of participantIds
-    ) {
-
-        const response =
-            await fetch(
-                `${API_BASE}/payment_status/${participantId}`,
-                {
-                    method: "GET",
-                    cache: "no-store",
-                    headers: {
-                        "Accept":
-                            "application/json"
-                    }
-                }
-            );
-
-
-        if (!response.ok) {
-
-            throw new Error(
-                `Unable to load payment status for participant ${participantId}.`
-            );
-
+        /*
+         * If only one participant ID was supplied through
+         * participant_ids, use normal single mode.
+         */
+        if (participantIds.length === 1) {
+            window.location.href =
+                `/payment.html?participant_id=${encodeURIComponent(participantIds[0])}`;
+            return;
         }
 
-
-        const data =
-            await response.json();
-
-
-        results.push(
-            data
-        );
-
-    }
-
-
-    bulkParticipants =
-        results;
-
-
-    paymentData =
-        results[0] || null;
-
-
-    console.log(
-        "BULK PAYMENT STATUS:",
-        bulkParticipants
-    );
-
-
-    return results;
-
-}
-
-
-/* =========================================================
-   LOAD PAYMENT STATUS
-   ========================================================= */
-
-async function loadPaymentStatus(
-    showLoading = true
-) {
-
-    if (
-        participantIds.length === 0
-    ) {
-
-        console.error(
-            "No participant ID supplied."
+        showError(
+            "At least two participant IDs are required for bulk payment."
         );
 
         return;
 
     }
 
-
-    if (showLoading) {
-
-        const loading =
-            document.getElementById(
-                "loading"
-            );
-
-
-        const content =
-            document.getElementById(
-                "content"
-            );
-
-
-        if (loading) {
-
-            loading.style.display =
-                "block";
-
-        }
-
-
-        if (content) {
-
-            content.style.display =
-                "none";
-
-        }
-
-    }
-
-
     try {
 
-        if (isBulkPayment) {
-
-            await loadBulkPaymentStatus();
-
-        } else {
-
-            await loadSinglePaymentStatus();
-
-        }
-
-
-        renderPage();
-
+        document.getElementById("loadingText").textContent =
+            "Loading all participants for bulk payment...";
 
         /*
-         * IMPORTANT:
+         * The backend should return the current registration/payment
+         * state for all requested participants.
          *
-         * A refresh must NEVER hide the checkout button
-         * merely because the mandatory Lanyard payment is
-         * already complete.
-         *
-         * The button remains visible while ANY item is unpaid.
+         * POST /bulk_payment_status
          */
-
-        if (isBulkPayment) {
-
-            if (
-                !bulkHasUnpaidItems()
-            ) {
-
-                paymentCreated =
-                    false;
-
+        const response = await fetch(
+            `${API_BASE}/bulk_payment_status`,
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Accept": "application/json"
+                },
+                body: JSON.stringify({
+                    participant_ids: participantIds
+                }),
+                cache: "no-store"
             }
+        );
 
-        } else {
+        let data = null;
 
-            if (
-                !participantHasUnpaidItems(
-                    paymentData
-                )
-            ) {
+        try {
+            data = await response.json();
+        } catch {
+            data = null;
+        }
 
-                paymentCreated =
-                    false;
+        if (!response.ok) {
 
-            }
+            throw new Error(
+                data?.detail ||
+                "Unable to load bulk payment information."
+            );
 
         }
+
+        bulkPaymentData = data;
+
+        bulkParticipants =
+            normalizeBulkParticipants(data);
+
+        if (!bulkParticipants.length) {
+
+            /*
+             * If the backend does not return participant objects,
+             * keep the queue from the URL so the page can still show
+             * the intended order.
+             */
+            bulkParticipants =
+                participantIds.map(
+                    id => ({
+                        participant_id: id,
+                        registration_number: "—",
+                        fullname: `Participant ${id}`,
+                        participant_type: "—",
+                        tshirt: null,
+                        lanyard: {
+                            paid: false,
+                            status: "Unpaid",
+                            price: 9000,
+                            item_name: "Lanyard"
+                        }
+                    })
+                );
+
+        }
+
+        bulkQueue = bulkParticipants.map(
+            participant => ({
+                ...participant,
+                queue_status: "Queued"
+            })
+        );
+
+        renderBulkPage();
 
     } catch (error) {
 
         console.error(
-            "Payment status loading error:",
+            "Bulk payment status error:",
             error
         );
 
-
-        const loading =
-            document.getElementById(
-                "loading"
-            );
-
-
-        const content =
-            document.getElementById(
-                "content"
-            );
-
-
-        if (loading) {
-
-            loading.style.display =
-                "none";
-
-        }
-
-
-        if (content) {
-
-            content.style.display =
-                "block";
-
-        }
+        /*
+         * If your backend does not yet have /bulk_payment_status,
+         * do not silently create separate payments. Show a clear
+         * backend requirement instead.
+         */
+        showError(
+            error.message ||
+            "Unable to load bulk payment information. The backend must provide /bulk_payment_status for bulk mode."
+        );
 
     }
 
 }
 
+/* =========================================================
+   NORMALIZE BULK PARTICIPANTS
+   ========================================================= */
+
+function normalizeBulkParticipants(data) {
+
+    const raw =
+        data?.participants ||
+        data?.registrations ||
+        data?.data ||
+        [];
+
+    if (!Array.isArray(raw)) {
+        return [];
+    }
+
+    return raw.map((participant, index) => {
+
+        const id =
+            Number(
+                participant?.participant_id ??
+                participant?.id ??
+                participantIds[index]
+            );
+
+        return {
+            ...participant,
+            participant_id: id,
+            fullname:
+                participant?.fullname ||
+                participant?.name ||
+                [
+                    participant?.fname,
+                    participant?.mname,
+                    participant?.lname
+                ].filter(Boolean).join(" ") ||
+                `Participant ${id}`,
+            registration_number:
+                participant?.registration_number ||
+                "—"
+        };
+
+    });
+
+}
 
 /* =========================================================
    RENDER PAGE
@@ -2064,136 +978,147 @@ async function loadPaymentStatus(
 
 function renderPage() {
 
-    const loading =
-        document.getElementById(
-            "loading"
-        );
+    document.getElementById("loading").style.display = "none";
+    document.getElementById("errorBox").style.display = "none";
+    document.getElementById("content").style.display = "block";
 
+    document.getElementById("singleParticipantCard").style.display = "block";
+    document.getElementById("singlePaymentCard").style.display = "block";
+    document.getElementById("historyCard").style.display = "block";
 
-    const content =
-        document.getElementById(
-            "content"
-        );
-
-
-    if (loading) {
-
-        loading.style.display =
-            "none";
-
-    }
-
-
-    if (content) {
-
-        content.style.display =
-            "block";
-
-    }
-
-
-    renderBulkSummary();
+    document.getElementById("bulkSummary").style.display = "none";
+    document.getElementById("bulkPaymentCard").style.display = "none";
 
     renderParticipant();
-
     renderItems();
-
     renderPaymentHistory();
 
-    renderSuccessMessage();
+    updateCheckoutVisibilitySingle();
+
+}
+
+/* =========================================================
+   RENDER BULK PAGE
+   ========================================================= */
+
+function renderBulkPage() {
+
+    document.getElementById("loading").style.display = "none";
+    document.getElementById("errorBox").style.display = "none";
+    document.getElementById("content").style.display = "block";
+
+    document.getElementById("singleParticipantCard").style.display = "none";
+    document.getElementById("singlePaymentCard").style.display = "none";
+    document.getElementById("historyCard").style.display = "none";
+
+    document.getElementById("bulkSummary").style.display = "block";
+
+    const count =
+        bulkParticipants.length || participantIds.length;
+
+    document.getElementById("bulkCount").textContent =
+        `${count} participants`;
+
+    renderBulkParticipantList();
 
     /*
-     * Final checkout visibility pass.
-     *
-     * This is intentionally done AFTER all item rendering.
+     * If a bulk payment was already created, restore the checkout
+     * state from the backend response.
      */
-    if (isBulkPayment) {
+    const existingCheckoutUrl =
+        bulkPaymentData?.checkout_url ||
+        bulkPaymentData?.payment_url ||
+        bulkPaymentData?.checkout_url?.url;
 
-        updateCheckoutVisibilityBulk();
+    if (existingCheckoutUrl) {
+
+        bulkPaymentData.checkout_url =
+            existingCheckoutUrl;
+
+        showBulkPaymentReady();
 
     } else {
 
-        updateCheckoutVisibilitySingle();
+        document.getElementById("bulkPaymentCard").style.display = "none";
 
     }
 
 }
-
 
 /* =========================================================
-   BULK SUMMARY
+   RENDER BULK PARTICIPANT LIST
    ========================================================= */
 
-function renderBulkSummary() {
+function renderBulkParticipantList() {
 
-    const element =
-        document.getElementById(
-            "bulkSummary"
-        );
+    const container =
+        document.getElementById("bulkParticipantList");
 
+    container.innerHTML = "";
 
-    if (!element) {
-        return;
-    }
+    bulkQueue.forEach(
+        (participant, index) => {
 
+            const row =
+                document.createElement("div");
 
-    if (!isBulkPayment) {
+            row.className =
+                "bulk-participant-row";
 
-        element.style.display =
-            "none";
+            const status =
+                participant.queue_status ||
+                "Queued";
 
-        return;
+            row.innerHTML = `
+                <div>
+                    <span class="queue-badge">${index + 1}</span>
+                    <span class="name">
+                        ${escapeHtml(participant.fullname || `Participant ${participant.participant_id}`)}
+                    </span>
+                    <span class="number">
+                        — ${escapeHtml(participant.registration_number || "—")}
+                    </span>
+                </div>
 
-    }
+                <span class="status ${getStatusClass(status)}">
+                    ${escapeHtml(status)}
+                </span>
+            `;
 
+            container.appendChild(row);
 
-    element.style.display =
-        "block";
-
-
-    const total =
-        bulkParticipants.length;
-
-
-    const paid =
-        bulkParticipants.filter(
-            participant =>
-                isMandatoryPaymentComplete(
-                    participant
-                )
-        ).length;
-
-
-    element.innerHTML = `
-
-        <div class="bulk-summary-row">
-
-            <strong>
-                Bulk Registration
-            </strong>
-
-            <span>
-                ${total} participant${total === 1 ? "" : "s"}
-            </span>
-
-        </div>
-
-        <div class="bulk-summary-row">
-
-            <span>
-                Mandatory payments completed
-            </span>
-
-            <strong>
-                ${paid} / ${total}
-            </strong>
-
-        </div>
-
-    `;
+        }
+    );
 
 }
 
+/* =========================================================
+   BULK PROGRESS
+   ========================================================= */
+
+function updateBulkProgress(current, total, text) {
+
+    const progress =
+        document.getElementById("bulkProgress");
+
+    const fill =
+        document.getElementById("bulkProgressFill");
+
+    const progressText =
+        document.getElementById("bulkProgressText");
+
+    progress.style.display = "block";
+
+    progressText.textContent = text;
+
+    const percent =
+        total > 0
+            ? Math.round((current / total) * 100)
+            : 0;
+
+    fill.style.width = `${percent}%`;
+
+}
 
 /* =========================================================
    RENDER PARTICIPANT
@@ -2201,47 +1126,88 @@ function renderBulkSummary() {
 
 function renderParticipant() {
 
-    if (
-        !paymentData
-    ) {
+    document.getElementById("participantName").textContent =
+        paymentData.fullname || "—";
 
+    document.getElementById("registrationNumber").textContent =
+        paymentData.registration_number || "—";
+
+    document.getElementById("participantType").textContent =
+        paymentData.participant_type || "—";
+
+    document.getElementById("participantId").textContent =
+        paymentData.participant_id || "—";
+
+}
+
+/* =========================================================
+   RENDER ITEMS
+   ========================================================= */
+
+function hasUnpaidSingleItems() {
+
+    return Boolean(
+        (paymentData?.tshirt && !isPaid(paymentData.tshirt)) ||
+        (paymentData?.lanyard && !isPaid(paymentData.lanyard))
+    );
+
+}
+
+/* =========================================================
+   SINGLE CHECKOUT VISIBILITY
+   ========================================================= */
+
+function updateCheckoutVisibilitySingle() {
+
+    const checkoutSection =
+        document.getElementById("checkoutSection");
+
+    if (!checkoutSection) {
         return;
-
     }
 
+    /*
+     * The Proceed button is controlled ONLY by the actual
+     * unpaid registration items returned by the backend.
+     *
+     * This is important after refresh:
+     * Lanyard can be PAID while T-shirt is still UNPAID.
+     * mandatory_payment_complete only describes the mandatory
+     * Lanyard state, so it must not hide the checkout button.
+     */
+    const hasUnpaidItems =
+        hasUnpaidSingleItems();
 
-    const fullnameElement =
-        document.getElementById(
-            "participantName"
-        );
+    checkoutSection.style.display =
+        hasUnpaidItems ? "block" : "none";
 
+    const button =
+        document.getElementById("payButton");
 
-    const registrationElement =
-        document.getElementById(
-            "registrationNumber"
-        );
+    const waiting =
+        document.getElementById("paymentWaiting");
 
+    if (!hasUnpaidItems) {
 
-    if (fullnameElement) {
+        if (button) {
+            button.disabled = true;
+            button.textContent = "Payment Completed";
+        }
 
-        fullnameElement.textContent =
-            paymentData.fullname ||
-            paymentData.participant_name ||
-            "Participant";
+        if (waiting) {
+            waiting.style.display = "none";
+        }
 
-    }
+    } else if (!paymentCreated && !creatingPayment) {
 
-
-    if (registrationElement) {
-
-        registrationElement.textContent =
-            paymentData.registration_number ||
-            "—";
+        if (button) {
+            button.disabled = false;
+            button.textContent = "Proceed to Payment";
+        }
 
     }
 
 }
-
 
 /* =========================================================
    RENDER ITEMS
@@ -2249,163 +1215,31 @@ function renderParticipant() {
 
 function renderItems() {
 
-    if (isBulkPayment) {
-
-        renderBulkItems();
-
-    } else {
-
-        renderSingleItems();
-
-    }
-
-}
-
-
-/* =========================================================
-   GET BULK LANYARD TOTAL
-   ========================================================= */
-
-function getBulkLanyardTotal() {
-
-    return bulkParticipants.reduce(
-        (
-            total,
-            participant
-        ) => {
-
-            if (
-                participant?.lanyard &&
-                !isPaid(
-                    participant.lanyard
-                )
-            ) {
-
-                return total +
-                    Number(
-                        participant.lanyard.price ||
-                        0
-                    );
-
-            }
-
-
-            return total;
-
-        },
-        0
-    );
-
-}
-
-
-/* =========================================================
-   GET BULK T-SHIRT TOTAL
-   ========================================================= */
-
-function getBulkTshirtTotal() {
-
-    const checkbox =
-        document.getElementById(
-            "tshirtCheckbox"
-        );
-
-
-    if (
-        !checkbox ||
-        !checkbox.checked
-    ) {
-
-        return 0;
-
-    }
-
-
-    return bulkParticipants.reduce(
-        (
-            total,
-            participant
-        ) => {
-
-            if (
-                participant?.tshirt &&
-                !isPaid(
-                    participant.tshirt
-                )
-            ) {
-
-                return total +
-                    Number(
-                        participant.tshirt.price ||
-                        0
-                    );
-
-            }
-
-
-            return total;
-
-        },
-        0
-    );
-
-}
-
-
-/* =========================================================
-   RENDER SINGLE ITEMS
-   ========================================================= */
-
-function renderSingleItems() {
-
     const itemList =
-        document.getElementById(
-            "itemList"
-        );
+        document.getElementById("itemList");
 
-
-    if (!itemList) {
-        return;
-    }
-
-
-    itemList.innerHTML =
-        "";
-
+    itemList.innerHTML = "";
 
     const hasTshirt =
-        Boolean(
-            paymentData?.tshirt
-        );
-
+        Boolean(paymentData?.tshirt);
 
     const hasLanyard =
-        Boolean(
-            paymentData?.lanyard
-        );
-
+        Boolean(paymentData?.lanyard);
 
     const tshirtPaid =
         hasTshirt &&
-        isPaid(
-            paymentData.tshirt
-        );
-
+        isPaid(paymentData.tshirt);
 
     const lanyardPaid =
         hasLanyard &&
-        isPaid(
-            paymentData.lanyard
-        );
-
+        isPaid(paymentData.lanyard);
 
     /*
-     * T-shirt is locked until Lanyard is paid.
+     * T-shirt stays locked until Lanyard is paid.
      */
     const lockTshirt =
         hasLanyard &&
         !lanyardPaid;
-
 
     if (hasTshirt) {
 
@@ -2419,7 +1253,6 @@ function renderSingleItems() {
 
     }
 
-
     if (hasLanyard) {
 
         itemList.innerHTML +=
@@ -2432,144 +1265,82 @@ function renderSingleItems() {
 
     }
 
+    const successMessage =
+        document.getElementById("successMessage");
+
+    const selectionMessage =
+        document.getElementById("selectionMessage");
+
+    const mandatoryPaymentComplete =
+        isMandatoryPaymentComplete(paymentData);
 
     /*
-     * Re-evaluate visibility after DOM recreation.
+     * Lanyard paid:
+     * show the success message, but keep checkout available
+     * when T-shirt is still unpaid.
+     */
+    if (mandatoryPaymentComplete) {
+
+        successMessage.style.display = "block";
+
+        successMessage.innerHTML = `
+            <h3>Registration Payment Complete</h3>
+            <p>
+                Your mandatory Lanyard payment has been confirmed.
+                The T-shirt is optional and may be purchased separately.
+            </p>
+        `;
+
+        if (hasTshirt && !tshirtPaid) {
+
+            selectionMessage.style.display = "block";
+
+            const tshirtCheckbox =
+                document.getElementById("tshirtCheckbox");
+
+            if (
+                tshirtCheckbox &&
+                tshirtCheckbox.checked
+            ) {
+
+                selectionMessage.textContent =
+                    "T-shirt selected. Please choose a size, then proceed to payment.";
+
+            } else {
+
+                selectionMessage.textContent =
+                    "Your Lanyard is paid. The T-shirt is optional and is now available for purchase.";
+
+            }
+
+        } else {
+
+            selectionMessage.style.display = "none";
+
+        }
+
+    } else {
+
+        successMessage.style.display = "none";
+
+        selectionMessage.style.display = "block";
+
+        selectionMessage.textContent =
+            "The Lanyard must be paid first. The T-shirt cannot be selected until the Lanyard payment is completed.";
+
+    }
+
+    /*
+     * IMPORTANT:
+     * Always calculate checkout visibility from unpaid items.
+     * This survives browser refresh because paymentData comes
+     * directly from /payment_status.
      */
     updateCheckoutVisibilitySingle();
 
-}
-
-
-/* =========================================================
-   RENDER BULK ITEMS
-   ========================================================= */
-
-function renderBulkItems() {
-
-    const itemList =
-        document.getElementById(
-            "itemList"
-        );
-
-
-    if (!itemList) {
-        return;
-    }
-
-
-    itemList.innerHTML =
-        "";
-
-
-    const anyTshirt =
-        bulkParticipants.some(
-            participant =>
-                participant?.tshirt
-        );
-
-
-    const anyLanyard =
-        bulkParticipants.some(
-            participant =>
-                participant?.lanyard
-        );
-
-
-    const allLanyardsPaid =
-        bulkParticipants.every(
-            participant =>
-                !participant?.lanyard ||
-                isPaid(
-                    participant.lanyard
-                )
-        );
-
-
-    const allTshirtsPaid =
-        bulkParticipants.every(
-            participant =>
-                !participant?.tshirt ||
-                isPaid(
-                    participant.tshirt
-                )
-        );
-
-
-    if (anyTshirt) {
-
-        const tshirtPrice =
-            bulkParticipants.reduce(
-                (
-                    total,
-                    participant
-                ) => {
-
-                    if (
-                        participant?.tshirt &&
-                        !isPaid(
-                            participant.tshirt
-                        )
-                    ) {
-
-                        return total +
-                            Number(
-                                participant.tshirt.price ||
-                                0
-                            );
-
-                    }
-
-
-                    return total;
-
-                },
-                0
-            );
-
-
-        itemList.innerHTML +=
-            createBulkItemHtml(
-                "tshirt",
-                "TS",
-                "T-Shirt",
-                tshirtPrice,
-                allTshirtsPaid,
-                !allLanyardsPaid
-            );
-
-    }
-
-
-    if (anyLanyard) {
-
-        const lanyardPrice =
-            getBulkLanyardTotal();
-
-
-        itemList.innerHTML +=
-            createBulkItemHtml(
-                "lanyard",
-                "LN",
-                "Lanyard",
-                lanyardPrice,
-                lanyardPrice <= 0,
-                false
-            );
-
-    }
-
-
-    updateBulkBreakdown();
-
-    updateCheckoutVisibilityBulk();
+    updateSelectionUI();
 
 }
-
-
-/* =========================================================
-   CREATE SINGLE ITEM HTML
-   ========================================================= */
 
 function createItemHtml(
     item,
@@ -2578,87 +1349,49 @@ function createItemHtml(
     locked = false
 ) {
 
-    const paid =
-        isPaid(
-            item
-        );
-
+    const paid = isPaid(item);
 
     const status =
         item?.status ||
         (paid ? "Paid" : "Unpaid");
 
-
     const statusClass =
-        getStatusClass(
-            status
-        );
-
+        getStatusClass(status);
 
     const statusText =
-        getStatusText(
-            status
-        );
-
+        getStatusText(status);
 
     const disabled =
-        (
-            paid ||
-            locked
-        )
+        paid || locked
             ? "disabled"
             : "";
 
-
     let itemClass;
 
-
     if (paid) {
-
-        itemClass =
-            "paid";
-
+        itemClass = "paid";
     } else if (locked) {
-
-        itemClass =
-            "locked";
-
+        itemClass = "locked";
     } else {
-
-        itemClass =
-            "selectable";
-
+        itemClass = "selectable";
     }
 
+    let lockedMessage = "";
 
-    let lockedMessage =
-        "";
-
-
-    if (
-        locked &&
-        !paid
-    ) {
+    if (locked && !paid) {
 
         lockedMessage = `
-
             <div
                 class="item-price"
-                style="
-                    color:#9d2b20;
-                    font-weight:600;
-                "
+                style="color:#9d2b20;font-weight:600;"
             >
                 Pay Lanyard first
             </div>
-
         `;
 
     }
 
-
     return `
-
         <div
             class="item ${itemClass}"
             id="${type}Item"
@@ -2685,34 +1418,22 @@ function createItemHtml(
 
                 </div>
 
-
                 <div class="item-icon">
-
                     ${escapeHtml(icon)}
-
                 </div>
-
 
                 <div>
 
                     <div class="item-name">
-
                         ${escapeHtml(
                             item?.item_name ||
                             "Registration Item"
                         )}
-
                     </div>
-
 
                     <div class="item-price">
-
-                        ${formatCurrency(
-                            item?.price
-                        )}
-
+                        ${formatCurrency(item?.price)}
                     </div>
-
 
                     ${lockedMessage}
 
@@ -2720,253 +1441,54 @@ function createItemHtml(
 
             </div>
 
-
             <div class="item-right">
 
-                <span
-                    class="status ${statusClass}"
-                >
-
-                    ${escapeHtml(
-                        statusText
-                    )}
-
+                <span class="status ${statusClass}">
+                    ${escapeHtml(statusText)}
                 </span>
 
             </div>
 
         </div>
-
     `;
 
 }
-
-
-/* =========================================================
-   CREATE BULK ITEM HTML
-   ========================================================= */
-
-function createBulkItemHtml(
-    type,
-    icon,
-    name,
-    price,
-    paid,
-    locked
-) {
-
-    const status =
-        paid
-            ? "Paid"
-            : "Unpaid";
-
-
-    const disabled =
-        paid ||
-        locked
-            ? "disabled"
-            : "";
-
-
-    const itemClass =
-        paid
-            ? "paid"
-            : locked
-                ? "locked"
-                : "selectable";
-
-
-    let lockedMessage =
-        "";
-
-
-    if (
-        locked &&
-        !paid
-    ) {
-
-        lockedMessage = `
-
-            <div
-                class="item-price"
-                style="
-                    color:#9d2b20;
-                    font-weight:600;
-                "
-            >
-                All participants must have their Lanyard payment completed before adding T-shirts.
-            </div>
-
-        `;
-
-    }
-
-
-    return `
-
-        <div
-            class="item ${itemClass}"
-            id="${type}Item"
-            onclick="${
-                locked || paid
-                    ? ""
-                    : `toggleItem('${type}')`
-            }"
-        >
-
-            <div class="item-left">
-
-                <div class="checkbox-wrapper">
-
-                    <input
-                        type="checkbox"
-                        id="${type}Checkbox"
-                        ${disabled}
-                        onclick="
-                            event.stopPropagation();
-                            updateSelectionUI();
-                        "
-                    >
-
-                </div>
-
-
-                <div class="item-icon">
-
-                    ${escapeHtml(icon)}
-
-                </div>
-
-
-                <div>
-
-                    <div class="item-name">
-
-                        ${escapeHtml(name)}
-
-                    </div>
-
-
-                    <div class="item-price">
-
-                        ${formatCurrency(
-                            price
-                        )}
-                        total for remaining participants
-
-                    </div>
-
-
-                    ${lockedMessage}
-
-                </div>
-
-            </div>
-
-
-            <div class="item-right">
-
-                <span
-                    class="status ${
-                        paid
-                            ? "status-paid"
-                            : "status-unpaid"
-                    }"
-                >
-
-                    ${status}
-
-                </span>
-
-            </div>
-
-        </div>
-
-    `;
-
-}
-
 
 /* =========================================================
    TOGGLE ITEM
    ========================================================= */
 
-function toggleItem(
-    type
-) {
+function toggleItem(type) {
 
     const checkbox =
         document.getElementById(
             `${type}Checkbox`
         );
 
-
-    if (!checkbox) {
+    if (!checkbox || checkbox.disabled) {
         return;
     }
-
-
-    if (checkbox.disabled) {
-        return;
-    }
-
 
     if (
-        type === "tshirt"
+        type === "tshirt" &&
+        paymentData?.lanyard &&
+        !isPaid(paymentData.lanyard)
     ) {
 
-        if (isBulkPayment) {
+        alert(
+            "Please pay for the Lanyard first."
+        );
 
-            const allLanyardsPaid =
-                bulkParticipants.every(
-                    participant =>
-                        !participant?.lanyard ||
-                        isPaid(
-                            participant.lanyard
-                        )
-                );
-
-
-            if (!allLanyardsPaid) {
-
-                alert(
-                    "Please pay the Lanyard for all participants first. The T-shirt can be purchased after the Lanyard payment is completed."
-                );
-
-                return;
-
-            }
-
-        } else {
-
-            if (
-                paymentData?.lanyard &&
-                !isPaid(
-                    paymentData.lanyard
-                )
-            ) {
-
-                alert(
-                    "Please pay for the Lanyard first."
-                );
-
-                return;
-
-            }
-
-        }
+        return;
 
     }
-
 
     checkbox.checked =
         !checkbox.checked;
 
-
     updateSelectionUI();
 
 }
-
 
 /* =========================================================
    UPDATE SELECTION UI
@@ -2974,51 +1496,21 @@ function toggleItem(
 
 function updateSelectionUI() {
 
-    if (isBulkPayment) {
-
-        updateBulkSelectionUI();
-
-        return;
-
-    }
-
-
-    updateSingleSelectionUI();
-
-}
-
-
-/* =========================================================
-   UPDATE SINGLE SELECTION
-   ========================================================= */
-
-function updateSingleSelectionUI() {
-
     const tshirtCheckbox =
-        document.getElementById(
-            "tshirtCheckbox"
-        );
-
+        document.getElementById("tshirtCheckbox");
 
     const lanyardCheckbox =
-        document.getElementById(
-            "lanyardCheckbox"
-        );
-
+        document.getElementById("lanyardCheckbox");
 
     if (
         paymentData?.lanyard &&
-        !isPaid(
-            paymentData.lanyard
-        ) &&
+        !isPaid(paymentData.lanyard) &&
         tshirtCheckbox
     ) {
 
-        tshirtCheckbox.checked =
-            false;
+        tshirtCheckbox.checked = false;
 
     }
-
 
     const tshirtSelected =
         Boolean(
@@ -3026,25 +1518,17 @@ function updateSingleSelectionUI() {
             tshirtCheckbox.checked
         );
 
-
     const lanyardSelected =
         Boolean(
             lanyardCheckbox &&
             lanyardCheckbox.checked
         );
 
-
     const tshirtItem =
-        document.getElementById(
-            "tshirtItem"
-        );
-
+        document.getElementById("tshirtItem");
 
     const lanyardItem =
-        document.getElementById(
-            "lanyardItem"
-        );
-
+        document.getElementById("lanyardItem");
 
     if (tshirtItem) {
 
@@ -3055,7 +1539,6 @@ function updateSingleSelectionUI() {
 
     }
 
-
     if (lanyardItem) {
 
         lanyardItem.classList.toggle(
@@ -3065,76 +1548,32 @@ function updateSingleSelectionUI() {
 
     }
 
-
     const sizeSection =
-        document.getElementById(
-            "sizeSection"
-        );
-
-
-    const sizeElement =
-        document.getElementById(
-            "tshirtSize"
-        );
-
+        document.getElementById("sizeSection");
 
     if (tshirtSelected) {
 
-        if (sizeSection) {
-
-            sizeSection.classList.add(
-                "visible"
-            );
-
-        }
+        sizeSection.classList.add("visible");
 
     } else {
 
-        if (sizeSection) {
+        sizeSection.classList.remove("visible");
 
-            sizeSection.classList.remove(
-                "visible"
-            );
-
-        }
-
-
-        if (sizeElement) {
-
-            sizeElement.value =
-                "";
-
-        }
+        document.getElementById("tshirtSize").value = "";
 
     }
-
 
     updateTotal();
 
-
     const message =
-        document.getElementById(
-            "selectionMessage"
-        );
+        document.getElementById("selectionMessage");
 
-
-    if (!message) {
-        return;
-    }
-
-
-    /*
-     * Lanyard is still mandatory and unpaid.
-     */
     if (
         paymentData?.lanyard &&
-        !isPaid(
-            paymentData.lanyard
-        )
+        !isPaid(paymentData.lanyard)
     ) {
 
-        message.style.display =
-            "block";
+        message.style.display = "block";
 
         message.textContent =
             "The Lanyard must be paid first. The T-shirt cannot be selected until the Lanyard payment is completed.";
@@ -3143,42 +1582,24 @@ function updateSingleSelectionUI() {
 
     }
 
+    if (isMandatoryPaymentComplete(paymentData)) {
 
-    /*
-     * Lanyard paid but T-shirt remains unpaid.
-     *
-     * This is the important refresh state.
-     */
-    if (
-        paymentData?.lanyard &&
-        isPaid(
-            paymentData.lanyard
-        ) &&
-        paymentData?.tshirt &&
-        !isPaid(
-            paymentData.tshirt
-        ) &&
-        !tshirtSelected
-    ) {
+        if (!tshirtSelected && !lanyardSelected) {
 
-        message.style.display =
-            "block";
+            message.style.display = "block";
 
-        message.textContent =
-            "Your Lanyard payment is complete. The T-shirt is still unpaid. Select the T-shirt if you want to purchase it.";
+            message.textContent =
+                "Your Lanyard is paid. The T-shirt is optional and is now available for purchase.";
 
-        return;
+            return;
+
+        }
 
     }
 
+    if (!tshirtSelected && !lanyardSelected) {
 
-    if (
-        !tshirtSelected &&
-        !lanyardSelected
-    ) {
-
-        message.style.display =
-            "block";
+        message.style.display = "block";
 
         message.textContent =
             "Select one or more unpaid items to continue.";
@@ -3187,17 +1608,14 @@ function updateSingleSelectionUI() {
 
     }
 
-
     if (tshirtSelected) {
 
-        message.style.display =
-            "block";
+        message.style.display = "block";
 
+        const sizeElement =
+            document.getElementById("tshirtSize");
 
-        if (
-            sizeElement &&
-            sizeElement.value
-        ) {
+        if (sizeElement && sizeElement.value) {
 
             message.textContent =
                 `T-shirt selected — Size ${sizeElement.value}. Click Proceed to Payment.`;
@@ -3213,235 +1631,16 @@ function updateSingleSelectionUI() {
 
     }
 
-
     if (lanyardSelected) {
 
-        message.style.display =
-            "block";
+        message.style.display = "block";
 
         message.textContent =
             "Lanyard selected. Proceed to payment.";
 
-        return;
-
     }
 
 }
-
-
-/* =========================================================
-   UPDATE BULK SELECTION
-   ========================================================= */
-
-function updateBulkSelectionUI() {
-
-    const tshirtCheckbox =
-        document.getElementById(
-            "tshirtCheckbox"
-        );
-
-
-    const lanyardCheckbox =
-        document.getElementById(
-            "lanyardCheckbox"
-        );
-
-
-    const tshirtSelected =
-        Boolean(
-            tshirtCheckbox &&
-            tshirtCheckbox.checked
-        );
-
-
-    const lanyardSelected =
-        Boolean(
-            lanyardCheckbox &&
-            lanyardCheckbox.checked
-        );
-
-
-    const tshirtItem =
-        document.getElementById(
-            "tshirtItem"
-        );
-
-
-    const lanyardItem =
-        document.getElementById(
-            "lanyardItem"
-        );
-
-
-    if (tshirtItem) {
-
-        tshirtItem.classList.toggle(
-            "selected",
-            tshirtSelected
-        );
-
-    }
-
-
-    if (lanyardItem) {
-
-        lanyardItem.classList.toggle(
-            "selected",
-            lanyardSelected
-        );
-
-    }
-
-
-    const allLanyardsPaid =
-        bulkParticipants.every(
-            participant =>
-                !participant?.lanyard ||
-                isPaid(
-                    participant.lanyard
-                )
-        );
-
-
-    const sizeSection =
-        document.getElementById(
-            "sizeSection"
-        );
-
-
-    const sizeElement =
-        document.getElementById(
-            "tshirtSize"
-        );
-
-
-    if (tshirtSelected) {
-
-        if (sizeSection) {
-
-            sizeSection.classList.add(
-                "visible"
-            );
-
-        }
-
-    } else {
-
-        if (sizeSection) {
-
-            sizeSection.classList.remove(
-                "visible"
-            );
-
-        }
-
-
-        if (sizeElement) {
-
-            sizeElement.value =
-                "";
-
-        }
-
-    }
-
-
-    updateTotal();
-
-    updateBulkBreakdown();
-
-
-    const message =
-        document.getElementById(
-            "selectionMessage"
-        );
-
-
-    if (!message) {
-        return;
-    }
-
-
-    if (
-        !allLanyardsPaid &&
-        tshirtSelected
-    ) {
-
-        tshirtCheckbox.checked =
-            false;
-
-
-        message.style.display =
-            "block";
-
-        message.textContent =
-            "The Lanyard must be paid for all participants before the bulk T-shirt can be selected.";
-
-        updateTotal();
-
-        return;
-
-    }
-
-
-    if (
-        !tshirtSelected &&
-        !lanyardSelected
-    ) {
-
-        message.style.display =
-            "block";
-
-        message.textContent =
-            "Select the items to include in the bulk payment.";
-
-        return;
-
-    }
-
-
-    if (tshirtSelected) {
-
-        const size =
-            sizeElement?.value ||
-            "";
-
-
-        message.style.display =
-            "block";
-
-
-        if (size) {
-
-            message.textContent =
-                `T-Shirt selected for all remaining eligible participants — Size ${size}. Click Proceed to Payment.`;
-
-        } else {
-
-            message.textContent =
-                "T-Shirt selected. Please choose a size, then proceed to payment.";
-
-        }
-
-        return;
-
-    }
-
-
-    if (lanyardSelected) {
-
-        message.style.display =
-            "block";
-
-        message.textContent =
-            "Lanyard selected for the remaining participants. Proceed to payment.";
-
-        return;
-
-    }
-
-}
-
 
 /* =========================================================
    UPDATE TOTAL
@@ -3449,500 +1648,44 @@ function updateBulkSelectionUI() {
 
 function updateTotal() {
 
-    const totalElement =
-        document.getElementById(
-            "totalAmount"
-        );
-
-
-    if (!totalElement) {
-        return;
-    }
-
-
-    if (isBulkPayment) {
-
-        const total =
-            getBulkLanyardTotal() +
-            getBulkTshirtTotal();
-
-
-        totalElement.textContent =
-            formatCurrency(
-                total
-            );
-
-
-        return;
-
-    }
-
-
     let total = 0;
 
-
     const tshirtCheckbox =
-        document.getElementById(
-            "tshirtCheckbox"
-        );
-
+        document.getElementById("tshirtCheckbox");
 
     const lanyardCheckbox =
-        document.getElementById(
-            "lanyardCheckbox"
-        );
-
+        document.getElementById("lanyardCheckbox");
 
     if (
         tshirtCheckbox &&
         tshirtCheckbox.checked &&
         paymentData?.tshirt &&
-        !isPaid(
-            paymentData.tshirt
-        )
+        !isPaid(paymentData.tshirt)
     ) {
 
         total += Number(
-            paymentData.tshirt.price ||
-            0
+            paymentData.tshirt.price || 0
         );
 
     }
-
 
     if (
         lanyardCheckbox &&
         lanyardCheckbox.checked &&
         paymentData?.lanyard &&
-        !isPaid(
-            paymentData.lanyard
-        )
+        !isPaid(paymentData.lanyard)
     ) {
 
         total += Number(
-            paymentData.lanyard.price ||
-            0
+            paymentData.lanyard.price || 0
         );
 
     }
 
-
-    totalElement.textContent =
-        formatCurrency(
-            total
-        );
+    document.getElementById("totalAmount").textContent =
+        formatCurrency(total);
 
 }
-
-
-/* =========================================================
-   BULK BREAKDOWN
-   ========================================================= */
-
-function updateBulkBreakdown() {
-
-    const breakdown =
-        document.getElementById(
-            "bulkBreakdown"
-        );
-
-
-    const content =
-        document.getElementById(
-            "bulkBreakdownContent"
-        );
-
-
-    if (
-        !breakdown ||
-        !content
-    ) {
-
-        return;
-
-    }
-
-
-    if (!isBulkPayment) {
-
-        breakdown.classList.remove(
-            "visible"
-        );
-
-        return;
-
-    }
-
-
-    breakdown.classList.add(
-        "visible"
-    );
-
-
-    const lanyardTotal =
-        getBulkLanyardTotal();
-
-
-    const tshirtTotal =
-        getBulkTshirtTotal();
-
-
-    const total =
-        lanyardTotal +
-        tshirtTotal;
-
-
-    content.innerHTML = `
-
-        <div class="bulk-breakdown-row">
-
-            <span>
-                Remaining Lanyards
-            </span>
-
-            <strong>
-                ${formatCurrency(
-                    lanyardTotal
-                )}
-            </strong>
-
-        </div>
-
-
-        <div class="bulk-breakdown-row">
-
-            <span>
-                T-Shirts
-            </span>
-
-            <strong>
-                ${formatCurrency(
-                    tshirtTotal
-                )}
-            </strong>
-
-        </div>
-
-
-        <div
-            class="bulk-breakdown-row"
-            style="
-                border-top:1px solid #e5e7eb;
-                margin-top:5px;
-                padding-top:12px;
-                font-weight:700;
-            "
-        >
-
-            <span>
-                Bulk Payment Total
-            </span>
-
-            <strong>
-                ${formatCurrency(
-                    total
-                )}
-            </strong>
-
-        </div>
-
-    `;
-
-}
-
-
-/* =========================================================
-   SINGLE CHECKOUT VISIBILITY
-   ========================================================= */
-
-/*
- * THIS IS THE MAIN FIX.
- *
- * Old behavior:
- *   mandatory payment complete -> checkout could disappear.
- *
- * New behavior:
- *   ANY unpaid item -> checkout visible.
- *   NO unpaid items -> checkout hidden.
- */
-
-function updateCheckoutVisibilitySingle() {
-
-    const checkoutSection =
-        document.getElementById(
-            "checkoutSection"
-        );
-
-
-    if (!checkoutSection) {
-        return;
-    }
-
-
-    const hasUnpaidItems =
-        participantHasUnpaidItems(
-            paymentData
-        );
-
-
-    checkoutSection.style.display =
-        hasUnpaidItems
-            ? "block"
-            : "none";
-
-
-    /*
-     * Do not show the waiting spinner after a page refresh
-     * unless a payment is actually being created.
-     */
-    const waiting =
-        document.getElementById(
-            "paymentWaiting"
-        );
-
-
-    if (
-        waiting &&
-        !paymentCreated
-    ) {
-
-        waiting.style.display =
-            "none";
-
-    }
-
-
-    if (
-        hasUnpaidItems
-    ) {
-
-        const button =
-            document.getElementById(
-                "payButton"
-            );
-
-
-        if (
-            button &&
-            !creatingPayment &&
-            !paymentCreated
-        ) {
-
-            button.disabled =
-                false;
-
-            button.textContent =
-                "Proceed to Payment";
-
-        }
-
-
-        /*
-         * Rebuild selection state safely.
-         */
-        updateSelectionUI();
-
-    }
-
-}
-
-
-/* =========================================================
-   BULK CHECKOUT VISIBILITY
-   ========================================================= */
-
-function updateCheckoutVisibilityBulk() {
-
-    const checkoutSection =
-        document.getElementById(
-            "checkoutSection"
-        );
-
-
-    if (!checkoutSection) {
-        return;
-    }
-
-
-    const hasUnpaidItems =
-        bulkHasUnpaidItems();
-
-
-    checkoutSection.style.display =
-        hasUnpaidItems
-            ? "block"
-            : "none";
-
-
-    const waiting =
-        document.getElementById(
-            "paymentWaiting"
-        );
-
-
-    if (
-        waiting &&
-        !paymentCreated
-    ) {
-
-        waiting.style.display =
-            "none";
-
-    }
-
-
-    if (
-        hasUnpaidItems
-    ) {
-
-        const button =
-            document.getElementById(
-                "payButton"
-            );
-
-
-        if (
-            button &&
-            !creatingPayment &&
-            !paymentCreated
-        ) {
-
-            button.disabled =
-                false;
-
-            button.textContent =
-                "Proceed to Bulk Payment";
-
-        }
-
-
-        updateSelectionUI();
-
-    }
-
-}
-
-
-/* =========================================================
-   SUCCESS MESSAGE
-   ========================================================= */
-
-function renderSuccessMessage() {
-
-    const successMessage =
-        document.getElementById(
-            "successMessage"
-        );
-
-
-    if (!successMessage) {
-        return;
-    }
-
-
-    if (isBulkPayment) {
-
-        if (
-            !areAllBulkParticipantsPaid()
-        ) {
-
-            successMessage.style.display =
-                "none";
-
-            return;
-
-        }
-
-
-        successMessage.style.display =
-            "block";
-
-
-        successMessage.innerHTML = `
-
-            <h3>
-                Mandatory Payment Confirmed
-            </h3>
-
-            <p>
-                The mandatory Lanyard payment has been confirmed
-                for all ${bulkParticipants.length} participants.
-                T-shirts are optional and may still be purchased
-                separately.
-            </p>
-
-            <div class="bulk-success-list">
-
-                ${
-                    bulkParticipants
-                        .map(
-                            participant => `
-
-                                <div
-                                    class="bulk-success-item"
-                                >
-
-                                    ✓
-                                    ${escapeHtml(
-                                        participant.fullname ||
-                                        "Participant"
-                                    )}
-
-                                    —
-                                    ${escapeHtml(
-                                        participant.registration_number ||
-                                        "—"
-                                    )}
-
-                                </div>
-
-                            `
-                        )
-                        .join("")
-                }
-
-            </div>
-
-        `;
-
-
-        return;
-
-    }
-
-
-    if (
-        isMandatoryPaymentComplete(
-            paymentData
-        )
-    ) {
-
-        successMessage.style.display =
-            "block";
-
-
-        successMessage.innerHTML = `
-
-            <h3>
-                Registration Payment Complete
-            </h3>
-
-            <p>
-                Your mandatory Lanyard payment has been confirmed.
-                The T-shirt is optional and may be purchased separately.
-            </p>
-
-        `;
-
-    } else {
-
-        successMessage.style.display =
-            "none";
-
-    }
-
-}
-
 
 /* =========================================================
    PAYMENT HISTORY
@@ -3950,724 +1693,87 @@ function renderSuccessMessage() {
 
 function renderPaymentHistory() {
 
-    if (isBulkPayment) {
-
-        renderBulkPaymentHistory();
-
-        return;
-
-    }
-
-
-    renderSinglePaymentHistory();
-
-}
-
-
-/* =========================================================
-   DEDUPLICATE PAYMENT HISTORY
-   ========================================================= */
-
-function deduplicatePayments(
-    payments
-) {
-
-    const unique =
-        new Map();
-
-
-    for (
-        const payment
-        of payments || []
-    ) {
-
-        if (!payment) {
-            continue;
-        }
-
-
-        /*
-         * Prefer payment_id.
-         *
-         * If unavailable, use PayMongo reference.
-         */
-        const key =
-            payment.payment_id != null
-                ? `id:${payment.payment_id}`
-                : payment.paymongo_reference
-                    ? `ref:${payment.paymongo_reference}`
-                    : [
-                        payment.created_at || "",
-                        payment.amount || "",
-                        payment.tshirt_selected ? 1 : 0,
-                        payment.lanyard_selected ? 1 : 0
-                    ].join("|");
-
-
-        /*
-         * Keep the latest occurrence.
-         */
-        unique.set(
-            key,
-            payment
-        );
-
-    }
-
-
-    return Array.from(
-        unique.values()
-    );
-
-}
-
-
-/* =========================================================
-   SINGLE HISTORY
-   ========================================================= */
-
-function renderSinglePaymentHistory() {
-
     const container =
-        document.getElementById(
-            "historyContainer"
-        );
-
-
-    if (!container) {
-        return;
-    }
-
+        document.getElementById("historyContainer");
 
     const payments =
-        deduplicatePayments(
-            paymentData?.payments ||
-            []
-        );
+        paymentData?.payments || [];
 
-
-    if (
-        payments.length === 0
-    ) {
+    if (payments.length === 0) {
 
         container.innerHTML = `
-
             <div class="empty">
                 No payment history found.
             </div>
-
         `;
 
         return;
 
     }
 
-
-    payments.sort(
-        (
-            a,
-            b
-        ) => {
-
-            const dateA =
-                new Date(
-                    a.created_at || 0
-                );
-
-
-            const dateB =
-                new Date(
-                    b.created_at || 0
-                );
-
-
-            return dateB - dateA;
-
-        }
-    );
-
-
     let rows = "";
 
+    payments.forEach(payment => {
 
-    payments.forEach(
-        payment => {
+        const status =
+            payment.status || "Pending";
 
-            const status =
-                payment.status ||
-                "Pending";
+        const statusClass =
+            getStatusClass(status);
 
+        const statusText =
+            getStatusText(status);
 
-            const statusClass =
-                getStatusClass(
-                    status
-                );
+        const items = [];
 
-
-            const statusText =
-                getStatusText(
-                    status
-                );
-
-
-            const items = [];
-
-
-            if (
-                payment.tshirt_selected
-            ) {
-
-                items.push(
-                    "T-Shirt"
-                );
-
-            }
-
-
-            if (
-                payment.lanyard_selected
-            ) {
-
-                items.push(
-                    "Lanyard"
-                );
-
-            }
-
-
-            if (
-                items.length === 0
-            ) {
-
-                items.push(
-                    "Registration"
-                );
-
-            }
-
-
-            rows += `
-
-                <tr>
-
-                    <td>
-                        #${escapeHtml(
-                            payment.payment_id
-                        )}
-                    </td>
-
-                    <td>
-                        ${escapeHtml(
-                            items.join(", ")
-                        )}
-                    </td>
-
-                    <td>
-                        ${formatCurrency(
-                            payment.amount
-                        )}
-                    </td>
-
-                    <td>
-
-                        <span
-                            class="status ${statusClass}"
-                        >
-
-                            ${escapeHtml(
-                                statusText
-                            )}
-
-                        </span>
-
-                    </td>
-
-                    <td>
-                        ${escapeHtml(
-                            formatDate(
-                                payment.created_at
-                            )
-                        )}
-                    </td>
-
-                    <td>
-                        ${escapeHtml(
-                            payment.paymongo_reference ||
-                            "—"
-                        )}
-                    </td>
-
-                </tr>
-
-            `;
-
+        if (payment.tshirt_selected) {
+            items.push("T-Shirt");
         }
-    );
 
-
-    container.innerHTML = `
-
-        <table>
-
-            <thead>
-
-                <tr>
-
-                    <th>
-                        Payment #
-                    </th>
-
-                    <th>
-                        Items
-                    </th>
-
-                    <th>
-                        Amount
-                    </th>
-
-                    <th>
-                        Status
-                    </th>
-
-                    <th>
-                        Date
-                    </th>
-
-                    <th>
-                        Reference
-                    </th>
-
-                </tr>
-
-            </thead>
-
-            <tbody>
-
-                ${rows}
-
-            </tbody>
-
-        </table>
-
-    `;
-
-}
-
-
-/* =========================================================
-   BULK HISTORY
-   ========================================================= */
-
-function renderBulkPaymentHistory() {
-
-    const container =
-        document.getElementById(
-            "historyContainer"
-        );
-
-
-    if (!container) {
-        return;
-    }
-
-
-    const history = [];
-
-    const globalKeys =
-        new Set();
-
-
-    bulkParticipants.forEach(
-        participant => {
-
-            const payments =
-                deduplicatePayments(
-                    participant?.payments ||
-                    []
-                );
-
-
-            payments.forEach(
-                payment => {
-
-                    const key =
-                        [
-                            participant.participant_id,
-                            payment.payment_id,
-                            payment.paymongo_reference || ""
-                        ].join("|");
-
-
-                    if (
-                        globalKeys.has(
-                            key
-                        )
-                    ) {
-
-                        return;
-
-                    }
-
-
-                    globalKeys.add(
-                        key
-                    );
-
-
-                    history.push({
-
-                        ...payment,
-
-                        participantName:
-                            participant.fullname,
-
-                        registrationNumber:
-                            participant.registration_number
-
-                    });
-
-                }
-            );
-
+        if (payment.lanyard_selected) {
+            items.push("Lanyard");
         }
-    );
 
+        if (items.length === 0) {
+            items.push("Registration");
+        }
 
-    if (
-        history.length === 0
-    ) {
-
-        container.innerHTML = `
-
-            <div class="empty">
-                No payment history found.
-            </div>
-
+        rows += `
+            <tr>
+                <td>#${escapeHtml(payment.payment_id)}</td>
+                <td>${escapeHtml(items.join(", "))}</td>
+                <td>${formatCurrency(payment.amount)}</td>
+                <td>
+                    <span class="status ${statusClass}">
+                        ${escapeHtml(statusText)}
+                    </span>
+                </td>
+                <td>${escapeHtml(formatDate(payment.created_at))}</td>
+                <td>${escapeHtml(payment.paymongo_reference || "—")}</td>
+            </tr>
         `;
 
-        return;
-
-    }
-
-
-    history.sort(
-        (
-            a,
-            b
-        ) => {
-
-            const dateA =
-                new Date(
-                    a.created_at || 0
-                );
-
-
-            const dateB =
-                new Date(
-                    b.created_at || 0
-                );
-
-
-            return dateB - dateA;
-
-        }
-    );
-
-
-    let rows = "";
-
-
-    history.forEach(
-        payment => {
-
-            const status =
-                payment.status ||
-                "Pending";
-
-
-            const items = [];
-
-
-            if (
-                payment.tshirt_selected
-            ) {
-
-                items.push(
-                    "T-Shirt"
-                );
-
-            }
-
-
-            if (
-                payment.lanyard_selected
-            ) {
-
-                items.push(
-                    "Lanyard"
-                );
-
-            }
-
-
-            if (
-                items.length === 0
-            ) {
-
-                items.push(
-                    "Registration"
-                );
-
-            }
-
-
-            rows += `
-
-                <tr>
-
-                    <td>
-
-                        ${escapeHtml(
-                            payment.participantName ||
-                            "Participant"
-                        )}
-
-                        <br>
-
-                        <small
-                            style="
-                                color:#777;
-                            "
-                        >
-
-                            ${escapeHtml(
-                                payment.registrationNumber ||
-                                "—"
-                            )}
-
-                        </small>
-
-                    </td>
-
-
-                    <td>
-                        #${escapeHtml(
-                            payment.payment_id
-                        )}
-                    </td>
-
-
-                    <td>
-                        ${escapeHtml(
-                            items.join(", ")
-                        )}
-                    </td>
-
-
-                    <td>
-                        ${formatCurrency(
-                            payment.amount
-                        )}
-                    </td>
-
-
-                    <td>
-
-                        <span
-                            class="status ${
-                                getStatusClass(
-                                    status
-                                )
-                            }"
-                        >
-
-                            ${escapeHtml(
-                                getStatusText(
-                                    status
-                                )
-                            )}
-
-                        </span>
-
-                    </td>
-
-
-                    <td>
-                        ${escapeHtml(
-                            formatDate(
-                                payment.created_at
-                            )
-                        )}
-                    </td>
-
-
-                    <td>
-                        ${escapeHtml(
-                            payment.paymongo_reference ||
-                            "—"
-                        )}
-                    </td>
-
-                </tr>
-
-            `;
-
-        }
-    );
-
+    });
 
     container.innerHTML = `
-
         <table>
-
             <thead>
-
                 <tr>
-
-                    <th>
-                        Participant
-                    </th>
-
-                    <th>
-                        Payment #
-                    </th>
-
-                    <th>
-                        Items
-                    </th>
-
-                    <th>
-                        Amount
-                    </th>
-
-                    <th>
-                        Status
-                    </th>
-
-                    <th>
-                        Date
-                    </th>
-
-                    <th>
-                        Reference
-                    </th>
-
+                    <th>Payment #</th>
+                    <th>Items</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                    <th>Date</th>
+                    <th>Reference</th>
                 </tr>
-
             </thead>
-
             <tbody>
-
                 ${rows}
-
             </tbody>
-
         </table>
-
     `;
 
 }
-
-
-/* =========================================================
-   STATUS CLASS
-   ========================================================= */
-
-function getStatusClass(
-    status
-) {
-
-    const normalized =
-        normalizeStatus(
-            status
-        );
-
-
-    if (
-        [
-            "paid",
-            "success",
-            "succeeded",
-            "completed"
-        ].includes(
-            normalized
-        )
-    ) {
-
-        return "status-paid";
-
-    }
-
-
-    if (
-        [
-            "failed",
-            "cancelled",
-            "canceled"
-        ].includes(
-            normalized
-        )
-    ) {
-
-        return "status-failed";
-
-    }
-
-
-    return "status-unpaid";
-
-}
-
-
-/* =========================================================
-   STATUS TEXT
-   ========================================================= */
-
-function getStatusText(
-    status
-) {
-
-    const normalized =
-        normalizeStatus(
-            status
-        );
-
-
-    if (
-        [
-            "paid",
-            "success",
-            "succeeded",
-            "completed"
-        ].includes(
-            normalized
-        )
-    ) {
-
-        return "Paid";
-
-    }
-
-
-    if (
-        [
-            "failed",
-            "cancelled",
-            "canceled"
-        ].includes(
-            normalized
-        )
-    ) {
-
-        return "Failed";
-
-    }
-
-
-    return "Pending";
-
-}
-
 
 /* =========================================================
    RESET PAYMENT BUTTON
@@ -4676,329 +1782,31 @@ function getStatusText(
 function resetPaymentButton() {
 
     const button =
-        document.getElementById(
-            "payButton"
-        );
-
+        document.getElementById("payButton");
 
     if (!button) {
         return;
     }
 
-
-    button.disabled =
-        false;
-
-
-    button.textContent =
-        isBulkPayment
-            ? "Proceed to Bulk Payment"
-            : "Proceed to Payment";
-
-
-    paymentCreated =
-        false;
-
-
-    currentPaymentRequest =
-        null;
-
-
-    paymentStartState =
-        [];
-
-
-    const waiting =
-        document.getElementById(
-            "paymentWaiting"
-        );
-
-
-    if (waiting) {
-
-        waiting.style.display =
-            "none";
-
-    }
-
-
-    paymentWindow =
-        null;
-
-
-    /*
-     * Recalculate whether checkout should remain visible.
-     */
-    if (isBulkPayment) {
-
-        updateCheckoutVisibilityBulk();
-
-    } else {
-
-        updateCheckoutVisibilitySingle();
-
-    }
-
-}
-
-
-/* =========================================================
-   BUILD SINGLE PAYMENT REQUEST
-   ========================================================= */
-
-function buildSinglePaymentRequest() {
-
-    const tshirtCheckbox =
-        document.getElementById(
-            "tshirtCheckbox"
-        );
-
-
-    const lanyardCheckbox =
-        document.getElementById(
-            "lanyardCheckbox"
-        );
-
-
-    const tshirtSelected =
-        Boolean(
-            tshirtCheckbox &&
-            tshirtCheckbox.checked
-        );
-
-
-    const lanyardSelected =
-        Boolean(
-            lanyardCheckbox &&
-            lanyardCheckbox.checked
-        );
-
-
-    let tshirtSize =
-        null;
-
-
-    if (tshirtSelected) {
-
-        const sizeElement =
-            document.getElementById(
-                "tshirtSize"
-            );
-
-
-        tshirtSize =
-            sizeElement?.value
-                ?.trim()
-                .toUpperCase() ||
-            "";
-
-
-        if (!tshirtSize) {
-
-            throw new Error(
-                "Please select a T-shirt size."
-            );
-
-        }
-
-    }
-
-
-    if (
-        !tshirtSelected &&
-        !lanyardSelected
-    ) {
-
-        throw new Error(
-            "Please select at least one unpaid item."
-        );
-
-    }
-
-
-    /*
-     * Never allow a request to include an item that is
-     * already paid.
-     */
-    if (
-        tshirtSelected &&
-        paymentData?.tshirt &&
-        isPaid(
-            paymentData.tshirt
-        )
-    ) {
-
-        throw new Error(
-            "The T-shirt has already been paid."
-        );
-
-    }
-
-
-    if (
-        lanyardSelected &&
-        paymentData?.lanyard &&
-        isPaid(
-            paymentData.lanyard
-        )
-    ) {
-
-        throw new Error(
-            "The Lanyard has already been paid."
-        );
-
-    }
-
-
-    return {
-
-        participant_id:
-            Number(
-                paymentData.participant_id
-            ),
-
-        tshirt_selected:
-            tshirtSelected,
-
-        lanyard_selected:
-            lanyardSelected,
-
-        tshirt_size:
-            tshirtSelected
-                ? tshirtSize
-                : null,
-
-        bulk:
-            false
-
+    button.disabled = false;
+    button.textContent = "Proceed to Payment";
+
+    paymentCreated = false;
+    currentPaymentRequest = null;
+
+    paymentStartState = {
+        lanyardPaid: false,
+        tshirtPaid: false
     };
 
-}
+    document.getElementById("paymentWaiting").style.display = "none";
 
-
-/* =========================================================
-   BUILD BULK PAYMENT REQUEST
-   ========================================================= */
-
-function buildBulkPaymentRequest() {
-
-    const tshirtCheckbox =
-        document.getElementById(
-            "tshirtCheckbox"
-        );
-
-
-    const lanyardCheckbox =
-        document.getElementById(
-            "lanyardCheckbox"
-        );
-
-
-    const tshirtSelected =
-        Boolean(
-            tshirtCheckbox &&
-            tshirtCheckbox.checked
-        );
-
-
-    const lanyardSelected =
-        Boolean(
-            lanyardCheckbox &&
-            lanyardCheckbox.checked
-        );
-
-
-    if (
-        !tshirtSelected &&
-        !lanyardSelected
-    ) {
-
-        throw new Error(
-            "Please select at least one item for the bulk payment."
-        );
-
-    }
-
-
-    if (tshirtSelected) {
-
-        const allLanyardsPaid =
-            bulkParticipants.every(
-                participant =>
-                    !participant?.lanyard ||
-                    isPaid(
-                        participant.lanyard
-                    )
-            );
-
-
-        if (!allLanyardsPaid) {
-
-            throw new Error(
-                "Please complete the Lanyard payment for all participants before purchasing T-shirts."
-            );
-
-        }
-
-    }
-
-
-    let tshirtSize =
-        null;
-
-
-    if (tshirtSelected) {
-
-        const sizeElement =
-            document.getElementById(
-                "tshirtSize"
-            );
-
-
-        tshirtSize =
-            sizeElement?.value
-                ?.trim()
-                .toUpperCase() ||
-            "";
-
-
-        if (!tshirtSize) {
-
-            throw new Error(
-                "Please select a T-shirt size."
-            );
-
-        }
-
-    }
-
-
-    return {
-
-        participant_ids:
-            participantIds,
-
-        tshirt_selected:
-            tshirtSelected,
-
-        lanyard_selected:
-            lanyardSelected,
-
-        tshirt_size:
-            tshirtSelected
-                ? tshirtSize
-                : null,
-
-        bulk:
-            true
-
-    };
+    paymentWindow = null;
 
 }
 
-
 /* =========================================================
-   PROCEED TO PAYMENT
+   PROCEED TO SINGLE PAYMENT
    ========================================================= */
 
 async function proceedToPayment() {
@@ -5007,175 +1815,200 @@ async function proceedToPayment() {
         return;
     }
 
+    if (!paymentData) {
+        return;
+    }
+
+    const tshirtCheckbox =
+        document.getElementById("tshirtCheckbox");
+
+    const lanyardCheckbox =
+        document.getElementById("lanyardCheckbox");
+
+    const tshirtSelected =
+        Boolean(
+            tshirtCheckbox &&
+            tshirtCheckbox.checked
+        );
+
+    const lanyardSelected =
+        Boolean(
+            lanyardCheckbox &&
+            lanyardCheckbox.checked
+        );
 
     if (
-        participantIds.length === 0
+        paymentData?.lanyard &&
+        !isPaid(paymentData.lanyard) &&
+        tshirtSelected
     ) {
+
+        alert(
+            "Please pay for the Lanyard first. The T-shirt can be purchased after the Lanyard payment is completed."
+        );
 
         return;
 
     }
 
+    if (!tshirtSelected && !lanyardSelected) {
 
-    let requestBody;
+        alert(
+            "Please select at least one unpaid item."
+        );
 
+        return;
 
-    try {
+    }
 
-        if (isBulkPayment) {
+    /*
+     * Never send an already-paid item to the backend.
+     */
+    if (
+        (tshirtSelected && (!paymentData?.tshirt || isPaid(paymentData.tshirt))) ||
+        (lanyardSelected && (!paymentData?.lanyard || isPaid(paymentData.lanyard)))
+    ) {
 
-            requestBody =
-                buildBulkPaymentRequest();
+        alert(
+            "One of the selected items has already been paid. Please refresh the page and select only unpaid items."
+        );
 
-        } else {
+        await loadPaymentStatus(false);
+        return;
+    }
 
-            requestBody =
-                buildSinglePaymentRequest();
+    let tshirtSize = null;
+
+    if (tshirtSelected) {
+
+        const sizeElement =
+            document.getElementById("tshirtSize");
+
+        tshirtSize =
+            sizeElement.value
+                .trim()
+                .toUpperCase();
+
+        if (!tshirtSize) {
+
+            alert(
+                "Please select a T-shirt size."
+            );
+
+            sizeElement.focus();
+
+            return;
 
         }
 
-    } catch (error) {
+    }
 
-        alert(
-            error.message
-        );
+    if (
+        tshirtSelected &&
+        paymentData?.tshirt &&
+        isPaid(paymentData.tshirt)
+    ) {
 
+        alert("The T-shirt has already been paid.");
         return;
 
     }
 
+    if (
+        lanyardSelected &&
+        paymentData?.lanyard &&
+        isPaid(paymentData.lanyard)
+    ) {
+
+        alert("The Lanyard has already been paid.");
+        return;
+
+    }
 
     const button =
-        document.getElementById(
-            "payButton"
-        );
-
+        document.getElementById("payButton");
 
     const waiting =
-        document.getElementById(
-            "paymentWaiting"
-        );
+        document.getElementById("paymentWaiting");
 
+    creatingPayment = true;
 
-    if (!button) {
-        return;
-    }
-
-
-    creatingPayment =
-        true;
-
-
-    button.disabled =
-        true;
-
-
-    button.textContent =
-        isBulkPayment
-            ? "Preparing bulk payment..."
-            : "Preparing payment...";
-
+    button.disabled = true;
+    button.textContent = "Preparing payment...";
 
     try {
 
+        const requestBody = {
+
+            participant_id:
+                Number(paymentData.participant_id),
+
+            tshirt_selected:
+                tshirtSelected,
+
+            lanyard_selected:
+                lanyardSelected,
+
+            tshirt_size:
+                tshirtSelected
+                    ? tshirtSize
+                    : null
+
+        };
+
         console.log(
-            "CREATE PAYMENT REQUEST:",
+            "CREATE SINGLE PAYMENT REQUEST:",
             requestBody
         );
-
 
         const response =
             await fetch(
                 `${API_BASE}/create_payment`,
                 {
-
-                    method:
-                        "POST",
-
+                    method: "POST",
                     headers: {
-
-                        "Content-Type":
-                            "application/json",
-
-                        "Accept":
-                            "application/json"
-
+                        "Content-Type": "application/json",
+                        "Accept": "application/json"
                     },
-
-                    body:
-                        JSON.stringify(
-                            requestBody
-                        )
-
+                    body: JSON.stringify(requestBody)
                 }
             );
 
-
-        let data =
-            null;
-
+        let data = null;
 
         try {
-
-            data =
-                await response.json();
-
+            data = await response.json();
         } catch {
-
-            data =
-                null;
-
+            data = null;
         }
 
-
         console.log(
-            "CREATE PAYMENT RESPONSE:",
+            "CREATE SINGLE PAYMENT RESPONSE:",
             data
         );
-
 
         if (!response.ok) {
 
             let errorMessage =
                 "Unable to create payment.";
 
+            if (data?.detail) {
 
-            if (
-                data?.detail
-            ) {
-
-                if (
-                    typeof data.detail ===
-                    "string"
-                ) {
-
-                    errorMessage =
-                        data.detail;
-
-                } else {
-
-                    errorMessage =
-                        JSON.stringify(
-                            data.detail
-                        );
-
-                }
+                errorMessage =
+                    typeof data.detail === "string"
+                        ? data.detail
+                        : JSON.stringify(data.detail);
 
             }
 
-
-            throw new Error(
-                errorMessage
-            );
+            throw new Error(errorMessage);
 
         }
-
 
         const checkoutUrl =
             data?.checkout_url ||
             data?.payment_url ||
             data?.checkout_url?.url;
-
 
         if (!checkoutUrl) {
 
@@ -5185,7 +2018,6 @@ async function proceedToPayment() {
 
         }
 
-
         currentPaymentRequest = {
 
             paymentId:
@@ -5193,78 +2025,29 @@ async function proceedToPayment() {
                 data?.id ||
                 null,
 
-            checkoutUrl:
-                checkoutUrl,
+            checkoutUrl,
 
-            bulk:
-                isBulkPayment,
-
-            participantIds:
-                participantIds.slice(),
-
-            tshirtSelected:
-                Boolean(
-                    requestBody.tshirt_selected
-                ),
-
-            lanyardSelected:
-                Boolean(
-                    requestBody.lanyard_selected
-                ),
-
-            tshirtSize:
-                requestBody.tshirt_size ||
-                null
+            tshirtSelected,
+            lanyardSelected,
+            tshirtSize
 
         };
 
+        paymentStartState = {
 
-        /*
-         * Capture state before payment.
-         */
-        if (isBulkPayment) {
+            lanyardPaid:
+                Boolean(
+                    paymentData?.lanyard &&
+                    isPaid(paymentData.lanyard)
+                ),
 
-            paymentStartState =
-                bulkParticipants.map(
-                    participant => ({
+            tshirtPaid:
+                Boolean(
+                    paymentData?.tshirt &&
+                    isPaid(paymentData.tshirt)
+                )
 
-                        participantId:
-                            participant.participant_id,
-
-                        lanyardPaid:
-                            participantLanyardPaid(
-                                participant
-                            ),
-
-                        tshirtPaid:
-                            participantTshirtPaid(
-                                participant
-                            )
-
-                    })
-                );
-
-        } else {
-
-            paymentStartState = [{
-
-                participantId:
-                    paymentData.participant_id,
-
-                lanyardPaid:
-                    participantLanyardPaid(
-                        paymentData
-                    ),
-
-                tshirtPaid:
-                    participantTshirtPaid(
-                        paymentData
-                    )
-
-            }];
-
-        }
-
+        };
 
         paymentWindow =
             window.open(
@@ -5272,79 +2055,40 @@ async function proceedToPayment() {
                 "_blank"
             );
 
-
         if (!paymentWindow) {
 
             alert(
                 "Your browser blocked the payment window. Please allow pop-ups for this site and try again."
             );
 
-
             resetPaymentButton();
-
-            creatingPayment =
-                false;
-
+            creatingPayment = false;
             return;
 
         }
 
+        paymentCreated = true;
 
-        paymentCreated =
-            true;
+        waiting.style.display = "block";
 
-
-        if (waiting) {
-
-            waiting.style.display =
-                "block";
-
-
-            waiting.innerHTML = `
-
-                <span
-                    class="spinner-small"
-                ></span>
-
-                Waiting for ${
-                    isBulkPayment
-                        ? `${participantIds.length} participants`
-                        : "payment"
-                }
-                payment confirmation...
-
-                <br>
-
-                You may complete payment in the PayMongo tab.
-
-            `;
-
-        }
-
+        waiting.innerHTML = `
+            <span class="spinner-small"></span>
+            Waiting for payment confirmation...
+            You may complete payment in the PayMongo tab.
+        `;
 
         button.textContent =
-            isBulkPayment
-                ? "Bulk Payment Window Opened"
-                : "Payment Window Opened";
+            "Payment Window Opened";
 
-
-        creatingPayment =
-            false;
-
+        creatingPayment = false;
 
         startPaymentPolling();
 
-
         try {
-
             paymentWindow.focus();
-
         } catch {
-
             // Ignore browser restrictions.
-
         }
-
 
         monitorPaymentWindow();
 
@@ -5355,26 +2099,20 @@ async function proceedToPayment() {
             error
         );
 
-
         alert(
             error.message ||
             "Unable to proceed to payment."
         );
 
-
-        creatingPayment =
-            false;
-
-
+        creatingPayment = false;
         resetPaymentButton();
 
     }
 
 }
 
-
 /* =========================================================
-   MONITOR PAYMENT WINDOW
+   MONITOR SINGLE PAYMENT WINDOW
    ========================================================= */
 
 function monitorPaymentWindow() {
@@ -5382,7 +2120,6 @@ function monitorPaymentWindow() {
     if (!paymentWindow) {
         return;
     }
-
 
     const monitor =
         setInterval(
@@ -5393,23 +2130,17 @@ function monitorPaymentWindow() {
                     paymentWindow.closed
                 ) {
 
-                    clearInterval(
-                        monitor
-                    );
+                    clearInterval(monitor);
 
-
-                    paymentWindow =
-                        null;
-
+                    paymentWindow = null;
 
                     await checkPaymentStatus();
 
-
-                    if (
-                        paymentCreated
-                    ) {
+                    if (paymentCreated) {
 
                         resetPaymentButton();
+                        updateCheckoutVisibilitySingle();
+                        updateSelectionUI();
 
                     }
 
@@ -5421,18 +2152,15 @@ function monitorPaymentWindow() {
 
 }
 
-
 /* =========================================================
-   START PAYMENT POLLING
+   START SINGLE PAYMENT POLLING
    ========================================================= */
 
 function startPaymentPolling() {
 
     stopPaymentPolling();
 
-
     checkPaymentStatus();
-
 
     paymentPollingTimer =
         setInterval(
@@ -5442,32 +2170,24 @@ function startPaymentPolling() {
 
 }
 
-
 /* =========================================================
-   STOP PAYMENT POLLING
+   STOP SINGLE PAYMENT POLLING
    ========================================================= */
 
 function stopPaymentPolling() {
 
-    if (
-        paymentPollingTimer
-    ) {
+    if (paymentPollingTimer) {
 
-        clearInterval(
-            paymentPollingTimer
-        );
+        clearInterval(paymentPollingTimer);
 
-
-        paymentPollingTimer =
-            null;
+        paymentPollingTimer = null;
 
     }
 
 }
 
-
 /* =========================================================
-   CLOSE PAYMENT WINDOW
+   CLOSE SINGLE PAYMENT WINDOW
    ========================================================= */
 
 function closePaymentWindow() {
@@ -5484,62 +2204,176 @@ function closePaymentWindow() {
         }
 
     } catch {
-
         // Ignore browser restrictions.
-
     }
 
-
-    paymentWindow =
-        null;
+    paymentWindow = null;
 
 }
 
-
 /* =========================================================
-   RELOAD BULK STATUS
-   ========================================================= */
-
-async function reloadBulkStatus() {
-
-    await loadBulkPaymentStatus();
-
-    renderPage();
-
-}
-
-
-/* =========================================================
-   CHECK PAYMENT STATUS
+   CHECK SINGLE PAYMENT STATUS
    ========================================================= */
 
 async function checkPaymentStatus() {
 
-    if (
-        participantIds.length === 0
-    ) {
-
+    if (!participantId) {
         return;
-
     }
-
 
     try {
 
-        if (isBulkPayment) {
+        const response =
+            await fetch(
+                `${API_BASE}/payment_status/${encodeURIComponent(participantId)}`,
+                {
+                    cache: "no-store"
+                }
+            );
 
-            await reloadBulkStatus();
+        if (!response.ok) {
+            return;
+        }
 
-            await checkBulkPaymentCompletion();
+        const data =
+            await response.json();
+
+        paymentData = data;
+
+        const lanyardPaid =
+            Boolean(
+                data?.lanyard &&
+                isPaid(data.lanyard)
+            );
+
+        const tshirtPaid =
+            Boolean(
+                data?.tshirt &&
+                isPaid(data.tshirt)
+            );
+
+        let checkoutPaymentComplete = false;
+        let checkoutTarget = "payment";
+
+        if (
+            paymentCreated &&
+            currentPaymentRequest
+        ) {
+
+            const lanyardSelected =
+                Boolean(
+                    currentPaymentRequest.lanyardSelected
+                );
+
+            const tshirtSelected =
+                Boolean(
+                    currentPaymentRequest.tshirtSelected
+                );
+
+            const lanyardTransitionedToPaid =
+                lanyardSelected &&
+                !paymentStartState.lanyardPaid &&
+                lanyardPaid;
+
+            const tshirtTransitionedToPaid =
+                tshirtSelected &&
+                !paymentStartState.tshirtPaid &&
+                tshirtPaid;
+
+            if (
+                lanyardSelected &&
+                tshirtSelected
+            ) {
+
+                checkoutTarget =
+                    "Lanyard and T-shirt";
+
+                checkoutPaymentComplete =
+                    lanyardTransitionedToPaid &&
+                    tshirtTransitionedToPaid;
+
+            } else if (lanyardSelected) {
+
+                checkoutTarget = "Lanyard";
+
+                checkoutPaymentComplete =
+                    lanyardTransitionedToPaid;
+
+            } else if (tshirtSelected) {
+
+                checkoutTarget = "T-shirt";
+
+                checkoutPaymentComplete =
+                    tshirtTransitionedToPaid;
+
+            }
+
+            console.log(
+                "CHECKOUT PAYMENT STATUS:",
+                {
+                    checkoutTarget,
+                    lanyardPaid,
+                    tshirtPaid,
+                    startLanyardPaid:
+                        paymentStartState.lanyardPaid,
+                    startTshirtPaid:
+                        paymentStartState.tshirtPaid,
+                    checkoutPaymentComplete
+                }
+            );
+
+        }
+
+        if (
+            paymentCreated &&
+            checkoutPaymentComplete
+        ) {
+
+            console.log(
+                `${checkoutTarget} changed from UNPAID to PAID. Refreshing page.`
+            );
+
+            stopPaymentPolling();
+
+            paymentCreated = false;
+            creatingPayment = false;
+
+            closePaymentWindow();
+
+            currentPaymentRequest = null;
+
+            window.location.reload();
 
             return;
 
         }
 
+        if (paymentCreated) {
 
-        await loadSinglePaymentStatus();
+            const waiting =
+                document.getElementById(
+                    "paymentWaiting"
+                );
 
-        await checkSinglePaymentCompletion();
+            if (waiting) {
+
+                waiting.style.display = "block";
+
+                waiting.innerHTML = `
+                    <span class="spinner-small"></span>
+                    Waiting for ${escapeHtml(checkoutTarget)} payment confirmation...
+                    You may complete payment in the PayMongo tab.
+                `;
+
+            }
+
+            renderPage();
+
+            return;
+
+        }
+
+        renderPage();
 
     } catch (error) {
 
@@ -5552,426 +2386,650 @@ async function checkPaymentStatus() {
 
 }
 
-
 /* =========================================================
-   CHECK SINGLE PAYMENT COMPLETION
+   BULK PAYMENT: BUILD REQUEST ITEMS
    ========================================================= */
 
-async function checkSinglePaymentCompletion() {
+function buildBulkPaymentItems() {
 
     /*
-     * If there is no active checkout session, simply render
-     * the current backend state.
+     * Bulk mode defaults to the mandatory Lanyard for every
+     * participant. If the bulk participant data explicitly
+     * says an item is already paid, it is not requested again.
+     *
+     * If the user later wants per-participant T-shirt choices,
+     * this function is the place to add those selections.
      */
-    if (
-        !paymentCreated ||
-        !currentPaymentRequest
-    ) {
+    return bulkParticipants.map(
+        participant => {
 
-        renderPage();
+            const lanyard =
+                participant?.lanyard;
 
-        return;
+            const tshirt =
+                participant?.tshirt;
 
-    }
+            const lanyardPaid =
+                Boolean(
+                    lanyard &&
+                    isPaid(lanyard)
+                );
 
+            const tshirtPaid =
+                Boolean(
+                    tshirt &&
+                    isPaid(tshirt)
+                );
 
-    const data =
-        paymentData;
+            return {
 
+                participant_id:
+                    Number(participant.participant_id),
 
-    const lanyardPaid =
-        participantLanyardPaid(
-            data
-        );
+                tshirt_selected:
+                    false,
 
+                lanyard_selected:
+                    !lanyardPaid,
 
-    const tshirtPaid =
-        participantTshirtPaid(
-            data
-        );
+                tshirt_size:
+                    null,
 
+                lanyard_already_paid:
+                    lanyardPaid,
 
-    const start =
-        paymentStartState[0] ||
-        {};
+                tshirt_already_paid:
+                    tshirtPaid
 
+            };
 
-    const lanyardTransitioned =
-        currentPaymentRequest.lanyardSelected &&
-        !start.lanyardPaid &&
-        lanyardPaid;
-
-
-    const tshirtTransitioned =
-        currentPaymentRequest.tshirtSelected &&
-        !start.tshirtPaid &&
-        tshirtPaid;
-
-
-    let complete =
-        false;
-
-
-    let target =
-        "payment";
-
-
-    if (
-        currentPaymentRequest.lanyardSelected &&
-        currentPaymentRequest.tshirtSelected
-    ) {
-
-        target =
-            "Lanyard and T-shirt";
-
-
-        complete =
-            lanyardTransitioned &&
-            tshirtTransitioned;
-
-    } else if (
-        currentPaymentRequest.lanyardSelected
-    ) {
-
-        target =
-            "Lanyard";
-
-
-        complete =
-            lanyardTransitioned;
-
-    } else if (
-        currentPaymentRequest.tshirtSelected
-    ) {
-
-        target =
-            "T-shirt";
-
-
-        complete =
-            tshirtTransitioned;
-
-    }
-
-
-    console.log(
-        "SINGLE CHECKOUT STATUS:",
-        {
-            target,
-            lanyardPaid,
-            tshirtPaid,
-            complete
         }
     );
 
+}
 
-    if (complete) {
+/* =========================================================
+   BULK PAYMENT: PROCEED
+   ========================================================= */
 
-        stopPaymentPolling();
+async function proceedToBulkPayment() {
 
-        paymentCreated =
-            false;
+    if (creatingBulkPayment) {
+        return;
+    }
 
-        creatingPayment =
-            false;
+    if (!bulkParticipants.length) {
 
-        closePaymentWindow();
-
-        currentPaymentRequest =
-            null;
-
-
-        /*
-         * Reload from backend.
-         *
-         * If only Lanyard was paid, the refreshed page will now
-         * show the unpaid T-shirt and the Proceed button.
-         */
-        await loadSinglePaymentStatus(
-            false
+        alert(
+            "No participants are available for bulk payment."
         );
-
-
-        renderPage();
-
-
-        /*
-         * If there is still an unpaid item, keep checkout visible.
-         */
-        if (
-            participantHasUnpaidItems(
-                paymentData
-            )
-        ) {
-
-            updateCheckoutVisibilitySingle();
-
-        }
-
 
         return;
 
     }
 
+    /*
+     * =====================================================
+     * QUEUE ORDER
+     * =====================================================
+     *
+     * This intentionally preserves:
+     *
+     * 1 -> 2 -> 3 -> 4
+     *
+     * The queue is sent as one request after all four
+     * participants have been prepared.
+     *
+     * The backend must create ONE PayMongo payment link
+     * for the combined amount.
+     */
+    bulkQueue =
+        bulkParticipants.map(
+            participant => ({
+                ...participant,
+                queue_status: "Queued"
+            })
+        );
 
-    renderPage();
+    renderBulkParticipantList();
 
+    const items =
+        buildBulkPaymentItems();
+
+    const unpaidItems =
+        items.filter(
+            item =>
+                item.lanyard_selected ||
+                item.tshirt_selected
+        );
+
+    if (!unpaidItems.length) {
+
+        alert(
+            "All participants already have their required items paid."
+        );
+
+        return;
+
+    }
+
+    const button =
+        document.getElementById(
+            "bulkPayButton"
+        );
 
     const waiting =
         document.getElementById(
-            "paymentWaiting"
+            "bulkPaymentWaiting"
         );
 
+    const progress =
+        document.getElementById(
+            "bulkProgress"
+        );
 
-    if (
-        waiting &&
-        paymentCreated
+    const complete =
+        document.getElementById(
+            "bulkComplete"
+        );
+
+    creatingBulkPayment = true;
+
+    button.disabled = true;
+    button.textContent = "Preparing bulk payment...";
+
+    progress.style.display = "block";
+    complete.style.display = "none";
+
+    /*
+     * Visual queue progress.
+     *
+     * This is NOT four separate PayMongo payments.
+     * It represents the participants being validated/
+     * prepared in queue order before the ONE bulk payment
+     * request is submitted.
+     */
+    for (
+        let index = 0;
+        index < bulkQueue.length;
+        index++
     ) {
 
-        waiting.style.display =
-            "block";
+        bulkQueue[index].queue_status =
+            "Preparing";
 
+        renderBulkParticipantList();
 
-        waiting.innerHTML = `
+        updateBulkProgress(
+            index,
+            bulkQueue.length,
+            `Preparing participant ${index + 1} of ${bulkQueue.length}...`
+        );
 
-            <span
-                class="spinner-small"
-            ></span>
+        /*
+         * Small yield so the UI can visibly update the queue.
+         */
+        await new Promise(
+            resolve => setTimeout(resolve, 80)
+        );
 
-            Waiting for
-            ${escapeHtml(target)}
-            payment confirmation...
+        bulkQueue[index].queue_status =
+            "Ready";
 
-            <br>
+        renderBulkParticipantList();
 
-            You may complete payment in the PayMongo tab.
-
-        `;
+        updateBulkProgress(
+            index + 1,
+            bulkQueue.length,
+            `Participant ${index + 1} of ${bulkQueue.length} is ready.`
+        );
 
     }
+
+    /*
+     * All participants are now prepared.
+     */
+    bulkQueue.forEach(
+        participant => {
+            participant.queue_status = "Registered";
+        }
+    );
+
+    renderBulkParticipantList();
+
+    complete.style.display = "block";
+
+    complete.textContent =
+        `${bulkQueue.length} participants are registered. Proceed to payment for all ${bulkQueue.length} participants.`;
+
+    updateBulkProgress(
+        bulkQueue.length,
+        bulkQueue.length,
+        `${bulkQueue.length} participants prepared successfully.`
+    );
+
+    try {
+
+        const requestBody = {
+
+            participant_ids:
+                participantIds.slice(),
+
+            items
+
+        };
+
+        console.log(
+            "CREATE BULK PAYMENT REQUEST:",
+            requestBody
+        );
+
+        /*
+         * IMPORTANT:
+         *
+         * This endpoint must be added to main(3).py.
+         * It should create ONE local bulk payment record and
+         * ONE PayMongo payment link whose amount is the sum
+         * of all participants.
+         */
+        const response =
+            await fetch(
+                `${API_BASE}/create_bulk_payment`,
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Accept": "application/json"
+                    },
+                    body: JSON.stringify(requestBody)
+                }
+            );
+
+        let data = null;
+
+        try {
+            data = await response.json();
+        } catch {
+            data = null;
+        }
+
+        console.log(
+            "CREATE BULK PAYMENT RESPONSE:",
+            data
+        );
+
+        if (!response.ok) {
+
+            let errorMessage =
+                "Unable to create bulk payment.";
+
+            if (data?.detail) {
+
+                errorMessage =
+                    typeof data.detail === "string"
+                        ? data.detail
+                        : JSON.stringify(data.detail);
+
+            }
+
+            throw new Error(errorMessage);
+
+        }
+
+        const checkoutUrl =
+            data?.checkout_url ||
+            data?.payment_url ||
+            data?.checkout_url?.url;
+
+        if (!checkoutUrl) {
+
+            throw new Error(
+                "Bulk payment was created but no checkout URL was returned."
+            );
+
+        }
+
+        bulkPaymentData = data;
+        bulkPaymentData.checkout_url = checkoutUrl;
+
+        bulkPaymentCreated = true;
+
+        showBulkPaymentReady();
+
+        waiting.style.display = "block";
+
+        waiting.innerHTML = `
+            <span class="spinner-small"></span>
+            Bulk payment is ready. You may complete payment in the PayMongo tab.
+        `;
+
+        button.textContent =
+            "Bulk Payment Window Opened";
+
+        bulkPaymentWindow =
+            window.open(
+                checkoutUrl,
+                "_blank"
+            );
+
+        if (!bulkPaymentWindow) {
+
+            alert(
+                "Your browser blocked the payment window. Please allow pop-ups for this site and try again."
+            );
+
+            bulkPaymentCreated = false;
+            creatingBulkPayment = false;
+            button.disabled = false;
+            button.textContent = "Proceed to Bulk Payment";
+
+            return;
+
+        }
+
+        startBulkPaymentPolling();
+
+        try {
+            bulkPaymentWindow.focus();
+        } catch {
+            // Ignore browser restrictions.
+        }
+
+        monitorBulkPaymentWindow();
+
+    } catch (error) {
+
+        console.error(
+            "Bulk payment creation error:",
+            error
+        );
+
+        alert(
+            error.message ||
+            "Unable to proceed to bulk payment."
+        );
+
+        complete.style.display = "none";
+
+        creatingBulkPayment = false;
+
+        button.disabled = false;
+        button.textContent = "Proceed to Bulk Payment";
+
+    }
+
+    creatingBulkPayment = false;
 
 }
 
-
 /* =========================================================
-   CHECK BULK PAYMENT COMPLETION
+   SHOW BULK PAYMENT READY
    ========================================================= */
 
-async function checkBulkPaymentCompletion() {
+function showBulkPaymentReady() {
 
-    if (
-        !paymentCreated ||
-        !currentPaymentRequest
-    ) {
+    const card =
+        document.getElementById(
+            "bulkPaymentCard"
+        );
 
-        renderPage();
+    const count =
+        bulkPaymentData?.participant_count ||
+        bulkPaymentData?.participants_count ||
+        bulkParticipants.length;
 
+    const amount =
+        bulkPaymentData?.amount ||
+        bulkPaymentData?.total_amount ||
+        0;
+
+    const status =
+        bulkPaymentData?.status ||
+        "Pending";
+
+    document.getElementById(
+        "bulkPaymentCount"
+    ).textContent =
+        count;
+
+    document.getElementById(
+        "bulkPaymentAmount"
+    ).textContent =
+        formatCurrency(amount);
+
+    document.getElementById(
+        "bulkPaymentStatus"
+    ).textContent =
+        getStatusText(status);
+
+    document.getElementById(
+        "bulkPaymentMessage"
+    ).textContent =
+        `${count} participants are registered and their combined payment is ready.`;
+
+    card.style.display = "block";
+
+}
+
+/* =========================================================
+   MONITOR BULK PAYMENT WINDOW
+   ========================================================= */
+
+function monitorBulkPaymentWindow() {
+
+    if (!bulkPaymentWindow) {
         return;
-
     }
 
-
-    const results =
-        bulkParticipants.map(
-            participant => {
-
-                const start =
-                    paymentStartState.find(
-                        state =>
-                            Number(
-                                state.participantId
-                            ) ===
-                            Number(
-                                participant.participant_id
-                            )
-                    ) ||
-                    {};
-
-
-                const lanyardPaid =
-                    participantLanyardPaid(
-                        participant
-                    );
-
-
-                const tshirtPaid =
-                    participantTshirtPaid(
-                        participant
-                    );
-
-
-                const lanyardTransitioned =
-                    currentPaymentRequest.lanyardSelected &&
-                    !start.lanyardPaid &&
-                    lanyardPaid;
-
-
-                const tshirtTransitioned =
-                    currentPaymentRequest.tshirtSelected &&
-                    !start.tshirtPaid &&
-                    tshirtPaid;
-
-
-                let complete =
-                    false;
-
+    const monitor =
+        setInterval(
+            async function () {
 
                 if (
-                    currentPaymentRequest.lanyardSelected &&
-                    currentPaymentRequest.tshirtSelected
+                    bulkPaymentWindow &&
+                    bulkPaymentWindow.closed
                 ) {
 
-                    complete =
-                        lanyardTransitioned &&
-                        tshirtTransitioned;
+                    clearInterval(monitor);
 
-                } else if (
-                    currentPaymentRequest.lanyardSelected
-                ) {
+                    bulkPaymentWindow = null;
 
-                    complete =
-                        lanyardTransitioned;
-
-                } else if (
-                    currentPaymentRequest.tshirtSelected
-                ) {
-
-                    complete =
-                        tshirtTransitioned;
+                    await checkBulkPaymentStatus();
 
                 }
 
-
-                return {
-
-                    participantId:
-                        participant.participant_id,
-
-                    fullname:
-                        participant.fullname,
-
-                    registrationNumber:
-                        participant.registration_number,
-
-                    complete,
-
-                    lanyardPaid,
-
-                    tshirtPaid
-
-                };
-
-            }
+            },
+            1000
         );
 
+}
 
-    const completedCount =
-        results.filter(
-            result =>
-                result.complete
-        ).length;
+/* =========================================================
+   START BULK POLLING
+   ========================================================= */
 
+function startBulkPaymentPolling() {
 
-    const allComplete =
-        results.length ===
-            participantIds.length &&
-        results.every(
-            result =>
-                result.complete
+    stopBulkPaymentPolling();
+
+    checkBulkPaymentStatus();
+
+    bulkPaymentPollingTimer =
+        setInterval(
+            checkBulkPaymentStatus,
+            3000
         );
 
+}
 
-    console.log(
-        "BULK PAYMENT STATUS:",
-        {
-            totalParticipants:
-                participantIds.length,
+/* =========================================================
+   STOP BULK POLLING
+   ========================================================= */
 
-            completedCount,
+function stopBulkPaymentPolling() {
 
-            allComplete,
+    if (bulkPaymentPollingTimer) {
 
-            results
-        }
-    );
+        clearInterval(bulkPaymentPollingTimer);
 
-
-    const waiting =
-        document.getElementById(
-            "paymentWaiting"
-        );
-
-
-    if (allComplete) {
-
-        stopPaymentPolling();
-
-        paymentCreated =
-            false;
-
-        creatingPayment =
-            false;
-
-
-        closePaymentWindow();
-
-
-        currentPaymentRequest =
-            null;
-
-
-        await reloadBulkStatus();
-
-
-        renderSuccessMessage();
-
-
-        updateCheckoutVisibilityBulk();
-
-
-        return;
-
-    }
-
-
-    renderPage();
-
-
-    if (
-        waiting &&
-        paymentCreated
-    ) {
-
-        waiting.style.display =
-            "block";
-
-
-        waiting.innerHTML = `
-
-            <span
-                class="spinner-small"
-            ></span>
-
-            Bulk payment is being confirmed...
-
-            <br>
-
-            ${completedCount}
-            of
-            ${participantIds.length}
-            participants confirmed.
-
-            <br>
-
-            Please wait while the remaining
-            participants are confirmed.
-
-        `;
+        bulkPaymentPollingTimer = null;
 
     }
 
 }
 
+/* =========================================================
+   CLOSE BULK WINDOW
+   ========================================================= */
+
+function closeBulkPaymentWindow() {
+
+    try {
+
+        if (
+            bulkPaymentWindow &&
+            !bulkPaymentWindow.closed
+        ) {
+
+            bulkPaymentWindow.close();
+
+        }
+
+    } catch {
+        // Ignore browser restrictions.
+    }
+
+    bulkPaymentWindow = null;
+
+}
+
+/* =========================================================
+   CHECK BULK PAYMENT STATUS
+   ========================================================= */
+
+async function checkBulkPaymentStatus() {
+
+    if (!bulkPaymentCreated || !bulkPaymentData) {
+        return;
+    }
+
+    const paymentId =
+        bulkPaymentData?.payment_id ||
+        bulkPaymentData?.id ||
+        bulkPaymentData?.bulk_payment_id;
+
+    if (!paymentId) {
+        return;
+    }
+
+    try {
+
+        /*
+         * Backend endpoint:
+         * GET /bulk_payment_status/{payment_id}
+         */
+        const response =
+            await fetch(
+                `${API_BASE}/bulk_payment_status/${encodeURIComponent(paymentId)}`,
+                {
+                    cache: "no-store"
+                }
+            );
+
+        if (!response.ok) {
+            return;
+        }
+
+        const data =
+            await response.json();
+
+        bulkPaymentData = {
+            ...bulkPaymentData,
+            ...data
+        };
+
+        showBulkPaymentReady();
+
+        const status =
+            String(
+                data?.status ||
+                ""
+            ).toLowerCase();
+
+        const successful =
+            status === "paid" ||
+            status === "success" ||
+            status === "succeeded" ||
+            status === "completed";
+
+        const waiting =
+            document.getElementById(
+                "bulkPaymentWaiting"
+            );
+
+        if (successful) {
+
+            stopBulkPaymentPolling();
+
+            bulkPaymentCreated = false;
+            creatingBulkPayment = false;
+
+            closeBulkPaymentWindow();
+
+            if (waiting) {
+
+                waiting.style.display = "block";
+
+                waiting.innerHTML = `
+                    ✓ Bulk payment confirmed for
+                    ${bulkParticipants.length} participants.
+                `;
+
+            }
+
+            document.getElementById(
+                "bulkPaymentStatus"
+            ).textContent = "Paid";
+
+            document.getElementById(
+                "bulkPaymentMessage"
+            ).textContent =
+                `${bulkParticipants.length} participants are registered and the bulk payment has been confirmed.`;
+
+            const button =
+                document.getElementById(
+                    "bulkPayButton"
+                );
+
+            button.disabled = true;
+            button.textContent = "Bulk Payment Completed";
+
+            return;
+
+        }
+
+        if (waiting) {
+
+            waiting.style.display = "block";
+
+            waiting.innerHTML = `
+                <span class="spinner-small"></span>
+                Waiting for bulk payment confirmation...
+                You may complete payment in the PayMongo tab.
+            `;
+
+        }
+
+    } catch (error) {
+
+        console.error(
+            "Bulk payment polling error:",
+            error
+        );
+
+    }
+
+}
 
 /* =========================================================
    VISIBILITY CHANGE
@@ -5982,17 +3040,19 @@ document.addEventListener(
     function () {
 
         if (
-            document.visibilityState ===
-            "visible"
+            document.visibilityState === "visible"
         ) {
 
-            checkPaymentStatus();
+            if (isBulkMode) {
+                checkBulkPaymentStatus();
+            } else {
+                checkPaymentStatus();
+            }
 
         }
 
     }
 );
-
 
 /* =========================================================
    WINDOW FOCUS
@@ -6002,11 +3062,14 @@ window.addEventListener(
     "focus",
     function () {
 
-        checkPaymentStatus();
+        if (isBulkMode) {
+            checkBulkPaymentStatus();
+        } else {
+            checkPaymentStatus();
+        }
 
     }
 );
-
 
 /* =========================================================
    T-SHIRT SIZE CHANGE
@@ -6017,10 +3080,7 @@ document.addEventListener(
     function () {
 
         const sizeSelect =
-            document.getElementById(
-                "tshirtSize"
-            );
-
+            document.getElementById("tshirtSize");
 
         if (sizeSelect) {
 
@@ -6028,22 +3088,33 @@ document.addEventListener(
                 "change",
                 function () {
 
-                    updateSelectionUI();
+                    const tshirtCheckbox =
+                        document.getElementById("tshirtCheckbox");
+
+                    if (
+                        tshirtCheckbox &&
+                        tshirtCheckbox.checked
+                    ) {
+
+                        const message =
+                            document.getElementById("selectionMessage");
+
+                        message.style.display = "block";
+
+                        message.textContent =
+                            `T-shirt selected — Size ${sizeSelect.value}. Click Proceed to Payment.`;
+
+                    }
 
                 }
             );
 
         }
 
-
-        /*
-         * Initial load.
-         */
-        loadPaymentStatus();
+        loadPage();
 
     }
 );
-
 
 /* =========================================================
    CLEANUP
@@ -6054,11 +3125,11 @@ window.addEventListener(
     function () {
 
         stopPaymentPolling();
+        stopBulkPaymentPolling();
 
     }
 );
 
 </script>
 </body>
-
 </html>
