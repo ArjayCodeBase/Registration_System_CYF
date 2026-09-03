@@ -3424,7 +3424,8 @@ class PaymentCreateSchema(BaseModel):
     # --------------------------------------------------
 
     tshirt_size: Optional[str] = None
-
+    
+    participant_tshirt_selections: Optional[List[dict]] = None
 
     # --------------------------------------------------
     # BULK FLAG
@@ -11410,11 +11411,17 @@ def event_participant_count(
 # SUPPORTS SINGLE + BULK PARTICIPANTS
 # ======================================================
 
+# ======================================================
+# CREATE PAYMONGO PAYMENT
+# SUPPORTS SINGLE + BULK PARTICIPANTS
+# ======================================================
+
 @app.post("/create_payment")
 def create_payment(
     data: PaymentCreateSchema,
     db: Session = Depends(get_db)
 ):
+
     print()
     print("=" * 70)
     print("CREATE PAYMENT REQUEST")
@@ -11427,24 +11434,38 @@ def create_payment(
     participant_ids = []
 
     if data.participant_ids:
+
         for pid in data.participant_ids:
+
             try:
+
                 participant_id = int(pid)
 
                 if participant_id > 0:
-                    participant_ids.append(participant_id)
+                    participant_ids.append(
+                        participant_id
+                    )
 
             except (ValueError, TypeError):
+
                 continue
 
     elif data.participant_id is not None:
+
         try:
-            participant_id = int(data.participant_id)
+
+            participant_id = int(
+                data.participant_id
+            )
 
             if participant_id > 0:
-                participant_ids = [participant_id]
+
+                participant_ids = [
+                    participant_id
+                ]
 
         except (ValueError, TypeError):
+
             participant_ids = []
 
     # ==================================================
@@ -11452,17 +11473,39 @@ def create_payment(
     # ==================================================
 
     if not participant_ids:
+
         raise HTTPException(
             status_code=400,
-            detail="At least one participant is required for payment."
+            detail=(
+                "At least one participant "
+                "is required for payment."
+            )
         )
 
-    # Remove duplicates but preserve order
-    participant_ids = list(dict.fromkeys(participant_ids))
+    # --------------------------------------------------
+    # REMOVE DUPLICATES
+    # PRESERVE ORDER
+    # --------------------------------------------------
+
+    participant_ids = list(
+        dict.fromkeys(
+            participant_ids
+        )
+    )
+
+    # ==================================================
+    # DETERMINE PAYMENT TYPE
+    # ==================================================
 
     is_bulk_payment = (
         len(participant_ids) > 1
-        or bool(getattr(data, "bulk", False))
+        or bool(
+            getattr(
+                data,
+                "bulk",
+                False
+            )
+        )
     )
 
     # ==================================================
@@ -11472,11 +11515,17 @@ def create_payment(
     participants = (
         db.query(Participant)
         .filter(
-            Participant.id.in_(participant_ids),
+            Participant.id.in_(
+                participant_ids
+            ),
             Participant.is_archived == 0
         )
         .all()
     )
+
+    # ==================================================
+    # CHECK MISSING PARTICIPANTS
+    # ==================================================
 
     found_ids = {
         participant.id
@@ -11490,19 +11539,28 @@ def create_payment(
     ]
 
     if missing_ids:
+
         db.rollback()
 
         raise HTTPException(
             status_code=404,
             detail={
-                "message": "One or more participants were not found.",
-                "missing_participant_ids": missing_ids
+                "message":
+                    "One or more participants "
+                    "were not found.",
+
+                "missing_participant_ids":
+                    missing_ids
             }
         )
 
-    # Preserve requested order
+    # ==================================================
+    # PRESERVE FRONTEND ORDER
+    # ==================================================
+
     participant_map = {
-        participant.id: participant
+        participant.id:
+            participant
         for participant in participants
     }
 
@@ -11512,7 +11570,7 @@ def create_payment(
     ]
 
     # ==================================================
-    # NORMALIZE BOOLEAN
+    # BOOLEAN NORMALIZER
     # ==================================================
 
     def normalize_bool(value):
@@ -11527,33 +11585,55 @@ def create_payment(
             return value != 0
 
         if isinstance(value, str):
-            return value.strip().lower() in {
-                "true",
-                "1",
-                "yes",
-                "on",
-                "selected",
-                "checked"
-            }
+
+            return (
+                value.strip().lower()
+                in {
+                    "true",
+                    "1",
+                    "yes",
+                    "on",
+                    "selected",
+                    "checked"
+                }
+            )
 
         return bool(value)
 
     # ==================================================
-    # GLOBAL REQUEST ITEM VALUES
+    # GLOBAL ITEM VALUES
+    #
+    # Used for:
+    #
+    # - Single participant
+    # - Backward compatibility
+    #
+    # Bulk participant-specific T-shirts are handled
+    # separately below.
     # ==================================================
 
-    tshirt_value = getattr(data, "tshirt", None)
+    tshirt_value = getattr(
+        data,
+        "tshirt",
+        None
+    )
 
     if tshirt_value is None:
+
         tshirt_value = getattr(
             data,
             "tshirt_selected",
             False
         )
 
-    lanyard_value = getattr(data, "lanyard", None)
+    lanyard_value = getattr(
+        data,
+        "lanyard",
+        None
+    )
 
     if lanyard_value is None:
+
         lanyard_value = getattr(
             data,
             "lanyard_selected",
@@ -11569,58 +11649,255 @@ def create_payment(
     )
 
     # ==================================================
-    # VALIDATE ITEM SELECTION
+    # BUILD PARTICIPANT T-SHIRT MAP
+    #
+    # Example:
+    #
+    # {
+    #     51: "S",
+    #     52: "2XL"
+    # }
     # ==================================================
 
-    if not tshirt_requested and not lanyard_requested:
-        db.rollback()
+    participant_tshirt_map = {}
 
-        raise HTTPException(
-            status_code=400,
-            detail="Please select at least one registration item."
-        )
+    raw_tshirt_selections = getattr(
+        data,
+        "participant_tshirt_selections",
+        None
+    )
 
-    # ==================================================
-    # T-SHIRT SIZE
-    # ==================================================
+    if raw_tshirt_selections:
 
-    tshirt_size = None
+        if not isinstance(
+            raw_tshirt_selections,
+            list
+        ):
 
-    if tshirt_requested:
-
-        requested_size = getattr(
-            data,
-            "tshirt_size",
-            None
-        )
-
-        if not requested_size:
             db.rollback()
 
             raise HTTPException(
                 status_code=400,
-                detail="Please select a T-shirt size."
+                detail=(
+                    "Invalid participant "
+                    "T-shirt selections."
+                )
             )
 
+        for selection in raw_tshirt_selections:
+
+            if not isinstance(
+                selection,
+                dict
+            ):
+
+                continue
+
+            raw_participant_id = (
+                selection.get(
+                    "participant_id"
+                )
+            )
+
+            try:
+
+                selection_participant_id = int(
+                    raw_participant_id
+                )
+
+            except (
+                ValueError,
+                TypeError
+            ):
+
+                continue
+
+            # Only allow participants included
+            # in this payment request.
+            if (
+                selection_participant_id
+                not in participant_ids
+            ):
+
+                continue
+
+            selected = normalize_bool(
+                selection.get(
+                    "tshirt_selected",
+                    False
+                )
+            )
+
+            if not selected:
+                continue
+
+            requested_size = selection.get(
+                "tshirt_size"
+            )
+
+            if not requested_size:
+
+                db.rollback()
+
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        "Please select a "
+                        "T-shirt size for "
+                        f"participant "
+                        f"{selection_participant_id}."
+                    )
+                )
+
+            normalized_size = (
+                str(requested_size)
+                .strip()
+                .upper()
+            )
+
+            allowed_sizes = {
+                "S",
+                "M",
+                "L",
+                "XL",
+                "2XL"
+            }
+
+            if normalized_size not in allowed_sizes:
+
+                db.rollback()
+
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        "Invalid T-shirt size "
+                        f"'{normalized_size}' "
+                        "for participant "
+                        f"{selection_participant_id}. "
+                        "Allowed sizes are "
+                        "S, M, L, XL, and 2XL."
+                    )
+                )
+
+            participant_tshirt_map[
+                selection_participant_id
+            ] = normalized_size
+
+    # ==================================================
+    # GLOBAL T-SHIRT SIZE
+    #
+    # Used for:
+    #
+    # - Single participant
+    # - Older frontend requests
+    # - Bulk requests where no individual
+    # T-shirt map was supplied
+    # ==================================================
+
+    tshirt_size = None
+
+    requested_global_size = getattr(
+        data,
+        "tshirt_size",
+        None
+    )
+
+    if requested_global_size:
+
         tshirt_size = (
-            str(requested_size)
+            str(requested_global_size)
             .strip()
             .upper()
         )
 
         allowed_sizes = {
+            "S",
             "M",
             "L",
-            "XL"
+            "XL",
+            "2XL"
         }
 
         if tshirt_size not in allowed_sizes:
+
             db.rollback()
 
             raise HTTPException(
                 status_code=400,
-                detail="Invalid T-shirt size. Please select M, L, or XL."
+                detail=(
+                    "Invalid T-shirt size. "
+                    "Please select S, M, L, XL, or 2XL."
+                )
             )
+
+    # ==================================================
+    # DETERMINE WHETHER THERE IS ANY T-SHIRT
+    # ==================================================
+
+    has_participant_tshirts = (
+        len(participant_tshirt_map) > 0
+    )
+
+    # ==================================================
+    # VALIDATE ITEM SELECTION
+    # ==================================================
+
+    if (
+        not tshirt_requested
+        and not lanyard_requested
+        and not has_participant_tshirts
+    ):
+
+        db.rollback()
+
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Please select at least one "
+                "registration item."
+            )
+        )
+
+    # ==================================================
+    # SINGLE PARTICIPANT T-SHIRT VALIDATION
+    # ==================================================
+
+    if (
+        not is_bulk_payment
+        and tshirt_requested
+        and not tshirt_size
+    ):
+
+        db.rollback()
+
+        raise HTTPException(
+            status_code=400,
+            detail="Please select a T-shirt size."
+        )
+
+    # ==================================================
+    # BULK FALLBACK
+    #
+    # If bulk request does NOT provide individual
+    # T-shirt selections, use the old global behavior.
+    # ==================================================
+
+    if (
+        is_bulk_payment
+        and tshirt_requested
+        and not participant_tshirt_map
+        and not tshirt_size
+    ):
+
+        db.rollback()
+
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Please select a T-shirt size "
+                "for each participant."
+            )
+        )
 
     # ==================================================
     # PRICES
@@ -11641,9 +11918,11 @@ def create_payment(
     }
 
     payment_rows = []
+
     total_amount = 0
 
     all_participant_items = []
+
     participant_payment_summary = []
 
     # ==================================================
@@ -11701,8 +11980,10 @@ def create_payment(
                     )
                 )
                 and
-                payment_status in successful_statuses
+                payment_status
+                in successful_statuses
             ):
+
                 tshirt_paid = True
                 break
 
@@ -11727,8 +12008,10 @@ def create_payment(
                     )
                 )
                 and
-                payment_status in successful_statuses
+                payment_status
+                in successful_statuses
             ):
+
                 lanyard_paid = True
                 break
 
@@ -11761,12 +12044,36 @@ def create_payment(
                 lanyard_paid = True
 
         # ==================================================
-        # PARTICIPANT-SPECIFIC REQUEST
+        # PARTICIPANT-SPECIFIC T-SHIRT
         # ==================================================
 
-        participant_tshirt_requested = (
-            tshirt_requested
-        )
+        if participant_tshirt_map:
+
+            participant_tshirt_requested = (
+                participant.id
+                in participant_tshirt_map
+            )
+
+            participant_tshirt_size = (
+                participant_tshirt_map.get(
+                    participant.id
+                )
+            )
+
+        else:
+
+            # Backward-compatible behavior
+            participant_tshirt_requested = (
+                tshirt_requested
+            )
+
+            participant_tshirt_size = (
+                tshirt_size
+            )
+
+        # ==================================================
+        # LANYARD REQUEST
+        # ==================================================
 
         participant_lanyard_requested = (
             lanyard_requested
@@ -11780,7 +12087,10 @@ def create_payment(
             participant_tshirt_requested
             and tshirt_paid
         ):
+
             participant_tshirt_requested = False
+
+            participant_tshirt_size = None
 
         # ==================================================
         # REMOVE ALREADY PAID LANYARD
@@ -11790,26 +12100,79 @@ def create_payment(
             participant_lanyard_requested
             and lanyard_paid
         ):
+
             participant_lanyard_requested = False
+
+        # ==================================================
+        # VALIDATE PARTICIPANT T-SHIRT SIZE
+        # ==================================================
+
+        if participant_tshirt_requested:
+
+            if not participant_tshirt_size:
+
+                db.rollback()
+
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        "Please select a "
+                        "T-shirt size for "
+                        f"{participant.fname or ''} "
+                        f"{participant.lname or ''}."
+                    )
+                )
+
+            participant_tshirt_size = (
+                str(
+                    participant_tshirt_size
+                )
+                .strip()
+                .upper()
+            )
+
+            if participant_tshirt_size not in {
+                "S",
+                "M",
+                "L",
+                "XL",
+                "2XL"
+            }:
+
+                db.rollback()
+
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        "Invalid T-shirt size "
+                        f"for participant "
+                        f"{participant.id}."
+                    )
+                )
 
         # ==================================================
         # CALCULATE PARTICIPANT AMOUNT
         # ==================================================
 
         participant_amount = 0
+
         participant_items = []
 
         if participant_tshirt_requested:
 
-            participant_amount += TSHIRT_PRICE
+            participant_amount += (
+                TSHIRT_PRICE
+            )
 
             participant_items.append(
-                f"T-Shirt ({tshirt_size})"
+                f"T-Shirt ({participant_tshirt_size})"
             )
 
         if participant_lanyard_requested:
 
-            participant_amount += LANYARD_PRICE
+            participant_amount += (
+                LANYARD_PRICE
+            )
 
             participant_items.append(
                 "Lanyard"
@@ -11820,6 +12183,7 @@ def create_payment(
         # ==================================================
 
         if participant_amount <= 0:
+
             db.rollback()
 
             raise HTTPException(
@@ -11870,8 +12234,9 @@ def create_payment(
                     status_code=400,
                     detail={
                         "message": (
-                            "A pending payment already "
-                            "exists for participant "
+                            "A pending payment "
+                            "already exists for "
+                            "participant "
                             f"{participant.registration_number}."
                         ),
 
@@ -11907,6 +12272,7 @@ def create_payment(
         # ==================================================
 
         all_participant_items.append({
+
             "participant_id":
                 participant.id,
 
@@ -11919,6 +12285,19 @@ def create_payment(
             "items":
                 participant_items,
 
+            "tshirt_selected":
+                int(
+                    participant_tshirt_requested
+                ),
+
+            "tshirt_size":
+                participant_tshirt_size,
+
+            "lanyard_selected":
+                int(
+                    participant_lanyard_requested
+                ),
+
             "amount":
                 participant_amount,
 
@@ -11926,7 +12305,12 @@ def create_payment(
                 f"₱{participant_amount / 100:,.2f}"
         })
 
+        # ==================================================
+        # PAYMENT SUMMARY
+        # ==================================================
+
         participant_payment_summary.append({
+
             "participant_id":
                 participant.id,
 
@@ -11944,20 +12328,26 @@ def create_payment(
                 ),
 
             "tshirt_size":
-                tshirt_size,
+                participant_tshirt_size,
 
             "amount":
-                participant_amount
+                participant_amount,
+
+            "amount_display":
+                f"₱{participant_amount / 100:,.2f}"
         })
 
         # ==================================================
         # CREATE LOCAL PAYMENT ROW
         #
         # IMPORTANT:
-        # These flags belong to THIS participant.
+        #
+        # Each participant receives their own
+        # tshirt_size.
         # ==================================================
 
         payment = Payment(
+
             participant_id =
                 participant.id,
 
@@ -11984,7 +12374,7 @@ def create_payment(
                 ),
 
             tshirt_size =
-                tshirt_size
+                participant_tshirt_size
         )
 
         db.add(payment)
@@ -12003,11 +12393,14 @@ def create_payment(
 
         raise HTTPException(
             status_code=400,
-            detail="There is no remaining amount to pay."
+            detail=(
+                "There is no remaining "
+                "amount to pay."
+            )
         )
 
     # ==================================================
-    # FLUSH SO PAYMENT IDS EXIST
+    # FLUSH
     # ==================================================
 
     try:
@@ -12025,11 +12418,14 @@ def create_payment(
 
         raise HTTPException(
             status_code=500,
-            detail="Failed to create local payment records."
+            detail=(
+                "Failed to create local "
+                "payment records."
+            )
         )
 
     # ==================================================
-    # CREATE INTERNAL BULK REFERENCE
+    # INTERNAL REFERENCE
     # ==================================================
 
     if is_bulk_payment:
@@ -12102,12 +12498,13 @@ def create_payment(
     remarks = (
         "CYF Registration Payment | "
         f"Participants: {len(participants)} | "
-        f"Bulk Reference: {local_bulk_reference} | "
+        f"Bulk Reference: "
+        f"{local_bulk_reference} | "
         f"{' || '.join(participant_remarks)}"
     )
 
     # ==================================================
-    # PAYMONGO IDS FOR METADATA
+    # PAYMONGO METADATA
     # ==================================================
 
     participant_ids_metadata = ",".join(
@@ -12120,8 +12517,24 @@ def create_payment(
         for payment in payment_rows
     )
 
+    # --------------------------------------------------
+    # PARTICIPANT T-SHIRT METADATA
+    #
+    # Example:
+    #
+    # 51:S,52:2XL
+    # --------------------------------------------------
+
+    participant_tshirt_metadata = ",".join(
+
+        f"{pid}:{size}"
+
+        for pid, size
+        in participant_tshirt_map.items()
+    )
+
     # ==================================================
-    # PAYMONGO PAYMENT LINK
+    # PAYMONGO URL
     # ==================================================
 
     url = (
@@ -12149,10 +12562,6 @@ def create_payment(
 
         "metadata": {
 
-            # ------------------------------------------------
-            # INTERNAL PAYMENT TYPE
-            # ------------------------------------------------
-
             "payment_type":
                 (
                     "bulk"
@@ -12160,63 +12569,54 @@ def create_payment(
                     else "single"
                 ),
 
-            # ------------------------------------------------
-            # INTERNAL REFERENCE
-            # ------------------------------------------------
-
             "bulk_reference":
                 local_bulk_reference,
-
-            # ------------------------------------------------
-            # PARTICIPANT COUNT
-            # ------------------------------------------------
 
             "participant_count":
                 str(len(participants)),
 
-            # ------------------------------------------------
-            # ALL PARTICIPANT IDS
-            # ------------------------------------------------
-
             "participant_ids":
                 participant_ids_metadata,
-
-            # ------------------------------------------------
-            # ALL LOCAL PAYMENT IDS
-            #
-            # THIS IS CRITICAL FOR BULK WEBHOOKS.
-            # ------------------------------------------------
 
             "payment_ids":
                 payment_ids_metadata,
 
-            # ------------------------------------------------
-            # EVENT
-            # ------------------------------------------------
-
             "event_name":
                 event_name,
 
-            # ------------------------------------------------
-            # GLOBAL REQUEST VALUES
-            #
-            # These are informational only.
-            # The webhook MUST use the Payment row
-            # for the actual participant-specific flags.
-            # ------------------------------------------------
-
             "tshirt":
                 str(
-                    int(tshirt_requested)
+                    int(
+                        any(
+                            item["tshirt_selected"]
+                            for item
+                            in all_participant_items
+                        )
+                    )
                 ),
 
             "lanyard":
                 str(
-                    int(lanyard_requested)
+                    int(
+                        any(
+                            item["lanyard_selected"]
+                            for item
+                            in all_participant_items
+                        )
+                    )
                 ),
 
+            # Global size only if there is one.
             "tshirt_size":
-                tshirt_size or ""
+                (
+                    tshirt_size
+                    or ""
+                ),
+
+            # IMPORTANT:
+            # Individual participant sizes.
+            "participant_tshirt_selections":
+                participant_tshirt_metadata
         }
     }
 
@@ -12231,12 +12631,13 @@ def create_payment(
     )
 
     # ==================================================
-    # CREATE PAYMONGO LINK
+    # CREATE PAYMONGO PAYMENT LINK
     # ==================================================
 
     try:
 
         response = requests.post(
+
             url,
 
             auth=(
@@ -12245,6 +12646,7 @@ def create_payment(
             ),
 
             headers={
+
                 "Content-Type":
                     "application/json",
 
@@ -12263,6 +12665,7 @@ def create_payment(
     except requests.RequestException as e:
 
         for payment in payment_rows:
+
             payment.status = "Failed"
 
         db.commit()
@@ -12287,14 +12690,19 @@ def create_payment(
     if not response.ok:
 
         for payment in payment_rows:
+
             payment.status = "Failed"
 
         db.commit()
 
         try:
-            error_data = response.json()
+
+            error_data = (
+                response.json()
+            )
 
         except Exception:
+
             error_data = {
                 "error":
                     response.text
@@ -12311,11 +12719,14 @@ def create_payment(
 
     try:
 
-        paymongo_data = response.json()
+        paymongo_data = (
+            response.json()
+        )
 
     except Exception:
 
         for payment in payment_rows:
+
             payment.status = "Failed"
 
         db.commit()
@@ -12323,7 +12734,8 @@ def create_payment(
         raise HTTPException(
             status_code=502,
             detail=(
-                "PayMongo returned an invalid JSON response."
+                "PayMongo returned an "
+                "invalid JSON response."
             )
         )
 
@@ -12339,6 +12751,7 @@ def create_payment(
     if not link_data:
 
         for payment in payment_rows:
+
             payment.status = "Failed"
 
         db.commit()
@@ -12347,7 +12760,8 @@ def create_payment(
             status_code=502,
             detail={
                 "message":
-                    "PayMongo returned an empty data object.",
+                    "PayMongo returned an "
+                    "empty data object.",
 
                 "paymongo_response":
                     paymongo_data
@@ -12358,23 +12772,26 @@ def create_payment(
     # LINK ID
     # ==================================================
 
-    paymongo_link_id = link_data.get(
-        "id"
+    paymongo_link_id = (
+        link_data.get("id")
     )
 
     # ==================================================
     # LINK ATTRIBUTES
     # ==================================================
 
-    link_attributes = link_data.get(
-        "attributes",
-        {}
+    link_attributes = (
+        link_data.get(
+            "attributes",
+            {}
+        )
     )
 
     if not isinstance(
         link_attributes,
         dict
     ):
+
         link_attributes = {}
 
     # ==================================================
@@ -12382,18 +12799,25 @@ def create_payment(
     # ==================================================
 
     checkout_url = (
+
         link_attributes.get(
             "checkout_url"
         )
+
         or
+
         link_attributes.get(
             "url"
         )
+
         or
+
         link_data.get(
             "checkout_url"
         )
+
         or
+
         link_data.get(
             "url"
         )
@@ -12404,10 +12828,13 @@ def create_payment(
     # ==================================================
 
     paymongo_reference = (
+
         link_attributes.get(
             "reference_number"
         )
+
         or
+
         link_data.get(
             "reference_number"
         )
@@ -12420,6 +12847,7 @@ def create_payment(
     if not paymongo_link_id:
 
         for payment in payment_rows:
+
             payment.status = "Failed"
 
         db.commit()
@@ -12428,7 +12856,8 @@ def create_payment(
             status_code=502,
             detail={
                 "message":
-                    "PayMongo did not return a payment link ID.",
+                    "PayMongo did not return "
+                    "a payment link ID.",
 
                 "paymongo_response":
                     paymongo_data
@@ -12442,6 +12871,7 @@ def create_payment(
     if not checkout_url:
 
         for payment in payment_rows:
+
             payment.status = "Failed"
 
         db.commit()
@@ -12450,7 +12880,8 @@ def create_payment(
             status_code=502,
             detail={
                 "message":
-                    "PayMongo did not return a checkout URL.",
+                    "PayMongo did not return "
+                    "a checkout URL.",
 
                 "paymongo_response":
                     paymongo_data
@@ -12458,15 +12889,15 @@ def create_payment(
         )
 
     # ==================================================
-    # SAVE PAYMONGO DATA TO EVERY LOCAL PAYMENT ROW
+    # SAVE PAYMONGO DATA
+    # TO EVERY LOCAL PAYMENT ROW
     #
     # BULK:
     #
-    # Payment 101 -> Participant 27
-    # Payment 102 -> Participant 28
-    # Payment 103 -> Participant 29
+    # Payment 101 -> Participant 51
+    # Payment 102 -> Participant 52
     #
-    # ALL share the SAME payment-link ID.
+    # Both share the SAME PayMongo checkout.
     # ==================================================
 
     for payment in payment_rows:
@@ -12475,6 +12906,7 @@ def create_payment(
             payment,
             "paymongo_link_id"
         ):
+
             payment.paymongo_link_id = (
                 paymongo_link_id
             )
@@ -12483,6 +12915,7 @@ def create_payment(
             payment,
             "paymongo_reference"
         ):
+
             payment.paymongo_reference = (
                 paymongo_reference
             )
@@ -12525,7 +12958,10 @@ def create_payment(
     for payment in payment_rows:
 
         try:
-            db.refresh(payment)
+
+            db.refresh(
+                payment
+            )
 
         except Exception as e:
 
@@ -12567,7 +13003,8 @@ def create_payment(
         "payment_ids":
             [
                 payment.id
-                for payment in payment_rows
+                for payment
+                in payment_rows
             ],
 
         "participant_payment_summary":
@@ -12585,13 +13022,41 @@ def create_payment(
             ),
 
         "tshirt_selected":
-            tshirt_requested,
+            any(
+                item["tshirt_selected"]
+                for item
+                in all_participant_items
+            ),
 
         "lanyard_selected":
-            lanyard_requested,
+            any(
+                item["lanyard_selected"]
+                for item
+                in all_participant_items
+            ),
 
         "tshirt_size":
             tshirt_size,
+
+        "participant_tshirt_selections":
+            [
+                {
+                    "participant_id":
+                        item["participant_id"],
+
+                    "tshirt_selected":
+                        bool(
+                            item["tshirt_selected"]
+                        ),
+
+                    "tshirt_size":
+                        item["tshirt_size"]
+                }
+
+                for item
+                in all_participant_items
+                if item["tshirt_selected"]
+            ],
 
         "amount":
             total_amount,
@@ -12611,7 +13076,6 @@ def create_payment(
         "bulk_reference":
             local_bulk_reference
     }
-
 
 
 
