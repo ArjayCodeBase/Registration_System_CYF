@@ -8281,12 +8281,6 @@ def registration_search_participant(
     # ==================================================
     # PREVENT SINGLE-LETTER SEARCH
     # ==================================================
-    #
-    # Example:
-    # "c"  -> no results
-    # "cy" -> search
-    #
-    # ==================================================
 
     if len(keyword) < 2:
         return []
@@ -8319,42 +8313,35 @@ def registration_search_participant(
         fullname_lower = fullname.lower()
 
         # ==================================================
-        # SEARCHABLE VALUES
-        # ==================================================
-        #
-        # SEARCH ONLY:
-        #   1. Name
-        #   2. Event name
-        #   3. Registration ID
-        #
-        # DO NOT SEARCH:
-        #   - Paid
-        #   - Unpaid
-        #   - Partial
-        #   - T-shirt status
-        #   - Lanyard status
-        #   - Email
-        #   - Contact number
-        #   - Registration phase
-        #   - Registration status
-        #   - Participant type
-        #   - Sponsorship status
-        #   - Participant tier
-        #
+        # REGISTRATION NUMBER
         # ==================================================
 
         registration_number = str(
             participant.registration_number or ""
-        ).strip().lower()
+        ).strip()
+
+        registration_number_lower = (
+            registration_number.lower()
+        )
+
+        # ==================================================
+        # EVENT NAME
+        # ==================================================
 
         event_name = str(
             participant.event_name or ""
-        ).strip().lower()
+        ).strip()
+
+        event_name_lower = event_name.lower()
+
+        # ==================================================
+        # SEARCHABLE VALUES
+        # ==================================================
 
         searchable_values = [
             fullname_lower,
-            event_name,
-            registration_number
+            event_name_lower,
+            registration_number_lower
         ]
 
         # ==================================================
@@ -8385,11 +8372,6 @@ def registration_search_participant(
         # ==================================================
         # PAYMENT STATUS
         # ==================================================
-        #
-        # This is returned to the frontend for display
-        # only. It is NOT searchable.
-        #
-        # ==================================================
 
         tshirt_status = str(
             participant.tshirt_status or "Unpaid"
@@ -8399,19 +8381,26 @@ def registration_search_participant(
             participant.lanyard_status or "Unpaid"
         )
 
-        tshirt_status_lower = tshirt_status.lower()
-        lanyard_status_lower = lanyard_status.lower()
+        tshirt_status_lower = (
+            tshirt_status.lower()
+        )
+
+        lanyard_status_lower = (
+            lanyard_status.lower()
+        )
 
         if (
             tshirt_status_lower == "paid"
-            and lanyard_status_lower == "paid"
+            and
+            lanyard_status_lower == "paid"
         ):
 
             payment_status = "Paid"
 
         elif (
             tshirt_status_lower == "paid"
-            or lanyard_status_lower == "paid"
+            or
+            lanyard_status_lower == "paid"
         ):
 
             payment_status = "Partial"
@@ -8426,27 +8415,39 @@ def registration_search_participant(
 
         if is_sponsor_participant:
 
-            sponsorship_status = "Sponsored in Review"
+            sponsorship_status = (
+                "Sponsored in Review"
+            )
 
             if (
                 tshirt_status_lower == "paid"
-                and lanyard_status_lower == "paid"
+                and
+                lanyard_status_lower == "paid"
             ):
 
-                merchandise_status = "Sponsored Confirmed"
+                merchandise_status = (
+                    "Sponsored Confirmed"
+                )
 
             elif (
                 tshirt_status_lower == "paid"
-                or lanyard_status_lower == "paid"
+                or
+                lanyard_status_lower == "paid"
             ):
 
-                merchandise_status = "Sponsored - Partial"
+                merchandise_status = (
+                    "Sponsored - Partial"
+                )
 
             else:
 
-                merchandise_status = "Sponsored in Review"
+                merchandise_status = (
+                    "Sponsored in Review"
+                )
 
-            payment_status = sponsorship_status
+            payment_status = (
+                sponsorship_status
+            )
 
         else:
 
@@ -8471,6 +8472,68 @@ def registration_search_participant(
         )
 
         # ==================================================
+        # GENERATE QR CODE
+        #
+        # QR CONTENT:
+        # REGISTRATION NUMBER ONLY
+        #
+        # Example:
+        # CYF-2026-000123
+        # ==================================================
+
+        qr_code_base64 = None
+
+        if registration_number:
+
+            try:
+
+                qr = qrcode.QRCode(
+                    version=None,
+                    error_correction=qrcode.constants.ERROR_CORRECT_M,
+                    box_size=10,
+                    border=4
+                )
+
+                qr.add_data(
+                    registration_number
+                )
+
+                qr.make(
+                    fit=True
+                )
+
+                qr_image = qr.make_image(
+                    fill_color="black",
+                    back_color="white"
+                )
+
+                qr_buffer = io.BytesIO()
+
+                qr_image.save(
+                    qr_buffer,
+                    format="PNG"
+                )
+
+                qr_buffer.seek(0)
+
+                qr_code_base64 = (
+                    "data:image/png;base64,"
+                    +
+                    base64.b64encode(
+                        qr_buffer.getvalue()
+                    ).decode("utf-8")
+                )
+
+            except Exception as e:
+
+                print(
+                    "QR CODE GENERATION ERROR:",
+                    repr(e)
+                )
+
+                qr_code_base64 = None
+
+        # ==================================================
         # RESULT
         # ==================================================
 
@@ -8484,10 +8547,25 @@ def registration_search_participant(
                 participant.id,
 
             "registration_number":
-                participant.registration_number,
+                registration_number,
 
             "fullname":
                 fullname,
+
+            # ----------------------------------------------
+            # QR CODE
+            # ----------------------------------------------
+
+            "qr_code":
+                qr_code_base64,
+
+            "qr_code_filename":
+                (
+                    f"{registration_number}-QR.png"
+                    if registration_number
+                    else
+                    f"participant-{participant.id}-QR.png"
+                ),
 
             # ----------------------------------------------
             # EVENT
@@ -8519,11 +8597,6 @@ def registration_search_participant(
             # ----------------------------------------------
             # PAYMENT
             # ----------------------------------------------
-            #
-            # Returned for display only.
-            # NOT used for search.
-            #
-            # ----------------------------------------------
 
             "payment_status":
                 payment_status,
@@ -8554,7 +8627,6 @@ def registration_search_participant(
 
             "participant_tier":
                 participant_tier
-
         })
 
     return result
