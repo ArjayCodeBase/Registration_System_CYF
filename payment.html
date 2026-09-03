@@ -804,10 +804,6 @@ async function loadBulkPaymentStatus() {
 
     if (participantIds.length < 2) {
 
-        /*
-         * If only one participant ID was supplied through
-         * participant_ids, use normal single mode.
-         */
         if (participantIds.length === 1) {
             window.location.href =
                 `/payment.html?participant_id=${encodeURIComponent(participantIds[0])}`;
@@ -819,82 +815,79 @@ async function loadBulkPaymentStatus() {
         );
 
         return;
-
     }
 
     try {
-
         document.getElementById("loadingText").textContent =
             "Loading all participants for bulk payment...";
 
         /*
-         * The backend should return the current registration/payment
-         * state for all requested participants.
+         * IMPORTANT:
          *
-         * POST /bulk_payment_status
+         * The deployed backend does NOT provide POST /bulk_payment_status.
+         * Each participant already has the working endpoint:
+         *     GET /payment_status/{participant_id}
+         *
+         * Load the participants individually and combine the responses
+         * on the frontend. This also makes refresh reliable because the
+         * current paid/unpaid state always comes directly from the backend.
          */
-        const response = await fetch(
-            `${API_BASE}/bulk_payment_status`,
-            {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Accept": "application/json"
-                },
-                body: JSON.stringify({
-                    participant_ids: participantIds
-                }),
-                cache: "no-store"
-            }
-        );
-
-        let data = null;
-
-        try {
-            data = await response.json();
-        } catch {
-            data = null;
-        }
-
-        if (!response.ok) {
-
-            throw new Error(
-                data?.detail ||
-                "Unable to load bulk payment information."
-            );
-
-        }
-
-        bulkPaymentData = data;
-
-        bulkParticipants =
-            normalizeBulkParticipants(data);
-
-        if (!bulkParticipants.length) {
-
-            /*
-             * If the backend does not return participant objects,
-             * keep the queue from the URL so the page can still show
-             * the intended order.
-             */
-            bulkParticipants =
-                participantIds.map(
-                    id => ({
-                        participant_id: id,
-                        registration_number: "—",
-                        fullname: `Participant ${id}`,
-                        participant_type: "—",
-                        tshirt: null,
-                        lanyard: {
-                            paid: false,
-                            status: "Unpaid",
-                            price: 9000,
-                            item_name: "Lanyard"
+        const results = await Promise.all(
+            participantIds.map(async id => {
+                const response = await fetch(
+                    `${API_BASE}/payment_status/${encodeURIComponent(id)}`,
+                    {
+                        method: "GET",
+                        cache: "no-store",
+                        headers: {
+                            "Accept": "application/json"
                         }
-                    })
+                    }
                 );
 
-        }
+                let data = null;
+
+                try {
+                    data = await response.json();
+                } catch {
+                    data = null;
+                }
+
+                if (!response.ok) {
+                    throw new Error(
+                        data?.detail ||
+                        `Unable to load payment information for participant ${id}.`
+                    );
+                }
+
+                return data;
+            })
+        );
+
+        bulkParticipants = results.map((data, index) => ({
+            ...data,
+            participant_id: Number(
+                data?.participant_id ?? participantIds[index]
+            ),
+            fullname:
+                data?.fullname ||
+                data?.name ||
+                `Participant ${participantIds[index]}`,
+            registration_number:
+                data?.registration_number || "—"
+        }));
+
+        /*
+         * Keep a small combined object for the existing bulk UI.
+         * Do NOT use this object as the source of payment truth;
+         * bulkParticipants contains the individual backend responses.
+         */
+        bulkPaymentData = {
+            payment_type: "bulk",
+            participant_count: bulkParticipants.length,
+            participant_ids: participantIds.slice(),
+            participants: bulkParticipants
+        };
 
         bulkQueue = bulkParticipants.map(
             participant => ({
@@ -906,24 +899,16 @@ async function loadBulkPaymentStatus() {
         renderBulkPage();
 
     } catch (error) {
-
         console.error(
             "Bulk payment status error:",
             error
         );
 
-        /*
-         * If your backend does not yet have /bulk_payment_status,
-         * do not silently create separate payments. Show a clear
-         * backend requirement instead.
-         */
         showError(
             error.message ||
-            "Unable to load bulk payment information. The backend must provide /bulk_payment_status for bulk mode."
+            "Unable to load bulk payment information."
         );
-
     }
-
 }
 
 /* =========================================================
