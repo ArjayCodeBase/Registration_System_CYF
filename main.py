@@ -23715,8 +23715,12 @@ def report_dashboard_data(
     # ========================================================
     # CASH DONATION FUND
     #
-    # CashDonationTotal.total_amount is already PESOS.
-    # Do NOT divide it by 100.
+    # CashDonationTotal.total_amount is the CURRENT
+    # REMAINING DONATION FUND and is already stored in PHP.
+    #
+    # IMPORTANT:
+    # Do NOT calculate this from CashSponsorship.
+    # Do NOT divide by 100.
     # ========================================================
 
     donation_total = (
@@ -23729,11 +23733,15 @@ def report_dashboard_data(
         .first()
     )
 
-    remaining_donation_fund = float(
+    cash_donation_total = float(
         donation_total.total_amount
         if donation_total
         else 0
     )
+
+    # The Sponsor Report's "Remaining Donation Fund"
+    # must come directly from cash_donation_total.
+    remaining_donation_fund = cash_donation_total
 
 
     # ========================================================
@@ -23818,7 +23826,9 @@ def report_dashboard_data(
     # ========================================================
     # USED DONATION FUND
     #
-    # Received - Current Remaining
+    # This is the amount used from the donation pool based
+    # on the difference between the total cash received and
+    # the current remaining donation fund.
     # ========================================================
 
     total_used_donation_fund = max(
@@ -23971,17 +23981,30 @@ def report_dashboard_data(
             sponsor_inventory,
 
         "sponsor_stats": {
+
+            # Directly from cash_donation_total
             "cash_donation_total":
-                remaining_donation_fund,
+                round(
+                    cash_donation_total,
+                    2
+                ),
 
             "total_sponsored_participants":
                 total_sponsored_participants,
 
             "total_used_donation_fund":
-                total_used_donation_fund,
+                round(
+                    total_used_donation_fund,
+                    2
+                ),
 
+            # IMPORTANT:
+            # Remaining Donation Fund = CashDonationTotal.total_amount
             "remaining_donation_fund":
-                remaining_donation_fund,
+                round(
+                    cash_donation_total,
+                    2
+                ),
 
             "finding_sponsor_participants":
                 finding_sponsor_participants,
@@ -23993,7 +24016,9 @@ def report_dashboard_data(
                 cash_sponsor_total,
 
             "sponsor_inventory_total":
-                len(sponsor_inventory)
+                len(
+                    sponsor_inventory
+                )
         },
 
         "events":
