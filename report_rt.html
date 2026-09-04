@@ -23,12 +23,9 @@
   --danger-bg:#fff1ef
 }
 
-*{
-  box-sizing:border-box
-}
+*{box-sizing:border-box}
 
-html,
-body{
+html,body{
   margin:0;
   min-height:100%;
   font-family:Arial,Helvetica,sans-serif;
@@ -36,20 +33,14 @@ body{
   background:#faf8f5
 }
 
-body{
-  overflow-x:hidden
-}
+body{overflow-x:hidden}
 
 a{
   text-decoration:none;
   color:inherit
 }
 
-button,
-input,
-select{
-  font:inherit
-}
+button,input,select{font:inherit}
 
 .layout{
   display:flex;
@@ -209,11 +200,7 @@ select{
   color:#ffdcae;
   font-size:12px;
   border-top:1px solid rgba(255,255,255,.12);
-  background:linear-gradient(
-    180deg,
-    rgba(116,29,22,0),
-    rgba(116,29,22,.98)
-  )
+  background:linear-gradient(180deg,rgba(116,29,22,0),rgba(116,29,22,.98))
 }
 
 .main{
@@ -437,11 +424,12 @@ select{
   margin-top:7px
 }
 
-.report-kpi .subvalue{
-  font-size:11px;
-  color:var(--muted);
+.kpi-note{
   margin-top:6px;
-  line-height:1.4
+  font-size:11px;
+  line-height:1.35;
+  color:var(--muted);
+  font-weight:500
 }
 
 .report-table-card{
@@ -480,8 +468,7 @@ table{
   min-width:850px
 }
 
-th,
-td{
+th,td{
   text-align:left;
   padding:13px 15px;
   border-bottom:1px solid #f0e8e2;
@@ -547,7 +534,6 @@ tbody tr:hover{
 }
 
 @media(max-width:1100px){
-
   .sidebar{
     width:235px
   }
@@ -567,7 +553,6 @@ tbody tr:hover{
 }
 
 @media(max-width:760px){
-
   .sidebar{
     transform:translateX(-100%);
     transition:.25s;
@@ -611,7 +596,6 @@ tbody tr:hover{
 }
 
 @media print{
-
   body{
     background:#fff!important
   }
@@ -678,8 +662,7 @@ tbody tr:hover{
     min-width:0!important
   }
 
-  th,
-  td{
+  th,td{
     font-size:10px;
     padding:7px 8px
   }
@@ -710,9 +693,7 @@ tbody tr:hover{
 
   <div class="brand">
     <div class="logo">CYF</div>
-    <div class="brand-title">
-      CYF Registration System
-    </div>
+    <div class="brand-title">CYF Registration System</div>
   </div>
 
   <div class="profile">
@@ -725,9 +706,7 @@ tbody tr:hover{
 
   <nav class="nav">
 
-    <div class="nav-label">
-      Main Menu
-    </div>
+    <div class="nav-label">Main Menu</div>
 
     <a href="registration_dashboard.html">
       <span class="nav-icon">▣</span>
@@ -801,6 +780,7 @@ tbody tr:hover{
 
 </aside>
 
+
 <main class="main">
 
 <header class="topbar">
@@ -815,10 +795,7 @@ tbody tr:hover{
     </button>
 
     <div>
-      <div class="top-title">
-        Reports
-      </div>
-
+      <div class="top-title">Reports</div>
       <div class="top-role">
         Registration Team reports and registration summaries
       </div>
@@ -832,13 +809,13 @@ tbody tr:hover{
 
 </header>
 
+
 <section class="content">
 
   <div class="heading page-actions">
 
     <div>
       <h1>Reports</h1>
-
       <p>
         Filter each report independently and print only the report section you need.
       </p>
@@ -864,98 +841,60 @@ tbody tr:hover{
 
   </div>
 
-  <!-- =======================================================
-       SUMMARY
-       ======================================================= -->
 
   <div class="stats page-actions">
 
     <div class="stat">
 
       <div>
-        <div class="stat-label">
-          TOTAL PARTICIPANTS
-        </div>
-
-        <div
-          class="stat-value"
-          id="summaryParticipants"
-        >
-          0
-        </div>
+        <div class="stat-label">TOTAL PARTICIPANTS</div>
+        <div class="stat-value" id="summaryParticipants">0</div>
       </div>
 
-      <div class="stat-icon">
-        ♙
-      </div>
+      <div class="stat-icon">♙</div>
 
     </div>
+
 
     <div class="stat">
 
       <div>
-        <div class="stat-label">
-          TOTAL CHAPERONE
-        </div>
-
-        <div
-          class="stat-value"
-          id="summaryChaperone"
-        >
-          0
-        </div>
+        <div class="stat-label">TOTAL CHAPERONE</div>
+        <div class="stat-value" id="summaryChaperone">0</div>
       </div>
 
-      <div class="stat-icon">
-        ♙
-      </div>
+      <div class="stat-icon">♙</div>
 
     </div>
+
 
     <div class="stat">
 
       <div>
-        <div class="stat-label">
-          TOTAL EVENTS
-        </div>
-
-        <div
-          class="stat-value"
-          id="summaryEvents"
-        >
-          0
-        </div>
+        <div class="stat-label">TOTAL EVENTS</div>
+        <div class="stat-value" id="summaryEvents">0</div>
       </div>
 
-      <div class="stat-icon">
-        ◈
-      </div>
+      <div class="stat-icon">◈</div>
 
     </div>
 
   </div>
 
-  <!-- =======================================================
-       PARTICIPANTS REPORT
-       ======================================================= -->
 
-  <div
-    id="participantsReport"
-    class="report-section"
-  >
+  <!-- ============================================================
+       PARTICIPANTS REPORT
+       ============================================================ -->
+
+  <div id="participantsReport" class="report-section">
 
     <div class="heading">
 
       <div>
-
-        <h2 style="margin:0">
-          Participants Report
-        </h2>
-
+        <h2 style="margin:0">Participants Report</h2>
         <p>
           Filter by sex, tier, sector, age group, status, and participant type.
         </p>
-
       </div>
 
       <div class="section-toolbar">
@@ -977,6 +916,7 @@ tbody tr:hover{
       </div>
 
     </div>
+
 
     <div class="toolbar no-print">
 
@@ -1063,80 +1003,41 @@ tbody tr:hover{
 
     </div>
 
+
     <div class="kpi-grid">
 
       <div class="report-kpi">
-        <div class="label">
-          Filtered Participants
-        </div>
-
-        <div
-          class="value"
-          id="pCount"
-        >
-          0
-        </div>
+        <div class="label">Filtered Participants</div>
+        <div class="value" id="pCount">0</div>
       </div>
 
       <div class="report-kpi">
-        <div class="label">
-          Finding Sponsor
-        </div>
-
-        <div
-          class="value"
-          id="pFinding"
-        >
-          0
-        </div>
+        <div class="label">Finding Sponsor</div>
+        <div class="value" id="pFinding">0</div>
       </div>
 
       <div class="report-kpi">
-        <div class="label">
-          Confirmed
-        </div>
-
-        <div
-          class="value"
-          id="pConfirmed"
-        >
-          0
-        </div>
+        <div class="label">Confirmed</div>
+        <div class="value" id="pConfirmed">0</div>
       </div>
 
       <div class="report-kpi">
-        <div class="label">
-          Pending
-        </div>
-
-        <div
-          class="value"
-          id="pPending"
-        >
-          0
-        </div>
+        <div class="label">Pending</div>
+        <div class="value" id="pPending">0</div>
       </div>
 
     </div>
 
+
     <div class="report-table-card">
 
       <div class="table-head">
-
         <div>
-          <strong>
-            Participant Records
-          </strong>
-
-          <span id="pResult">
-            Loading...
-          </span>
+          <strong>Participant Records</strong>
+          <span id="pResult">Loading...</span>
         </div>
 
-        <span>
-          Active records
-        </span>
-
+        <span>Active records</span>
       </div>
 
       <div class="table-wrap">
@@ -1144,7 +1045,6 @@ tbody tr:hover{
         <table id="participantsTable">
 
           <thead>
-
             <tr>
               <th>Participant</th>
               <th>Sex</th>
@@ -1155,7 +1055,6 @@ tbody tr:hover{
               <th>Status</th>
               <th>Event</th>
             </tr>
-
           </thead>
 
           <tbody id="participantsBody"></tbody>
@@ -1168,27 +1067,20 @@ tbody tr:hover{
 
   </div>
 
-  <!-- =======================================================
-       CHAPERONE REPORT
-       ======================================================= -->
 
-  <div
-    id="chaperoneReport"
-    class="report-section"
-  >
+  <!-- ============================================================
+       CHAPERONE REPORT
+       ============================================================ -->
+
+  <div id="chaperoneReport" class="report-section">
 
     <div class="heading">
 
       <div>
-
-        <h2 style="margin:0">
-          Chaperone Report
-        </h2>
-
+        <h2 style="margin:0">Chaperone Report</h2>
         <p>
           Total chaperones and active chaperone records.
         </p>
-
       </div>
 
       <div class="section-toolbar">
@@ -1211,13 +1103,12 @@ tbody tr:hover{
 
     </div>
 
+
     <div class="kpi-grid">
 
       <div class="report-kpi">
 
-        <div class="label">
-          Total Chaperone
-        </div>
+        <div class="label">Total Chaperone</div>
 
         <div
           class="value"
@@ -1230,19 +1121,16 @@ tbody tr:hover{
 
     </div>
 
+
     <div class="report-table-card">
 
       <div class="table-head">
 
         <div>
-          <strong>
-            Chaperone Records
-          </strong>
+          <strong>Chaperone Records</strong>
         </div>
 
-        <span>
-          No filters
-        </span>
+        <span>No filters</span>
 
       </div>
 
@@ -1272,27 +1160,20 @@ tbody tr:hover{
 
   </div>
 
-  <!-- =======================================================
-       STORE REPORT
-       ======================================================= -->
 
-  <div
-    id="storeReport"
-    class="report-section"
-  >
+  <!-- ============================================================
+       STORE REPORT
+       ============================================================ -->
+
+  <div id="storeReport" class="report-section">
 
     <div class="heading">
 
       <div>
-
-        <h2 style="margin:0">
-          Store Report
-        </h2>
-
+        <h2 style="margin:0">Store Report</h2>
         <p>
           Store inventory and purchases. Amounts are displayed in PHP.
         </p>
-
       </div>
 
       <div class="section-toolbar">
@@ -1315,17 +1196,21 @@ tbody tr:hover{
 
     </div>
 
+
     <div class="toolbar no-print">
 
       <div class="filter-grid">
 
         <div class="search">
+
           ⌕
+
           <input
             id="stSearch"
             placeholder="Search item or customer..."
             oninput="renderStore()"
           >
+
         </div>
 
         <select
@@ -1333,9 +1218,7 @@ tbody tr:hover{
           class="filter"
           onchange="renderStore()"
         >
-          <option value="">
-            All Store Items
-          </option>
+          <option value="">All Store Items</option>
         </select>
 
         <select
@@ -1343,9 +1226,7 @@ tbody tr:hover{
           class="filter"
           onchange="renderStore()"
         >
-          <option value="">
-            All Customer Status
-          </option>
+          <option value="">All Customer Status</option>
           <option>Pending</option>
           <option>Complete</option>
           <option>Completed</option>
@@ -1370,83 +1251,41 @@ tbody tr:hover{
 
     </div>
 
+
     <div class="kpi-grid">
 
       <div class="report-kpi">
-
-        <div class="label">
-          Store Items
-        </div>
-
-        <div
-          class="value"
-          id="stItems"
-        >
-          0
-        </div>
-
+        <div class="label">Store Items</div>
+        <div class="value" id="stItems">0</div>
       </div>
 
       <div class="report-kpi">
-
-        <div class="label">
-          Filtered Purchases
-        </div>
-
-        <div
-          class="value"
-          id="stPurchases"
-        >
-          0
-        </div>
-
+        <div class="label">Filtered Purchases</div>
+        <div class="value" id="stPurchases">0</div>
       </div>
 
       <div class="report-kpi">
-
-        <div class="label">
-          Items Purchased
-        </div>
-
-        <div
-          class="value"
-          id="stQty"
-        >
-          0
-        </div>
-
+        <div class="label">Items Purchased</div>
+        <div class="value" id="stQty">0</div>
       </div>
 
       <div class="report-kpi">
-
-        <div class="label">
-          Purchase Amount
-        </div>
-
-        <div
-          class="value"
-          id="stAmount"
-        >
-          ₱0.00
-        </div>
-
+        <div class="label">Purchase Amount</div>
+        <div class="value" id="stAmount">₱0.00</div>
       </div>
 
     </div>
+
 
     <div class="report-table-card">
 
       <div class="table-head">
 
         <div>
-          <strong>
-            Store Purchases
-          </strong>
+          <strong>Store Purchases</strong>
         </div>
 
-        <span>
-          Purchase records
-        </span>
+        <span>Purchase records</span>
 
       </div>
 
@@ -1477,27 +1316,20 @@ tbody tr:hover{
 
   </div>
 
-  <!-- =======================================================
-       SPONSOR REPORT
-       ======================================================= -->
 
-  <div
-    id="sponsorReport"
-    class="report-section"
-  >
+  <!-- ============================================================
+       SPONSOR REPORT
+       ============================================================ -->
+
+  <div id="sponsorReport" class="report-section">
 
     <div class="heading">
 
       <div>
-
-        <h2 style="margin:0">
-          Sponsor Report
-        </h2>
-
+        <h2 style="margin:0">Sponsor Report</h2>
         <p>
           Cash and item sponsorship, donation fund, participants, and inventory.
         </p>
-
       </div>
 
       <div class="section-toolbar">
@@ -1520,6 +1352,7 @@ tbody tr:hover{
 
     </div>
 
+
     <div class="toolbar no-print">
 
       <div class="filter-grid">
@@ -1541,19 +1374,9 @@ tbody tr:hover{
           class="filter"
           onchange="renderSponsors()"
         >
-
-          <option value="">
-            All Sponsor Types
-          </option>
-
-          <option>
-            Cash
-          </option>
-
-          <option>
-            Item
-          </option>
-
+          <option value="">All Sponsor Types</option>
+          <option>Cash</option>
+          <option>Item</option>
         </select>
 
         <select
@@ -1561,31 +1384,12 @@ tbody tr:hover{
           class="filter"
           onchange="renderSponsors()"
         >
-
-          <option value="">
-            All Sponsor Status
-          </option>
-
-          <option>
-            Pending
-          </option>
-
-          <option>
-            Complete
-          </option>
-
-          <option>
-            Completed
-          </option>
-
-          <option>
-            Confirmed
-          </option>
-
-          <option>
-            Paid
-          </option>
-
+          <option value="">All Sponsor Status</option>
+          <option>Pending</option>
+          <option>Complete</option>
+          <option>Completed</option>
+          <option>Confirmed</option>
+          <option>Paid</option>
         </select>
 
         <button
@@ -1599,17 +1403,12 @@ tbody tr:hover{
 
     </div>
 
-    <!-- =====================================================
-         SPONSOR KPIs
-         ===================================================== -->
 
     <div class="kpi-grid">
 
       <div class="report-kpi">
 
-        <div class="label">
-          Cash Donation Total
-        </div>
+        <div class="label">Cash Donation Total</div>
 
         <div
           class="value"
@@ -1618,17 +1417,16 @@ tbody tr:hover{
           ₱0.00
         </div>
 
-        <div class="subvalue">
-          Current donation fund balance
+        <div class="kpi-note">
+          Current Cash Donation Total
         </div>
 
       </div>
 
+
       <div class="report-kpi">
 
-        <div class="label">
-          Sponsored Participants
-        </div>
+        <div class="label">Sponsored Participants</div>
 
         <div
           class="value"
@@ -1637,36 +1435,12 @@ tbody tr:hover{
           0
         </div>
 
-        <div class="subvalue">
-          Finding Sponsor with T-shirt and Lanyard paid
-        </div>
 
-      </div>
+
 
       <div class="report-kpi">
 
-        <div class="label">
-          Sponsorship Cost / Participant
-        </div>
-
-        <div
-          class="value"
-          id="spCostPerParticipant"
-        >
-          ₱0.00
-        </div>
-
-        <div class="subvalue">
-          T-shirt + Lanyard
-        </div>
-
-      </div>
-
-      <div class="report-kpi">
-
-        <div class="label">
-          Used Donation Fund
-        </div>
+        <div class="label">Used Donation Fund</div>
 
         <div
           class="value"
@@ -1676,19 +1450,18 @@ tbody tr:hover{
         </div>
 
         <div
-          class="subvalue"
-          id="spUsedCalculation"
+          class="kpi-note"
+          id="spUsedNote"
         >
-          0 participants × ₱0.00
+          0 participants × ₱0.00 = ₱0.00
         </div>
 
       </div>
 
+
       <div class="report-kpi">
 
-        <div class="label">
-          Remaining Donation Fund
-        </div>
+        <div class="label">Remaining Donation Fund</div>
 
         <div
           class="value"
@@ -1697,36 +1470,16 @@ tbody tr:hover{
           ₱0.00
         </div>
 
-        <div class="subvalue">
-          CashDonationTotal balance
+        <div class="kpi-note">
+          Current balance from Cash Donation Total
         </div>
 
       </div>
 
-      <div class="report-kpi">
-
-        <div class="label">
-          Finding Sponsor Participants
-        </div>
-
-        <div
-          class="value"
-          id="spFinding"
-        >
-          0
-        </div>
-
-        <div class="subvalue">
-          Participant type = Finding Sponsor
-        </div>
-
-      </div>
 
       <div class="report-kpi">
 
-        <div class="label">
-          Cash Sponsors
-        </div>
+        <div class="label">Cash Sponsors</div>
 
         <div
           class="value"
@@ -1737,55 +1490,22 @@ tbody tr:hover{
 
       </div>
 
-      <div class="report-kpi">
 
-        <div class="label">
-          Item Sponsors
-        </div>
 
-        <div
-          class="value"
-          id="spItemCount"
-        >
-          0
-        </div>
 
-      </div>
 
-      <div class="report-kpi">
 
-        <div class="label">
-          Inventory Items
-        </div>
 
-        <div
-          class="value"
-          id="spInventoryCount"
-        >
-          0
-        </div>
-
-      </div>
-
-    </div>
-
-    <!-- =====================================================
-         SPONSOR RECORDS
-         ===================================================== -->
 
     <div class="report-table-card">
 
       <div class="table-head">
 
         <div>
-          <strong>
-            Sponsor Records
-          </strong>
+          <strong>Sponsor Records</strong>
         </div>
 
-        <span>
-          Cash / item sponsors
-        </span>
+        <span>Cash / item sponsors</span>
 
       </div>
 
@@ -1815,20 +1535,16 @@ tbody tr:hover{
 
     </div>
 
+
     <div style="height:16px"></div>
 
-    <!-- =====================================================
-         SPONSOR INVENTORY
-         ===================================================== -->
 
     <div class="report-table-card">
 
       <div class="table-head">
 
         <div>
-          <strong>
-            Sponsorship Inventory
-          </strong>
+          <strong>Sponsorship Inventory</strong>
         </div>
 
       </div>
@@ -1860,27 +1576,20 @@ tbody tr:hover{
 
   </div>
 
-  <!-- =======================================================
-       EVENT REPORT
-       ======================================================= -->
 
-  <div
-    id="eventReport"
-    class="report-section"
-  >
+  <!-- ============================================================
+       EVENT REPORT
+       ============================================================ -->
+
+  <div id="eventReport" class="report-section">
 
     <div class="heading">
 
       <div>
-
-        <h2 style="margin:0">
-          Event Report
-        </h2>
-
+        <h2 style="margin:0">Event Report</h2>
         <p>
           Events, status, and attendee totals by participant, staff, and chaperone.
         </p>
-
       </div>
 
       <div class="section-toolbar">
@@ -1903,6 +1612,7 @@ tbody tr:hover{
 
     </div>
 
+
     <div class="toolbar no-print">
 
       <div class="filter-grid">
@@ -1924,11 +1634,7 @@ tbody tr:hover{
           class="filter"
           onchange="renderEvents()"
         >
-
-          <option value="">
-            All Events
-          </option>
-
+          <option value="">All Events</option>
         </select>
 
         <select
@@ -1936,27 +1642,11 @@ tbody tr:hover{
           class="filter"
           onchange="renderEvents()"
         >
-
-          <option value="">
-            All Status
-          </option>
-
-          <option>
-            Upcoming
-          </option>
-
-          <option>
-            Registration Open
-          </option>
-
-          <option>
-            Ongoing
-          </option>
-
-          <option>
-            Completed
-          </option>
-
+          <option value="">All Status</option>
+          <option>Upcoming</option>
+          <option>Registration Open</option>
+          <option>Ongoing</option>
+          <option>Completed</option>
         </select>
 
         <button
@@ -1970,83 +1660,41 @@ tbody tr:hover{
 
     </div>
 
+
     <div class="kpi-grid">
 
       <div class="report-kpi">
-
-        <div class="label">
-          Filtered Events
-        </div>
-
-        <div
-          class="value"
-          id="eCount"
-        >
-          0
-        </div>
-
+        <div class="label">Filtered Events</div>
+        <div class="value" id="eCount">0</div>
       </div>
 
       <div class="report-kpi">
-
-        <div class="label">
-          Participants
-        </div>
-
-        <div
-          class="value"
-          id="eParticipants"
-        >
-          0
-        </div>
-
+        <div class="label">Participants</div>
+        <div class="value" id="eParticipants">0</div>
       </div>
 
       <div class="report-kpi">
-
-        <div class="label">
-          Staff
-        </div>
-
-        <div
-          class="value"
-          id="eStaff"
-        >
-          0
-        </div>
-
+        <div class="label">Staff</div>
+        <div class="value" id="eStaff">0</div>
       </div>
 
       <div class="report-kpi">
-
-        <div class="label">
-          Chaperones
-        </div>
-
-        <div
-          class="value"
-          id="eChaperones"
-        >
-          0
-        </div>
-
+        <div class="label">Chaperones</div>
+        <div class="value" id="eChaperones">0</div>
       </div>
 
     </div>
+
 
     <div class="report-table-card">
 
       <div class="table-head">
 
         <div>
-          <strong>
-            Event Records
-          </strong>
+          <strong>Event Records</strong>
         </div>
 
-        <span>
-          Attendee summary
-        </span>
+        <span>Attendee summary</span>
 
       </div>
 
@@ -2084,15 +1732,15 @@ tbody tr:hover{
 
 </div>
 
+
 <script>
 
 const API_BASE='';
 
+
 let DATA={
   participants:[],
-  staff:[],
   chaperones:[],
-  team_accounts:[],
   store_items:[],
   store_purchases:[],
   sponsors:[],
@@ -2102,12 +1750,7 @@ let DATA={
 };
 
 
-/* ============================================================
-   GENERAL HELPERS
-   ============================================================ */
-
 function esc(v){
-
   return String(v??'').replace(
     /[&<>"']/g,
     m=>({
@@ -2118,27 +1761,21 @@ function esc(v){
       "'":'&#039;'
     }[m])
   );
-
 }
 
 
 function money(v){
-
-  const amount=Number(v||0);
-
-  return '₱'+amount.toLocaleString(
+  return '₱'+Number(v||0).toLocaleString(
     'en-PH',
     {
       minimumFractionDigits:2,
       maximumFractionDigits:2
     }
   );
-
 }
 
 
 function dateVal(v){
-
   if(!v)return '';
 
   const d=new Date(v);
@@ -2146,14 +1783,12 @@ function dateVal(v){
   return isNaN(d)
     ? String(v)
     : d.toLocaleDateString('en-PH');
-
 }
 
 
 function badge(v){
 
   const s=String(v||'Pending');
-
   const l=s.toLowerCase();
 
   let c='status';
@@ -2165,33 +1800,23 @@ function badge(v){
   ){
     c='complete';
   }
-
   else if(l.includes('pending')){
     c='pending';
   }
 
-  return `
-    <span class="badge ${c}">
-      ${esc(s)}
-    </span>
-  `;
-
+  return `<span class="badge ${c}">${esc(s)}</span>`;
 }
 
 
 function fullName(o){
-
   return o.fullname ||
     [
       o.fname,
       o.mname,
       o.lname
-    ]
-    .filter(Boolean)
-    .join(' ') ||
+    ].filter(Boolean).join(' ') ||
     o.name ||
     '—';
-
 }
 
 
@@ -2200,15 +1825,13 @@ function unique(arr){
   return [
     ...new Set(
       arr.filter(
-        v =>
-          v!==null &&
-          v!==undefined &&
-          String(v).trim()!==''
+        v=>v!==null &&
+           v!==undefined &&
+           String(v).trim()!==''
       )
     )
   ].sort(
-    (a,b)=>
-      String(a).localeCompare(String(b))
+    (a,b)=>String(a).localeCompare(String(b))
   );
 
 }
@@ -2226,8 +1849,7 @@ function fillSelect(id,values,first){
     `<option value="">${esc(first)}</option>`+
     unique(values)
       .map(
-        v =>
-          `<option value="${esc(v)}">${esc(v)}</option>`
+        v=>`<option value="${esc(v)}">${esc(v)}</option>`
       )
       .join('');
 
@@ -2243,76 +1865,125 @@ function fillSelect(id,values,first){
 
 
 function toggleSidebar(){
-
   document
     .getElementById('sidebar')
     .classList
     .toggle('open');
-
 }
 
 
 function toggleEventMenu(){
-
   document
     .querySelector('.nav-group')
     .classList
     .toggle('open');
-
 }
 
 
 /* ============================================================
-   LOAD REPORT DATA
+   LOAD REPORTS
+
+   IMPORTANT:
+   The sponsor statistics are loaded directly from
+   /sponsor_dashboard_stats, exactly like sponsor_management.html.
+
+   This prevents the report from calculating a different
+   Used Donation Fund amount.
    ============================================================ */
 
 async function loadReports(){
 
   try{
 
-    const r=await fetch(
-      API_BASE+'/report_dashboard_data',
-      {
-        credentials:'include'
-      }
-    );
+    const [
+      reportResponse,
+      sponsorResponse
+    ]=await Promise.all([
 
-    if(!r.ok){
+      fetch(
+        API_BASE+'/report_dashboard_data',
+        {
+          credentials:'include'
+        }
+      ),
+
+      fetch(
+        API_BASE+'/sponsor_dashboard_stats',
+        {
+          credentials:'include'
+        }
+      )
+
+    ]);
+
+
+    if(!reportResponse.ok){
       throw new Error(
-        'HTTP '+r.status
+        'Report API HTTP '+reportResponse.status
       );
     }
 
-    const incoming=await r.json();
+
+    if(!sponsorResponse.ok){
+      throw new Error(
+        'Sponsor statistics API HTTP '+
+        sponsorResponse.status
+      );
+    }
+
+
+    const incoming=
+      await reportResponse.json();
+
+    const sponsorStats=
+      await sponsorResponse.json();
+
 
     if(incoming.success===false){
-
       throw new Error(
-        incoming.detail ||
+        incoming.detail||
         'Unable to load reports'
       );
-
     }
+
+
+    if(sponsorStats.success===false){
+      throw new Error(
+        sponsorStats.detail||
+        'Unable to load sponsor statistics'
+      );
+    }
+
 
     DATA={
       ...DATA,
-      ...incoming
+      ...incoming,
+
+      /*
+       * Use the exact same endpoint used by
+       * sponsor_management.html.
+       */
+      sponsor_stats:sponsorStats
+
     };
 
-    document
-      .getElementById('summaryParticipants')
-      .textContent=
-        DATA.participants.length;
 
-    document
-      .getElementById('summaryChaperone')
-      .textContent=
-        DATA.chaperones.length;
+    document.getElementById(
+      'summaryParticipants'
+    ).textContent=
+      DATA.participants.length;
 
-    document
-      .getElementById('summaryEvents')
-      .textContent=
-        DATA.events.length;
+
+    document.getElementById(
+      'summaryChaperone'
+    ).textContent=
+      DATA.chaperones.length;
+
+
+    document.getElementById(
+      'summaryEvents'
+    ).textContent=
+      DATA.events.length;
 
 
     fillSelect(
@@ -2321,11 +1992,13 @@ async function loadReports(){
       'All Sex'
     );
 
+
     fillSelect(
       'pTier',
       DATA.participants.map(x=>x.tier),
       'All Tiers'
     );
+
 
     fillSelect(
       'pSector',
@@ -2333,11 +2006,13 @@ async function loadReports(){
       'All Sectors'
     );
 
+
     fillSelect(
       'stItem',
       DATA.store_items.map(x=>x.item_name),
       'All Store Items'
     );
+
 
     fillSelect(
       'eEvent',
@@ -2348,15 +2023,16 @@ async function loadReports(){
 
     renderAll();
 
-  }
 
-  catch(e){
+  }catch(e){
 
-    console.error(e);
+    console.error(
+      'Report loading error:',
+      e
+    );
 
     alert(
-      'Unable to load reports. '+
-      'Make sure GET /report_dashboard_data is available.'
+      'Unable to load reports. Make sure GET /report_dashboard_data and GET /sponsor_dashboard_stats are available.'
     );
 
   }
@@ -2364,20 +2040,12 @@ async function loadReports(){
 }
 
 
-/* ============================================================
-   RENDER ALL
-   ============================================================ */
-
 function renderAll(){
 
   renderParticipants();
-
   renderChaperones();
-
   renderStore();
-
   renderSponsors();
-
   renderEvents();
 
 }
@@ -2422,8 +2090,7 @@ function renderParticipants(){
 
   const rows=
     DATA.participants.filter(
-      x =>
-
+      x=>
         (
           !q ||
           [
@@ -2437,159 +2104,122 @@ function renderParticipants(){
           .join(' ')
           .toLowerCase()
           .includes(q)
-        )
+        ) &&
 
-        &&
+        (!sex || x.sex===sex) &&
 
-        (!sex || x.sex===sex)
+        (!tier ||
+          String(x.tier)===String(tier)
+        ) &&
 
-        &&
+        (!sector ||
+          x.sector===sector
+        ) &&
 
-        (!tier || String(x.tier)===String(tier))
+        (!age ||
+          x.age_group===age
+        ) &&
 
-        &&
-
-        (!sector || x.sector===sector)
-
-        &&
-
-        (!age || x.age_group===age)
-
-        &&
-
-        (
-          !status ||
+        (!status ||
           String(
             x.registration_status||''
           )
           .toLowerCase()===status
-        )
+        ) &&
 
-        &&
-
-        (
-          !type ||
+        (!type ||
           String(
             x.participant_type||''
           )
           .toLowerCase()===type
         )
-
     );
 
 
-  document
-    .getElementById('pCount')
-    .textContent=
-      rows.length;
+  document.getElementById(
+    'pCount'
+  ).textContent=rows.length;
 
 
-  document
-    .getElementById('pFinding')
-    .textContent=
-      rows.filter(
-        x =>
-          String(
-            x.participant_type||''
-          )
-          .toLowerCase()
-          .includes('finding')
-      ).length;
+  document.getElementById(
+    'pFinding'
+  ).textContent=
+    rows.filter(
+      x=>
+        String(
+          x.participant_type||''
+        )
+        .toLowerCase()
+        .includes('finding')
+    ).length;
 
 
-  document
-    .getElementById('pConfirmed')
-    .textContent=
-      rows.filter(
-        x =>
-          String(
-            x.registration_status||''
-          )
-          .toLowerCase()
-          .includes('confirm')
-      ).length;
+  document.getElementById(
+    'pConfirmed'
+  ).textContent=
+    rows.filter(
+      x=>
+        String(
+          x.registration_status||''
+        )
+        .toLowerCase()
+        .includes('confirm')
+    ).length;
 
 
-  document
-    .getElementById('pPending')
-    .textContent=
-      rows.filter(
-        x =>
-          String(
-            x.registration_status||''
-          )
-          .toLowerCase()
-          .includes('pending')
-      ).length;
+  document.getElementById(
+    'pPending'
+  ).textContent=
+    rows.filter(
+      x=>
+        String(
+          x.registration_status||''
+        )
+        .toLowerCase()
+        .includes('pending')
+    ).length;
 
 
-  document
-    .getElementById('pResult')
-    .textContent=
-      rows.length+' records';
+  document.getElementById(
+    'pResult'
+  ).textContent=
+    rows.length+' records';
 
 
-  document
-    .getElementById('participantsBody')
-    .innerHTML=
+  document.getElementById(
+    'participantsBody'
+  ).innerHTML=
 
-      rows.length
+    rows.length
 
-      ?
+      ? rows.map(
+          x=>`
+            <tr>
+              <td>
+                <strong>${esc(fullName(x))}</strong>
+                <div style="font-size:11px;color:var(--muted)">
+                  ${esc(x.registration_number||'')}
+                </div>
+              </td>
 
-      rows.map(
-        x => `
+              <td>${esc(x.sex||'—')}</td>
 
-          <tr>
+              <td>${esc(x.age_group||'—')}</td>
 
-            <td>
-              <strong>
-                ${esc(fullName(x))}
-              </strong>
+              <td>${esc(x.tier||'—')}</td>
 
-              <div
-                style="font-size:11px;color:var(--muted)"
-              >
-                ${esc(x.registration_number||'')}
-              </div>
-            </td>
+              <td>${esc(x.sector||'—')}</td>
 
-            <td>
-              ${esc(x.sex||'—')}
-            </td>
+              <td>${esc(x.participant_type||'—')}</td>
 
-            <td>
-              ${esc(x.age_group||'—')}
-            </td>
+              <td>${badge(x.registration_status)}</td>
 
-            <td>
-              ${esc(x.tier||'—')}
-            </td>
+              <td>${esc(x.event_name||'—')}</td>
+            </tr>
+          `
+        ).join('')
 
-            <td>
-              ${esc(x.sector||'—')}
-            </td>
-
-            <td>
-              ${esc(x.participant_type||'—')}
-            </td>
-
-            <td>
-              ${badge(x.registration_status)}
-            </td>
-
-            <td>
-              ${esc(x.event_name||'—')}
-            </td>
-
-          </tr>
-
-        `
-      ).join('')
-
-      :
-
-      `
+      : `
         <tr>
           <td
             colspan="8"
@@ -2609,55 +2239,37 @@ function renderParticipants(){
 
 function renderChaperones(){
 
-  document
-    .getElementById('cCount')
-    .textContent=
-      DATA.chaperones.length;
+  document.getElementById(
+    'cCount'
+  ).textContent=
+    DATA.chaperones.length;
 
 
-  document
-    .getElementById('chaperoneBody')
-    .innerHTML=
+  document.getElementById(
+    'chaperoneBody'
+  ).innerHTML=
 
-      DATA.chaperones.length
+    DATA.chaperones.length
 
-      ?
+      ? DATA.chaperones.map(
+          x=>`
+            <tr>
+              <td>
+                <strong>${esc(fullName(x))}</strong>
+              </td>
 
-      DATA.chaperones.map(
-        x => `
+              <td>${esc(x.sex||'—')}</td>
 
-          <tr>
+              <td>${esc(x.sector||'—')}</td>
 
-            <td>
-              <strong>
-                ${esc(fullName(x))}
-              </strong>
-            </td>
+              <td>${esc(x.local_church||'—')}</td>
 
-            <td>
-              ${esc(x.sex||'—')}
-            </td>
+              <td>${esc(x.event_name||'—')}</td>
+            </tr>
+          `
+        ).join('')
 
-            <td>
-              ${esc(x.sector||'—')}
-            </td>
-
-            <td>
-              ${esc(x.local_church||'—')}
-            </td>
-
-            <td>
-              ${esc(x.event_name||'—')}
-            </td>
-
-          </tr>
-
-        `
-      ).join('')
-
-      :
-
-      `
+      : `
         <tr>
           <td
             colspan="5"
@@ -2701,7 +2313,7 @@ function renderStore(){
 
   const rows=
     DATA.store_purchases.filter(
-      x =>
+      x=>
 
         (
           !q ||
@@ -2714,134 +2326,107 @@ function renderStore(){
           .join(' ')
           .toLowerCase()
           .includes(q)
-        )
+        ) &&
 
-        &&
+        (!item ||
+          x.item_name===item
+        ) &&
 
-        (!item || x.item_name===item)
-
-        &&
-
-        (
-          !status ||
+        (!status ||
           String(x.status||'')
             .toLowerCase()===status
-        )
+        ) &&
 
-        &&
-
-        (
-          !customer ||
+        (!customer ||
           String(x.customer_name||'')
             .toLowerCase()
             .includes(customer)
         )
-
     );
 
 
-  document
-    .getElementById('stItems')
-    .textContent=
-      DATA.store_items.length;
+  document.getElementById(
+    'stItems'
+  ).textContent=
+    DATA.store_items.length;
 
 
-  document
-    .getElementById('stPurchases')
-    .textContent=
-      rows.length;
+  document.getElementById(
+    'stPurchases'
+  ).textContent=
+    rows.length;
 
 
-  document
-    .getElementById('stQty')
-    .textContent=
+  document.getElementById(
+    'stQty'
+  ).textContent=
+    rows.reduce(
+      (a,x)=>
+        a+Number(x.quantity||0),
+      0
+    );
+
+
+  document.getElementById(
+    'stAmount'
+  ).textContent=
+    money(
       rows.reduce(
         (a,x)=>
-          a+Number(x.quantity||0),
+          a+Number(x.amount||0),
         0
-      );
+      )
+    );
 
 
-  document
-    .getElementById('stAmount')
-    .textContent=
-      money(
-        rows.reduce(
-          (a,x)=>
-            a+Number(x.amount||0),
-          0
-        )
-      );
+  document.getElementById(
+    'storeBody'
+  ).innerHTML=
 
+    rows.length
 
-  document
-    .getElementById('storeBody')
-    .innerHTML=
+      ? rows.map(
+          x=>`
+            <tr>
 
-      rows.length
+              <td>${esc(x.item_name)}</td>
 
-      ?
+              <td>${Number(x.quantity||0)}</td>
 
-      rows.map(
-        x => `
+              <td>${money(x.amount)}</td>
 
-          <tr>
+              <td>
+                <strong>
+                  ${esc(x.customer_name||'—')}
+                </strong>
 
-            <td>
-              ${esc(x.item_name)}
-            </td>
+                <div
+                  style="font-size:11px;color:var(--muted)"
+                >
+                  ${esc(
+                    x.customer_contact||
+                    x.customer_email||
+                    ''
+                  )}
+                </div>
+              </td>
 
-            <td>
-              ${Number(x.quantity||0)}
-            </td>
+              <td>${badge(x.status)}</td>
 
-            <td>
-              ${money(x.amount)}
-            </td>
+              <td>${dateVal(x.created_at)}</td>
 
-            <td>
+            </tr>
+          `
+        ).join('')
 
-              <strong>
-                ${esc(x.customer_name||'—')}
-              </strong>
-
-              <div
-                style="font-size:11px;color:var(--muted)"
-              >
-                ${esc(
-                  x.customer_contact ||
-                  x.customer_email ||
-                  ''
-                )}
-              </div>
-
-            </td>
-
-            <td>
-              ${badge(x.status)}
-            </td>
-
-            <td>
-              ${dateVal(x.created_at)}
-            </td>
-
-          </tr>
-
-        `
-      ).join('')
-
-      :
-
-      `
+      : `
         <tr>
-
           <td
             colspan="6"
             class="empty"
           >
             No purchases match the selected filters.
           </td>
-
         </tr>
       `;
 
@@ -2850,6 +2435,20 @@ function renderStore(){
 
 /* ============================================================
    SPONSORS
+
+   IMPORTANT:
+   Used Donation Fund comes DIRECTLY from:
+
+       /sponsor_dashboard_stats
+
+   Specifically:
+
+       st.total_used_donation_fund
+
+   It is NOT recalculated here.
+
+   This keeps report_rt.html synchronized with
+   sponsor_management.html.
    ============================================================ */
 
 function renderSponsors(){
@@ -2860,11 +2459,13 @@ function renderSponsors(){
       .value
       .toLowerCase();
 
+
   const type=
     document
       .getElementById('spType')
       .value
       .toLowerCase();
+
 
   const status=
     document
@@ -2875,7 +2476,7 @@ function renderSponsors(){
 
   const rows=
     DATA.sponsors.filter(
-      x =>
+      x=>
 
         (
           !q ||
@@ -2887,374 +2488,298 @@ function renderSponsors(){
           .join(' ')
           .toLowerCase()
           .includes(q)
-        )
+        ) &&
 
-        &&
-
-        (
-          !type ||
+        (!type ||
           String(x.type||'')
             .toLowerCase()===type
-        )
+        ) &&
 
-        &&
-
-        (
-          !status ||
+        (!status ||
           String(x.status||'')
             .toLowerCase()===status
         )
-
     );
 
 
   const st=
-    DATA.sponsor_stats || {};
-
-
-  /* ==========================================================
-     SPONSOR STATISTICS
-     ========================================================== */
-
-  const cashDonationTotal=
-    Number(
-      st.cash_donation_total || 0
-    );
-
-
-  const findingSponsorParticipants=
-    Number(
-      st.finding_sponsor_participants || 0
-    );
-
-
-  const sponsoredParticipants=
-    Number(
-      st.total_sponsored_participants || 0
-    );
+    DATA.sponsor_stats||{};
 
 
   /*
-   * The backend calculates:
-   *
-   * T-shirt + Lanyard
-   *
-   * Example:
-   *
-   * T-shirt = ₱350
-   * Lanyard = ₱90
-   *
-   * Cost per participant = ₱440
+   * These values come directly from
+   * /sponsor_dashboard_stats.
    */
 
-  const sponsorshipCostPerParticipant=
+  const findingSponsorCount=
     Number(
-      st.sponsorship_amount_per_participant || 0
-    );
-
-
-  /*
-   * Used Donation Fund:
-   *
-   * Finding Sponsor Participants
-   * ×
-   * Sponsorship Cost Per Participant
-   *
-   * Example:
-   *
-   * 10 × ₱440
-   * =
-   * ₱4,400
-   */
-
-  const calculatedUsedDonationFund=
-    findingSponsorParticipants *
-    sponsorshipCostPerParticipant;
-
-
-  /*
-   * Prefer the backend calculated value when available.
-   * If it is missing, calculate it directly in the browser.
-   */
-
-  const backendUsedDonationFund=
-    Number(
-      st.total_used_donation_fund
-    );
-
-
-  const usedDonationFund=
-    Number.isFinite(
-      backendUsedDonationFund
-    )
-    ?
-      backendUsedDonationFund
-    :
-      calculatedUsedDonationFund;
-
-
-  /*
-   * Remaining Donation Fund comes directly from:
-   *
-   * CashDonationTotal.total_amount
-   *
-   * through:
-   *
-   * st.remaining_donation_fund
-   */
-
-  const remainingDonationFund=
-    Number(
-      st.remaining_donation_fund ??
-      cashDonationTotal ??
+      st.finding_sponsor_participants ??
+      st.total_sponsored_participants ??
       0
     );
 
 
-  /* ==========================================================
-     DISPLAY SPONSOR KPIs
-     ========================================================== */
-
-  document
-    .getElementById('spCash')
-    .textContent=
-      money(cashDonationTotal);
+  const sponsorshipCostPerParticipant=
+    Number(
+      st.sponsorship_amount_per_participant ??
+      0
+    );
 
 
-  document
-    .getElementById('spSponsored')
-    .textContent=
-      sponsoredParticipants;
+  /*
+   * CRITICAL:
+   *
+   * Do NOT calculate:
+   *
+   * findingSponsorCount *
+   * sponsorshipCostPerParticipant
+   *
+   * for the actual Used Donation Fund display.
+   *
+   * Use the exact backend value.
+   */
+
+  const usedDonationFund=
+    Number(
+      st.total_used_donation_fund ??
+      0
+    );
 
 
-  document
-    .getElementById('spCostPerParticipant')
-    .textContent=
-      money(
-        sponsorshipCostPerParticipant
-      );
+  const remainingDonationFund=
+    Number(
+      st.remaining_donation_fund ??
+      st.cash_donation_total ??
+      0
+    );
 
 
-  document
-    .getElementById('spUsed')
-    .textContent=
-      money(
-        usedDonationFund
-      );
+  const totalSponsoredParticipants=
+    Number(
+      st.total_sponsored_participants ??
+      findingSponsorCount ??
+      0
+    );
 
 
-  document
-    .getElementById('spUsedCalculation')
-    .textContent=
-      findingSponsorParticipants+
-      ' participants × '+
-      money(
-        sponsorshipCostPerParticipant
-      )+
-      ' = '+
-      money(
-        usedDonationFund
-      );
+  const cashDonationTotal=
+    Number(
+      st.cash_donation_total ??
+      0
+    );
 
 
-  document
-    .getElementById('spRemaining')
-    .textContent=
-      money(
-        remainingDonationFund
-      );
+  const cashSponsorTotal=
+    Number(
+      st.cash_sponsor_total ??
+      0
+    );
 
 
-  document
-    .getElementById('spFinding')
-    .textContent=
-      findingSponsorParticipants;
+  const itemSponsorTotal=
+    Number(
+      st.item_sponsor_total ??
+      0
+    );
 
 
-  document
-    .getElementById('spCashCount')
-    .textContent=
-      st.cash_sponsor_total || 0;
+  /*
+   * Sponsor KPI values
+   */
+
+  document.getElementById(
+    'spCash'
+  ).textContent=
+    money(cashDonationTotal);
 
 
-  document
-    .getElementById('spItemCount')
-    .textContent=
-      st.item_sponsor_total || 0;
+  document.getElementById(
+    'spSponsored'
+  ).textContent=
+    totalSponsoredParticipants;
 
 
-  document
-    .getElementById('spInventoryCount')
-    .textContent=
-      DATA.sponsor_inventory.length;
+  /*
+   * EXACT VALUE FROM
+   * /sponsor_dashboard_stats
+   */
+
+  document.getElementById(
+    'spUsed'
+  ).textContent=
+    money(usedDonationFund);
 
 
-  /* ==========================================================
-     SPONSOR TABLE
-     ========================================================== */
+  /*
+   * Remaining Donation Fund is the
+   * current CashDonationTotal.total_amount
+   * returned by the backend.
+   */
 
-  document
-    .getElementById('sponsorBody')
-    .innerHTML=
+  document.getElementById(
+    'spRemaining'
+  ).textContent=
+    money(remainingDonationFund);
 
-      rows.length
 
-      ?
 
-      rows.map(
-        x => `
 
-          <tr>
 
-            <td>
-              ${badge(x.type)}
-            </td>
+  document.getElementById(
+    'spCashCount'
+  ).textContent=
+    cashSponsorTotal;
 
-            <td>
-              <strong>
-                ${esc(
-                  x.sponsor_name || '—'
-                )}
-              </strong>
-            </td>
 
-            <td>
-              ${esc(
-                x.item_name || '—'
-              )}
-            </td>
 
-            <td>
-              ${x.quantity ?? '—'}
-            </td>
 
-            <td>
-              ${
-                x.amount == null
-                ?
-                  '—'
-                :
-                  money(x.amount)
-              }
-            </td>
 
-            <td>
-              ${badge(x.status)}
-            </td>
 
-            <td>
-              ${dateVal(x.created_at)}
-            </td>
 
-          </tr>
 
-        `
-      ).join('')
+  /*
+   * Explanation underneath Used Donation Fund.
+   *
+   * The displayed Used Donation Fund itself
+   * remains the exact backend value.
+   */
 
-      :
+  const usedNote=
+    document.getElementById('spUsedNote');
 
-      `
+
+  if(usedNote){
+
+    usedNote.textContent=
+      `${findingSponsorCount} participant${
+        findingSponsorCount===1?'':'s'
+      } × ${
+        money(sponsorshipCostPerParticipant)
+      } = ${
+        money(usedDonationFund)
+      }`;
+
+  }
+
+
+  /*
+   * Sponsor Records
+   */
+
+  document.getElementById(
+    'sponsorBody'
+  ).innerHTML=
+
+    rows.length
+
+      ? rows.map(
+          x=>`
+            <tr>
+
+              <td>${badge(x.type)}</td>
+
+              <td>
+                <strong>
+                  ${esc(x.sponsor_name||'—')}
+                </strong>
+              </td>
+
+              <td>
+                ${esc(x.item_name||'—')}
+              </td>
+
+              <td>
+                ${x.quantity??'—'}
+              </td>
+
+              <td>
+                ${
+                  x.amount==null
+                    ? '—'
+                    : money(x.amount)
+                }
+              </td>
+
+              <td>
+                ${badge(x.status)}
+              </td>
+
+              <td>
+                ${dateVal(x.created_at)}
+              </td>
+
+            </tr>
+          `
+        ).join('')
+
+      : `
         <tr>
-
           <td
             colspan="7"
             class="empty"
           >
             No sponsors match the selected filters.
           </td>
-
         </tr>
       `;
 
 
-  /* ==========================================================
-     INVENTORY TABLE
-     ========================================================== */
+  /*
+   * Sponsorship Inventory
+   */
 
-  document
-    .getElementById('inventoryBody')
-    .innerHTML=
+  document.getElementById(
+    'inventoryBody'
+  ).innerHTML=
 
-      DATA.sponsor_inventory.length
+    DATA.sponsor_inventory.length
 
-      ?
+      ? DATA.sponsor_inventory.map(
+          x=>`
+            <tr>
 
-      DATA.sponsor_inventory.map(
-        x => `
+              <td>
+                <strong>
+                  ${esc(x.item_name)}
+                </strong>
+              </td>
 
-          <tr>
+              <td>
+                ${esc(x.description||'—')}
+              </td>
 
-            <td>
-              <strong>
-                ${esc(x.item_name)}
-              </strong>
-            </td>
+              <td>
+                ${x.total_quantity}
+              </td>
 
-            <td>
-              ${esc(
-                x.description || '—'
-              )}
-            </td>
+              <td>
+                ${x.remaining_quantity}
+              </td>
 
-            <td>
-              ${x.total_quantity}
-            </td>
+              <td>
+                ${esc(x.unit||'piece')}
+              </td>
 
-            <td>
-              ${x.remaining_quantity}
-            </td>
+              <td>
+                ${
+                  x.available
+                    ? '<span class="badge complete">Available</span>'
+                    : '<span class="badge incomplete">Out of Stock</span>'
+                }
+              </td>
 
-            <td>
-              ${esc(
-                x.unit || 'piece'
-              )}
-            </td>
+            </tr>
+          `
+        ).join('')
 
-            <td>
-
-              ${
-                x.available
-
-                ?
-
-                `
-                  <span
-                    class="badge complete"
-                  >
-                    Available
-                  </span>
-                `
-
-                :
-
-                `
-                  <span
-                    class="badge incomplete"
-                  >
-                    Out of Stock
-                  </span>
-                `
-              }
-
-            </td>
-
-          </tr>
-
-        `
-      ).join('')
-
-      :
-
-      `
+      : `
         <tr>
-
           <td
             colspan="6"
             class="empty"
           >
             No sponsorship inventory found.
           </td>
-
         </tr>
       `;
 
@@ -3273,10 +2798,10 @@ function renderEvents(){
       .value
       .toLowerCase();
 
+
   const ev=
-    document
-      .getElementById('eEvent')
-      .value;
+    document.getElementById('eEvent').value;
+
 
   const status=
     document
@@ -3287,137 +2812,118 @@ function renderEvents(){
 
   const rows=
     DATA.events.filter(
-      x =>
+      x=>
 
         (
           !q ||
-          String(
-            x.event_name || ''
-          )
-          .toLowerCase()
-          .includes(q)
-        )
+          String(x.event_name||'')
+            .toLowerCase()
+            .includes(q)
+        ) &&
 
-        &&
-
-        (
-          !ev ||
+        (!ev ||
           x.event_name===ev
+        ) &&
+
+        (!status ||
+          String(x.status||'')
+            .toLowerCase()===status
         )
-
-        &&
-
-        (
-          !status ||
-          String(
-            x.status || ''
-          )
-          .toLowerCase()===status
-        )
-
     );
 
 
-  document
-    .getElementById('eCount')
-    .textContent=
-      rows.length;
+  document.getElementById(
+    'eCount'
+  ).textContent=
+    rows.length;
 
 
-  document
-    .getElementById('eParticipants')
-    .textContent=
-      rows.reduce(
-        (a,x)=>
-          a+Number(x.participants||0),
-        0
-      );
+  document.getElementById(
+    'eParticipants'
+  ).textContent=
+    rows.reduce(
+      (a,x)=>
+        a+Number(x.participants||0),
+      0
+    );
 
 
-  document
-    .getElementById('eStaff')
-    .textContent=
-      rows.reduce(
-        (a,x)=>
-          a+Number(x.staff||0),
-        0
-      );
+  document.getElementById(
+    'eStaff'
+  ).textContent=
+    rows.reduce(
+      (a,x)=>
+        a+Number(x.staff||0),
+      0
+    );
 
 
-  document
-    .getElementById('eChaperones')
-    .textContent=
-      rows.reduce(
-        (a,x)=>
-          a+Number(x.chaperones||0),
-        0
-      );
+  document.getElementById(
+    'eChaperones'
+  ).textContent=
+    rows.reduce(
+      (a,x)=>
+        a+Number(x.chaperones||0),
+      0
+    );
 
 
-  document
-    .getElementById('eventBody')
-    .innerHTML=
+  document.getElementById(
+    'eventBody'
+  ).innerHTML=
 
-      rows.length
+    rows.length
 
-      ?
+      ? rows.map(
+          x=>`
+            <tr>
 
-      rows.map(
-        x => `
+              <td>
+                <strong>
+                  ${esc(x.event_name)}
+                </strong>
+              </td>
 
-          <tr>
+              <td>
+                ${badge(x.status)}
+              </td>
 
-            <td>
-              <strong>
-                ${esc(x.event_name)}
-              </strong>
-            </td>
+              <td>
+                ${x.participants||0}
+              </td>
 
-            <td>
-              ${badge(x.status)}
-            </td>
+              <td>
+                ${x.staff||0}
+              </td>
 
-            <td>
-              ${x.participants||0}
-            </td>
+              <td>
+                ${x.chaperones||0}
+              </td>
 
-            <td>
-              ${x.staff||0}
-            </td>
+              <td>
+                <strong>
+                  ${x.total_attendees||0}
+                </strong>
+              </td>
 
-            <td>
-              ${x.chaperones||0}
-            </td>
+              <td>
+                ${dateVal(x.kickoff_date)}
+                –
+                ${dateVal(x.wrapup_date)}
+              </td>
 
-            <td>
-              <strong>
-                ${x.total_attendees||0}
-              </strong>
-            </td>
+            </tr>
+          `
+        ).join('')
 
-            <td>
-              ${dateVal(x.kickoff_date)}
-              –
-              ${dateVal(x.wrapup_date)}
-            </td>
-
-          </tr>
-
-        `
-      ).join('')
-
-      :
-
-      `
+      : `
         <tr>
-
           <td
             colspan="7"
             class="empty"
           >
             No events match the selected filters.
           </td>
-
         </tr>
       `;
 
@@ -3460,19 +2966,17 @@ function clearSectionFilters(prefix){
       'eStatus'
     ]
 
-  }[prefix] || [];
+  }[prefix]||[];
 
 
   ids.forEach(
-    id => {
-
+    id=>{
       const e=
         document.getElementById(id);
 
       if(e){
         e.value='';
       }
-
     }
   );
 
@@ -3491,10 +2995,7 @@ function printReport(id){
   document
     .querySelectorAll('.report-section')
     .forEach(
-      x =>
-        x.classList.remove(
-          'print-target'
-        )
+      x=>x.classList.remove('print-target')
     );
 
 
@@ -3502,15 +3003,11 @@ function printReport(id){
     document.getElementById(id);
 
 
-  target.classList.add(
-    'print-target'
-  );
+  target.classList.add('print-target');
 
 
   const existing=
-    target.querySelector(
-      '.print-header'
-    );
+    target.querySelector('.print-header');
 
 
   if(existing){
@@ -3527,12 +3024,9 @@ function printReport(id){
 
 
   h.innerHTML=`
-
     <h1>
       ${esc(
-        target
-          .querySelector('h2')
-          ?.textContent ||
+        target.querySelector('h2')?.textContent||
         'Report'
       )}
     </h1>
@@ -3540,10 +3034,8 @@ function printReport(id){
     <p>
       CYF Registration System ·
       Registration Team ·
-      Generated
-      ${new Date().toLocaleString('en-PH')}
+      Generated ${new Date().toLocaleString('en-PH')}
     </p>
-
   `;
 
 
@@ -3556,11 +3048,7 @@ function printReport(id){
   setTimeout(
     ()=>{
       h.remove();
-
-      target.classList.remove(
-        'print-target'
-      );
-
+      target.classList.remove('print-target');
     },
     500
   );
@@ -3569,29 +3057,25 @@ function printReport(id){
 
 
 /* ============================================================
-   EXCEL / TSV EXPORT
+   EXCEL / TSV
    ============================================================ */
 
 function tableToTSV(table){
 
-  return [
-    ...table.rows
-  ]
-  .map(
-    r =>
-      [
-        ...r.cells
-      ]
-      .map(
-        c =>
-          c.innerText
-            .replace(/\s+/g,' ')
-            .trim()
-            .replace(/\t/g,' ')
-      )
-      .join('\t')
-  )
-  .join('\n');
+  return [...table.rows]
+    .map(
+      r=>
+        [...r.cells]
+          .map(
+            c=>
+              c.innerText
+                .replace(/\s+/g,' ')
+                .trim()
+                .replace(/\t/g,' ')
+          )
+          .join('\t')
+    )
+    .join('\n');
 
 }
 
@@ -3617,22 +3101,21 @@ function downloadBlob(
 
   a.download=name;
 
+
   a.click();
 
 
   setTimeout(
-    () =>
-      URL.revokeObjectURL(a.href),
+    ()=>{
+      URL.revokeObjectURL(a.href);
+    },
     500
   );
 
 }
 
 
-function exportSectionExcel(
-  id,
-  title
-){
+function exportSectionExcel(id,title){
 
   const section=
     document.getElementById(id);
@@ -3640,16 +3123,19 @@ function exportSectionExcel(
 
   let out=
     `${title}\n`+
-    `Generated: ${new Date().toLocaleString('en-PH')}\n\n`;
+    `Generated: ${
+      new Date().toLocaleString('en-PH')
+    }\n\n`;
 
 
   section
     .querySelectorAll('table')
     .forEach(
-      t =>
+      t=>{
         out+=
           tableToTSV(t)+
-          '\n\n'
+          '\n\n';
+      }
     );
 
 
@@ -3699,7 +3185,7 @@ function exportAllExcel(){
 
 
   sections.forEach(
-    ([id,title]) => {
+    ([id,title])=>{
 
       out+=
         `===== ${title} =====\n`;
@@ -3710,10 +3196,11 @@ function exportAllExcel(){
           '#'+id+' table'
         )
         .forEach(
-          t =>
+          t=>{
             out+=
               tableToTSV(t)+
-              '\n\n'
+              '\n\n';
+          }
         );
 
     }
@@ -3734,15 +3221,13 @@ function exportAllExcel(){
 
 window.addEventListener(
   'afterprint',
-  () =>
+  ()=>{
     document
       .querySelectorAll('.print-target')
       .forEach(
-        x =>
-          x.classList.remove(
-            'print-target'
-          )
-      )
+        x=>x.classList.remove('print-target')
+      );
+  }
 );
 
 
