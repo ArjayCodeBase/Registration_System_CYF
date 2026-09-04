@@ -23033,16 +23033,21 @@ def sponsor_dashboard_stats(
 
 
     # ========================================================
-    # GET TOTAL SPONSORED PARTICIPANTS
+    # GET FINDING SPONSOR PARTICIPANTS
     #
-    # A participant is considered sponsored when:
+    # A participant is considered a completed sponsored
+    # participant when:
+    #
     # - participant_type = Finding Sponsor
-    # - T-shirt is Paid
+    # - T-Shirt is Paid
     # - Lanyard is Paid
+    # - participant is NOT archived
     #
+    # These participants are the ones whose sponsorship cost
+    # is deducted from the donation fund.
     # ========================================================
 
-    total_sponsored_participants = (
+    finding_sponsor_participants = (
         db.query(
             Participant
         )
@@ -23072,7 +23077,27 @@ def sponsor_dashboard_stats(
 
 
     # ========================================================
+    # TOTAL SPONSORED PARTICIPANTS
+    #
+    # Keep this field for compatibility with the existing
+    # frontend.
+    #
+    # It represents the same completed Finding Sponsor
+    # participants.
+    # ========================================================
+
+    total_sponsored_participants = (
+        finding_sponsor_participants
+    )
+
+
+    # ========================================================
     # GET CURRENT T-SHIRT PRICE
+    #
+    # RegistrationItem.price is stored in CENTAVOS.
+    #
+    # Example:
+    # 35000 = ₱350.00
     # ========================================================
 
     tshirt_item = (
@@ -23106,6 +23131,11 @@ def sponsor_dashboard_stats(
 
     # ========================================================
     # GET CURRENT LANYARD PRICE
+    #
+    # RegistrationItem.price is stored in CENTAVOS.
+    #
+    # Example:
+    # 9000 = ₱90.00
     # ========================================================
 
     lanyard_item = (
@@ -23139,6 +23169,16 @@ def sponsor_dashboard_stats(
 
     # ========================================================
     # SPONSORSHIP COST PER PARTICIPANT
+    #
+    # Every Finding Sponsor participant receives:
+    #
+    # T-Shirt + Lanyard
+    #
+    # Example:
+    # T-Shirt = ₱350
+    # Lanyard = ₱90
+    #
+    # Sponsorship cost = ₱440 per participant
     # ========================================================
 
     sponsorship_amount_per_participant = (
@@ -23152,14 +23192,16 @@ def sponsor_dashboard_stats(
     #
     # Example:
     #
-    # 10 sponsored participants
-    # ₱440 sponsorship cost each
+    # Finding Sponsor participants = 10
+    # Sponsorship cost per participant = ₱440
     #
-    # Used = ₱4,400
+    # Used Donation Fund:
+    #
+    # 10 × ₱440 = ₱4,400
     # ========================================================
 
     total_used_donation_fund = (
-        total_sponsored_participants *
+        finding_sponsor_participants *
         sponsorship_amount_per_participant
     )
 
@@ -23167,8 +23209,9 @@ def sponsor_dashboard_stats(
     # ========================================================
     # TOTAL DONATION FUND EVER RECEIVED
     #
-    # Current balance + amount already used
-    #
+    # Current remaining cash balance
+    # +
+    # amount already used for Finding Sponsor participants
     # ========================================================
 
     total_donation_fund_received = (
@@ -23180,15 +23223,20 @@ def sponsor_dashboard_stats(
     # ========================================================
     # RETURN DASHBOARD STATISTICS
     #
-    # Amounts are returned in PESOS.
+    # IMPORTANT:
     #
-    # No extra /100 conversion is applied to the donation
-    # balance because CashDonationTotal.total_amount is already
-    # stored in pesos.
+    # CashDonationTotal.total_amount is already PESOS.
+    #
+    # RegistrationItem.price is CENTAVOS, therefore the item
+    # prices were converted to PESOS above.
     # ========================================================
 
     return {
         "success": True,
+
+        # ----------------------------------------------------
+        # CURRENT REMAINING CASH DONATION FUND
+        # ----------------------------------------------------
 
         "cash_donation_total":
             round(
@@ -23199,8 +23247,57 @@ def sponsor_dashboard_stats(
         "cash_donation_total_display":
             f"₱{cash_donation_total:,.2f}",
 
+        "remaining_donation_fund":
+            round(
+                cash_donation_total,
+                2
+            ),
+
+        "remaining_donation_fund_display":
+            f"₱{cash_donation_total:,.2f}",
+
+
+        # ----------------------------------------------------
+        # FINDING SPONSOR PARTICIPANTS
+        # ----------------------------------------------------
+
+        "finding_sponsor_participants":
+            finding_sponsor_participants,
+
         "total_sponsored_participants":
             total_sponsored_participants,
+
+
+        # ----------------------------------------------------
+        # INDIVIDUAL SPONSORSHIP ITEM PRICES
+        #
+        # These are returned explicitly so report.html can
+        # calculate the sponsorship cost even if the combined
+        # value is missing.
+        # ----------------------------------------------------
+
+        "tshirt_price":
+            round(
+                tshirt_price,
+                2
+            ),
+
+        "tshirt_price_display":
+            f"₱{tshirt_price:,.2f}",
+
+        "lanyard_price":
+            round(
+                lanyard_price,
+                2
+            ),
+
+        "lanyard_price_display":
+            f"₱{lanyard_price:,.2f}",
+
+
+        # ----------------------------------------------------
+        # SPONSORSHIP COST PER PARTICIPANT
+        # ----------------------------------------------------
 
         "sponsorship_amount_per_participant":
             round(
@@ -23211,6 +23308,11 @@ def sponsor_dashboard_stats(
         "sponsorship_amount_per_participant_display":
             f"₱{sponsorship_amount_per_participant:,.2f}",
 
+
+        # ----------------------------------------------------
+        # TOTAL USED DONATION FUND
+        # ----------------------------------------------------
+
         "total_used_donation_fund":
             round(
                 total_used_donation_fund,
@@ -23220,6 +23322,11 @@ def sponsor_dashboard_stats(
         "total_used_donation_fund_display":
             f"₱{total_used_donation_fund:,.2f}",
 
+
+        # ----------------------------------------------------
+        # TOTAL DONATION FUND EVER RECEIVED
+        # ----------------------------------------------------
+
         "total_donation_fund_received":
             round(
                 total_donation_fund_received,
@@ -23228,7 +23335,7 @@ def sponsor_dashboard_stats(
 
         "total_donation_fund_received_display":
             f"₱{total_donation_fund_received:,.2f}"
-    }    
+    }
     
     
     
