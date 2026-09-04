@@ -250,10 +250,24 @@ function toggleEventMenu(){document.querySelector('.nav-group').classList.toggle
 
 async function loadReports(){
   try{
-    const r=await fetch(API_BASE+'/report_dashboard_data',{credentials:'include'});
-    if(!r.ok)throw new Error('HTTP '+r.status);
-    DATA=await r.json();
+    const [reportResponse, sponsorResponse] = await Promise.all([
+      fetch(API_BASE+'/report_dashboard_data',{credentials:'include'}),
+      fetch(API_BASE+'/sponsor_dashboard_stats',{credentials:'include'})
+    ]);
+
+    if(!reportResponse.ok)throw new Error('Report API HTTP '+reportResponse.status);
+    if(!sponsorResponse.ok)throw new Error('Sponsor statistics API HTTP '+sponsorResponse.status);
+
+    DATA=await reportResponse.json();
+    const sponsorStats=await sponsorResponse.json();
+
     if(DATA.success===false)throw new Error(DATA.detail||'Unable to load reports');
+    if(sponsorStats.success===false)throw new Error(sponsorStats.detail||'Unable to load sponsor statistics');
+
+    // Use the exact same sponsor statistics endpoint as sponsor_management.html.
+    // In particular, Total Used Donation Fund comes directly from
+    // /sponsor_dashboard_stats so both pages display the same amount.
+    DATA.sponsor_stats=sponsorStats;
     document.getElementById('summaryParticipants').textContent=DATA.participants.length;
     document.getElementById('summaryStaff').textContent=DATA.staff.length;
     document.getElementById('summaryChaperone').textContent=DATA.chaperones.length;
@@ -310,15 +324,17 @@ function renderSponsors(){
   const q=document.getElementById('spSearch').value.toLowerCase(), type=document.getElementById('spType').value.toLowerCase(), status=document.getElementById('spStatus').value.toLowerCase();
   const rows=DATA.sponsors.filter(x=>(!q||[x.sponsor_name,x.item_name,x.sector].join(' ').toLowerCase().includes(q))&&(!type||String(x.type||'').toLowerCase()===type)&&(!status||String(x.status||'').toLowerCase()===status));
   const st=DATA.sponsor_stats||{};
+
+  // Match sponsor_management.html exactly: use the value returned by
+  // /sponsor_dashboard_stats instead of recalculating it in the report.
   const findingSponsorCount=Number(st.finding_sponsor_participants||st.total_sponsored_participants||0);
   const sponsorshipCostPerParticipant=Number(st.sponsorship_amount_per_participant||0);
-  const calculatedUsedDonationFund=findingSponsorCount*sponsorshipCostPerParticipant;
-  const usedDonationFund=Number.isFinite(calculatedUsedDonationFund)?calculatedUsedDonationFund:Number(st.total_used_donation_fund||0);
+  const usedDonationFund=Number(st.total_used_donation_fund||0);
 
   document.getElementById('spCash').textContent=money(st.cash_donation_total);
-  document.getElementById('spSponsored').textContent=findingSponsorCount;
+  document.getElementById('spSponsored').textContent=Number(st.total_sponsored_participants||findingSponsorCount);
   document.getElementById('spUsed').textContent=money(usedDonationFund);
-  document.getElementById('spRemaining').textContent=money(st.remaining_donation_fund);
+  document.getElementById('spRemaining').textContent=money(st.remaining_donation_fund ?? st.cash_donation_total);
   document.getElementById('spFinding').textContent=findingSponsorCount;
   document.getElementById('spCashCount').textContent=st.cash_sponsor_total||0;
   document.getElementById('spItemCount').textContent=st.item_sponsor_total||0;
