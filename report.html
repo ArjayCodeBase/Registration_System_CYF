@@ -195,6 +195,7 @@
       <div class="report-kpi"><div class="label">Used Donation Fund</div><div class="value" id="spUsed">₱0.00</div><div class="kpi-note" id="spUsedNote">Finding Sponsor participants × sponsorship cost</div></div>
       <div class="report-kpi"><div class="label">Remaining Donation Fund</div><div class="value" id="spRemaining">₱0.00</div><div class="kpi-note">Current balance from Cash Donation Total</div></div>
       <div class="report-kpi"><div class="label">Finding Sponsor Participants</div><div class="value" id="spFinding">0</div></div>
+
     </div>
     <div class="report-table-card"><div class="table-head"><div><strong>Sponsor Records</strong></div><span>Cash / item sponsors</span></div><div class="table-wrap"><table id="sponsorTable"><thead><tr><th>Type</th><th>Sponsor</th><th>Item</th><th>Quantity</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead><tbody id="sponsorBody"></tbody></table></div></div>
     <div style="height:16px"></div>
@@ -333,9 +334,7 @@ function renderSponsors(){
   document.getElementById('spUsed').textContent=money(usedDonationFund);
   document.getElementById('spRemaining').textContent=money(st.remaining_donation_fund ?? st.cash_donation_total);
   document.getElementById('spFinding').textContent=findingSponsorCount;
-  document.getElementById('spCashCount').textContent=st.cash_sponsor_total||0;
-  document.getElementById('spItemCount').textContent=st.item_sponsor_total||0;
-  document.getElementById('spInventoryCount').textContent=DATA.sponsor_inventory.length;
+
 
   const usedNote=document.getElementById('spUsedNote');
   if(usedNote){
