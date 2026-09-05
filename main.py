@@ -2,6 +2,9 @@ from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks, Request, U
 from fastapi import BackgroundTasks
 from starlette.requests import ClientDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.sessions import SessionMiddleware
+from fastapi.responses import RedirectResponse
+import secrets
 from typing import List, Optional
 from pathlib import Path
 import time
@@ -13,6 +16,7 @@ from types import SimpleNamespace
 import uuid
 import shutil
 import urllib.error
+import urllib.parse
 from fastapi.responses import JSONResponse
 import urllib.request
 from fastapi.staticfiles import StaticFiles
@@ -73,6 +77,23 @@ import qrcode
 app = FastAPI(
     title="Event Registration System",
     version="1.0.0"
+)
+
+# ======================================================
+# SESSION AUTHENTICATION
+# ======================================================
+# Signed session cookie used to protect dashboard/page URLs.
+# Set SESSION_SECRET_KEY in production.
+SESSION_SECRET_KEY = os.getenv("SESSION_SECRET_KEY") or secrets.token_urlsafe(32)
+SESSION_HTTPS_ONLY = os.getenv("SESSION_HTTPS_ONLY", "false").lower() == "true"
+
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=SESSION_SECRET_KEY,
+    session_cookie="cyf_session",
+    max_age=60 * 60 * 8,
+    same_site="lax",
+    https_only=SESSION_HTTPS_ONLY,
 )
 
 # ============================================================
@@ -5593,6 +5614,56 @@ def add_cash_donation_to_total(
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
+# ======================================================
+# PROTECTED PAGE ROUTES
+# ======================================================
+ADMIN_PROTECTED_PAGES = {
+    "/admin_dashboard.html", "/activity_event.html", "/team_event.html",
+    "/program_event.html", "/finances_event.html", "/report_event.html",
+    "/event_event.html", "/participants.html", "/staff.html",
+    "/chaperone.html", "/store_items.html", "/sponsor_management.html",
+    "/payment_management.html", "/report.html", "/admin/dashboard",
+}
+
+REGISTRATION_PROTECTED_PAGES = {
+    "/registration_dashboard.html", "/activity_event_rt.html",
+    "/team_event_rt.html", "/program_event_rt.html", "/finances_event_rt.html",
+    "/report_event_rt.html", "/event_event_rt.html", "/participants_rt.html",
+    "/staff_rt.html", "/chaperone_rt.html", "/store_items_rt.html",
+    "/sponsor_management_rt.html", "/payment_management_rt.html",
+    "/report_rt.html", "/registration/dashboard",
+}
+
+@app.middleware("http")
+async def session_auth_middleware(request: Request, call_next):
+    path = request.url.path.rstrip("/") or "/"
+    required_role = (
+        "Admin" if path in ADMIN_PROTECTED_PAGES else
+        "Registration Team" if path in REGISTRATION_PROTECTED_PAGES else None
+    )
+
+    if required_role:
+        session_user = request.session.get("user")
+        if not session_user:
+            next_url = request.url.path
+            if request.url.query:
+                next_url += "?" + request.url.query
+            return RedirectResponse(
+                url=f"/login.html?next={urllib.parse.quote(next_url, safe='')}",
+                status_code=303,
+            )
+
+        if session_user.get("role") != required_role:
+            if session_user.get("role") == "Admin":
+                return RedirectResponse("/admin/dashboard", status_code=303)
+            if session_user.get("role") == "Registration Team":
+                return RedirectResponse("/registration/dashboard", status_code=303)
+            request.session.clear()
+            return RedirectResponse("/login.html", status_code=303)
+
+    return await call_next(request)
+
+
 
 @app.get("/")
 def home():
@@ -5902,11 +5973,9 @@ def favicon_page():
     response_model=LoginResponseSchema
 )
 def auth_login_user(
-
     login: LoginSchema,
-
+    request: Request,
     db: Session = Depends(get_db)
-
 ):
 
     user = db.query(User).filter(
@@ -5944,6 +6013,14 @@ def auth_login_user(
     user.last_login = datetime.datetime.now()
 
     db.commit()
+
+    
+    request.session.clear()
+    request.session["user"] = {
+        "user_id": user.id,
+        "username": user.username,
+        "role": user.role,
+    }
 
     fullname = f"{user.fname} {user.lname}"
 
@@ -5989,17 +6066,14 @@ def auth_login_user(
     
 @app.post("/auth_logout_user")
 def auth_logout_user(
-
-    logout: LogoutSchema
-
+    request: Request
 ):
-
+    session_user = request.session.get("user") or {}
+    username = session_user.get("username")
+    request.session.clear()
     return {
-
         "message": "Logout Successful",
-
-        "username": logout.username
-
+        "username": username
     }
 
 # ======================================================
