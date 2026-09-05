@@ -3,47 +3,57 @@
 // ========================================
 // LOGOUT
 // ========================================
-function logout(event) {
+async function logout(event) {
 
+    // Prevent the <a href="home.html"> from
+    // navigating before the logout request finishes.
     if (event) {
         event.preventDefault();
     }
 
-    // Mark user as logged out
-    sessionStorage.setItem("loggedOut", "true");
+    // Ask for confirmation
+    const confirmed = confirm("Are you sure you want to logout?");
 
-    // Go to login page
-    window.location.replace("login.html");
+    if (!confirmed) {
+        return;
+    }
+
+    try {
+
+        // Send logout request to the backend.
+        // The backend will clear the SessionMiddleware session.
+        const response = await fetch("/auth_logout_user", {
+            method: "POST",
+            credentials: "same-origin"
+        });
+
+        // Logout successful
+        if (response.ok) {
+
+            // Redirect after the backend session
+            // has been successfully cleared.
+            window.location.replace("/home.html");
+
+            return;
+        }
+
+        // Backend returned an error
+        console.error(
+            "Logout failed:",
+            response.status,
+            response.statusText
+        );
+
+        alert("Logout failed. Please try again.");
+
+    } catch (error) {
+
+        // Network/server error
+        console.error("Logout error:", error);
+
+        alert(
+            "Unable to connect to the server. " +
+            "Please check your connection and try again."
+        );
+    }
 }
-
-
-// ========================================
-// PROTECTED PAGE CHECK
-// ========================================
-(function checkLogoutStatus() {
-
-    const currentPage = window.location.pathname
-        .split("/")
-        .pop()
-        .toLowerCase();
-
-    // Login page is always allowed to load.
-    // DO NOT reset loggedOut here.
-    if (currentPage === "login.html") {
-        return;
-    }
-
-    // Home page is always allowed.
-    if (currentPage === "home.html") {
-        return;
-    }
-
-    // If user logged out, prevent access
-    // to protected pages.
-    if (sessionStorage.getItem("loggedOut") === "true") {
-
-        window.location.replace("home.html");
-
-    }
-
-})();
