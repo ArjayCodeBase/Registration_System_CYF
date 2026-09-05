@@ -10,7 +10,6 @@ from pathlib import Path
 import time
 import re
 import io
-
 import asyncio
 from types import SimpleNamespace
 import uuid
@@ -74,27 +73,47 @@ import qrcode
 # APP CONFIGURATION
 # ======================================================
 
-app = FastAPI(
-    title="Event Registration System",
-    version="1.0.0"
-)
+app = FastAPI(...)
+
 
 # ======================================================
-# SESSION AUTHENTICATION
+# PROTECTED PAGES
 # ======================================================
-# Signed session cookie used to protect dashboard/page URLs.
-# Set SESSION_SECRET_KEY in production.
-SESSION_SECRET_KEY = os.getenv("SESSION_SECRET_KEY") or secrets.token_urlsafe(32)
-SESSION_HTTPS_ONLY = os.getenv("SESSION_HTTPS_ONLY", "false").lower() == "true"
 
-app.add_middleware(
-    SessionMiddleware,
-    secret_key=SESSION_SECRET_KEY,
-    session_cookie="cyf_session",
-    max_age=60 * 60 * 8,
-    same_site="lax",
-    https_only=SESSION_HTTPS_ONLY,
-)
+ADMIN_PROTECTED_PAGES = {
+    "/admin_dashboard.html",
+    "/activity_event.html",
+    "/team_event.html",
+    "/program_event.html",
+    "/finances_event.html",
+    "/report_event.html",
+    "/event_event.html",
+    "/participants.html",
+    "/staff.html",
+    "/chaperone.html",
+    "/store_items.html",
+    "/sponsor_management.html",
+    "/payment_management.html",
+    "/report.html",
+}
+
+
+REGISTRATION_PROTECTED_PAGES = {
+    "/registration_dashboard.html",
+    "/activity_event_rt.html",
+    "/team_event_rt.html",
+    "/program_event_rt.html",
+    "/finances_event_rt.html",
+    "/report_event_rt.html",
+    "/event_event_rt.html",
+    "/participants_rt.html",
+    "/staff_rt.html",
+    "/chaperone_rt.html",
+    "/store_items_rt.html",
+    "/sponsor_management_rt.html",
+    "/payment_management_rt.html",
+    "/report_rt.html",
+}
 
 # ============================================================
 # STATIC FILES
@@ -5634,34 +5653,99 @@ REGISTRATION_PROTECTED_PAGES = {
     "/report_rt.html", "/registration/dashboard",
 }
 
+# ======================================================
+# AUTHENTICATION MIDDLEWARE
+# ======================================================
+
 @app.middleware("http")
 async def session_auth_middleware(request: Request, call_next):
+
     path = request.url.path.rstrip("/") or "/"
+
     required_role = (
-        "Admin" if path in ADMIN_PROTECTED_PAGES else
-        "Registration Team" if path in REGISTRATION_PROTECTED_PAGES else None
+        "Admin"
+        if path in ADMIN_PROTECTED_PAGES
+        else
+        "Registration Team"
+        if path in REGISTRATION_PROTECTED_PAGES
+        else
+        None
     )
 
     if required_role:
+
         session_user = request.session.get("user")
+
         if not session_user:
+
             next_url = request.url.path
+
             if request.url.query:
                 next_url += "?" + request.url.query
+
             return RedirectResponse(
-                url=f"/login.html?next={urllib.parse.quote(next_url, safe='')}",
-                status_code=303,
+                url=(
+                    "/login.html?next="
+                    + urllib.parse.quote(next_url, safe="")
+                ),
+                status_code=303
             )
 
         if session_user.get("role") != required_role:
+
             if session_user.get("role") == "Admin":
-                return RedirectResponse("/admin/dashboard", status_code=303)
+                return RedirectResponse(
+                    "/admin_dashboard.html",
+                    status_code=303
+                )
+
             if session_user.get("role") == "Registration Team":
-                return RedirectResponse("/registration/dashboard", status_code=303)
+                return RedirectResponse(
+                    "/registration_dashboard.html",
+                    status_code=303
+                )
+
             request.session.clear()
-            return RedirectResponse("/login.html", status_code=303)
+
+            return RedirectResponse(
+                "/login.html",
+                status_code=303
+            )
 
     return await call_next(request)
+
+
+# ======================================================
+# SESSION MIDDLEWARE
+# MUST BE REGISTERED AFTER THE AUTH MIDDLEWARE
+# ======================================================
+
+SESSION_SECRET_KEY = os.getenv("SESSION_SECRET_KEY")
+
+if not SESSION_SECRET_KEY:
+    raise RuntimeError(
+        "SESSION_SECRET_KEY environment variable is not set."
+    )
+
+SESSION_HTTPS_ONLY = (
+    os.getenv("SESSION_HTTPS_ONLY", "false").lower() == "true"
+)
+
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=SESSION_SECRET_KEY,
+    session_cookie="cyf_session",
+    max_age=60 * 60 * 8,
+    same_site="lax",
+    https_only=SESSION_HTTPS_ONLY,
+)
+
+
+
+
+
+
+
 
 
 
