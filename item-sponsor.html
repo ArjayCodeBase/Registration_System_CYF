@@ -1081,31 +1081,31 @@
                      CONTACT
                      ========================================== -->
 
-                <div class="form-group">
 
-                    <label for="contact">
+            <div class="form-group">
 
-                        Contact Number
+            <label for="contact">
+            Contact Number
+            <span class="required">*</span>
+            </label>
 
-                        <span class="optional">
-                            (Optional)
-                        </span>
+            <input
+            type="tel"
+            id="contact"
+            name="contact"
+            placeholder="09XXXXXXXXX"
+            autocomplete="tel"
+            inputmode="numeric"
+            pattern="09[0-9]{9}"
+            maxlength="11"
+            minlength="11"
+            oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 11)"
+            required
+        >
 
-                    </label>
+            </div>
 
-                    <input
-                        type="tel"
-                        id="contact"
-                        name="contact"
-                        placeholder="09XXXXXXXXX"
-                        autocomplete="tel"
-                    >
 
-                    <small>
-                        If left blank, 0910101010 will be used.
-                    </small>
-
-                </div>
 
 
 
@@ -1119,8 +1119,8 @@
 
                         Email Address
 
-                        <span class="optional">
-                            (Optional)
+                    <span class="required">
+                            *
                         </span>
 
                     </label>
@@ -1132,10 +1132,6 @@
                         placeholder="you@example.com"
                         autocomplete="email"
                     >
-
-                    <small>
-                        If left blank, optional@mail.com will be used.
-                    </small>
 
                 </div>
 
