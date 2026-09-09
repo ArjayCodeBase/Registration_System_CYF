@@ -3743,7 +3743,7 @@ class StorePurchaseSchema(BaseModel):
 # ============================================================
 
 CONTACT_RECEIVER_EMAIL = (
-    "matulacarianjay1@gmail.com"
+    "register.caragayouthfellowship@gmail.com"
 )
 
 
@@ -3772,7 +3772,7 @@ class ContactRequest(BaseModel):
 # ==========================================================
 
 CONTACT_RECEIVER = (
-    "matulacarianjay1@gmail.com"
+    "register.caragayouthfellowship@gmail.com"
 )
 
 
