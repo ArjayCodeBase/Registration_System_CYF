@@ -22053,6 +22053,49 @@ async def process_finding_sponsor_queue(
     db: Session = Depends(get_db)
 ):
 
+    # ========================================================
+    # CHECK MANUAL FINDING SPONSOR SETTING
+    #
+    # IMPORTANT:
+    # This setting ONLY controls queue processing.
+    #
+    # It does NOT block:
+    # - /sponsorship/create_cash
+    # - PayMongo payments
+    # - PayMongo webhook payment recording
+    #
+    # When OFF, this endpoint cannot process the queue.
+    # ========================================================
+
+    manual_sponsor_setting = db.execute(text("""
+        SELECT enabled
+        FROM manual_sponsor_settings
+        WHERE id = 1
+    """)).fetchone()
+
+    if (
+        not manual_sponsor_setting
+        or not bool(manual_sponsor_setting[0])
+    ):
+
+        print("\n")
+        print("=" * 70)
+        print("MANUAL FIND SPONSOR PROCESSING BLOCKED")
+        print("=" * 70)
+        print(
+            "Manual Finding Sponsor function is currently OFF."
+        )
+        print("=" * 70)
+
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "Manual Finding Sponsor function is "
+                "currently turned OFF by the administrator."
+            )
+        )
+
+
     print("\n")
     print("=" * 70)
     print("MANUAL FIND SPONSOR PROCESSING")
