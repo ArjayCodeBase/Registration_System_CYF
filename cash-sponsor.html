@@ -2691,6 +2691,7 @@ document.addEventListener(
         );
 
 
+
         /* =================================================
            FINDING SPONSOR QUEUE DISABLED
            
@@ -2699,13 +2700,11 @@ document.addEventListener(
            
            IMPORTANT:
            
-           Payment is already successful.
+           The payment is already successful.
            This is NOT a payment failure.
            
-           Cash sponsorship remains recorded.
-           
-           The page will still refresh according to the
-           3-second payment-success timer.
+           The cash sponsorship remains recorded and
+           the payment remains valid.
            ================================================= */
 
         if (
@@ -2748,20 +2747,25 @@ document.addEventListener(
 
 
           /*
-           * Show dedicated queue-disabled message.
+           * Show the dedicated queue-disabled message.
            */
 
           queueDisabled.style.display =
             "block";
 
 
-          /*
-           * The refresh timer is already running.
-           */
-
           refreshMessage.textContent =
-            "Payment confirmed. Finding Sponsor queue is currently turned off. Refreshing the page...";
+            "Payment confirmed. Finding Sponsor queue is currently turned off by the administrator. Refreshing the page...";
 
+
+          /*
+           * The payment was successful.
+           *
+           * The queue is OFF, so we do not process it.
+           *
+           * However, the page must still refresh
+           * 3 seconds after payment confirmation.
+           */
 
           queueDisabled.scrollIntoView(
             {
@@ -2771,9 +2775,21 @@ document.addEventListener(
           );
 
 
+          setTimeout(
+            function () {
+
+              window.location.reload();
+
+            },
+            3000
+          );
+
+
           return;
 
         }
+
+
 
 
         /* =================================================
