@@ -23623,6 +23623,359 @@ def sponsor_dashboard_stats(
 
 
 
+
+
+
+# ======================================================
+# VIEW ACTIVE PARTICIPANTS
+# ======================================================
+
+@app.get("/registration_view_active_participants")
+def registration_view_active_participants(
+    db: Session = Depends(get_db)
+):
+
+    # ==================================================
+    # GET ACTIVE PARTICIPANTS
+    # ==================================================
+
+    participants = db.query(Participant).filter(
+        Participant.is_archived == 0
+    ).all()
+
+    result = []
+
+    for participant in participants:
+
+        # ==================================================
+        # FULL NAME
+        # ==================================================
+
+        fullname = " ".join(
+            part for part in [
+                participant.fname,
+                participant.mname,
+                participant.lname
+            ]
+            if part
+        ).strip()
+
+        # ==================================================
+        # REGISTRATION NUMBER
+        # ==================================================
+
+        registration_number = str(
+            participant.registration_number or ""
+        ).strip()
+
+        # ==================================================
+        # EVENT NAME
+        # ==================================================
+
+        event_name = str(
+            participant.event_name or ""
+        ).strip()
+
+        # ==================================================
+        # PARTICIPANT TYPE
+        # ==================================================
+
+        participant_type = str(
+            participant.participant_type or ""
+        ).strip()
+
+        is_sponsor_participant = (
+            participant_type.lower()
+            == "finding sponsor"
+        )
+
+        # ==================================================
+        # PAYMENT STATUS
+        # ==================================================
+
+        tshirt_status = str(
+            participant.tshirt_status or "Unpaid"
+        )
+
+        lanyard_status = str(
+            participant.lanyard_status or "Unpaid"
+        )
+
+        tshirt_status_lower = (
+            tshirt_status.lower()
+        )
+
+        lanyard_status_lower = (
+            lanyard_status.lower()
+        )
+
+        if (
+            tshirt_status_lower == "paid"
+            and
+            lanyard_status_lower == "paid"
+        ):
+
+            payment_status = "Paid"
+
+        elif (
+            tshirt_status_lower == "paid"
+            or
+            lanyard_status_lower == "paid"
+        ):
+
+            payment_status = "Partial"
+
+        else:
+
+            payment_status = "Unpaid"
+
+        # ==================================================
+        # SPONSORSHIP STATUS
+        # ==================================================
+
+        if is_sponsor_participant:
+
+            sponsorship_status = (
+                "Sponsored in Review"
+            )
+
+            if (
+                tshirt_status_lower == "paid"
+                and
+                lanyard_status_lower == "paid"
+            ):
+
+                merchandise_status = (
+                    "Sponsored Confirmed"
+                )
+
+            elif (
+                tshirt_status_lower == "paid"
+                or
+                lanyard_status_lower == "paid"
+            ):
+
+                merchandise_status = (
+                    "Sponsored - Partial"
+                )
+
+            else:
+
+                merchandise_status = (
+                    "Sponsored in Review"
+                )
+
+            payment_status = (
+                sponsorship_status
+            )
+
+        else:
+
+            sponsorship_status = None
+            merchandise_status = payment_status
+
+        # ==================================================
+        # PARTICIPANT TIER / EVALUATION
+        # ==================================================
+
+        evaluation = db.query(
+            ParticipantEvaluation
+        ).filter(
+            ParticipantEvaluation.participant_id
+            == participant.id
+        ).first()
+
+        participant_tier = (
+            evaluation.participant_tier
+            if evaluation
+            else None
+        )
+
+        # ==================================================
+        # GENERATE QR CODE
+        #
+        # QR CONTENT:
+        # REGISTRATION NUMBER ONLY
+        # ==================================================
+
+        qr_code_base64 = None
+
+        if registration_number:
+
+            try:
+
+                qr = qrcode.QRCode(
+                    version=None,
+                    error_correction=qrcode.constants.ERROR_CORRECT_M,
+                    box_size=10,
+                    border=4
+                )
+
+                qr.add_data(
+                    registration_number
+                )
+
+                qr.make(
+                    fit=True
+                )
+
+                qr_image = qr.make_image(
+                    fill_color="black",
+                    back_color="white"
+                )
+
+                qr_buffer = io.BytesIO()
+
+                qr_image.save(
+                    qr_buffer,
+                    format="PNG"
+                )
+
+                qr_buffer.seek(0)
+
+                qr_code_base64 = (
+                    "data:image/png;base64,"
+                    +
+                    base64.b64encode(
+                        qr_buffer.getvalue()
+                    ).decode("utf-8")
+                )
+
+            except Exception as e:
+
+                print(
+                    "QR CODE GENERATION ERROR:",
+                    repr(e)
+                )
+
+                qr_code_base64 = None
+
+        # ==================================================
+        # RESULT
+        # ==================================================
+
+        result.append({
+
+            # ----------------------------------------------
+            # PARTICIPANT
+            # ----------------------------------------------
+
+            "participant_id":
+                participant.id,
+
+            "registration_number":
+                registration_number,
+
+            "fullname":
+                fullname,
+
+            # ----------------------------------------------
+            # QR CODE
+            # ----------------------------------------------
+
+            "qr_code":
+                qr_code_base64,
+
+            "qr_code_filename":
+                (
+                    f"{registration_number}-QR.png"
+                    if registration_number
+                    else
+                    f"participant-{participant.id}-QR.png"
+                ),
+
+            # ----------------------------------------------
+            # EVENT
+            # ----------------------------------------------
+
+            "event_name":
+                participant.event_name,
+
+            # ----------------------------------------------
+            # PARTICIPANT TYPE
+            # ----------------------------------------------
+
+            "participant_type":
+                participant_type,
+
+            "is_sponsor_participant":
+                is_sponsor_participant,
+
+            # ----------------------------------------------
+            # REGISTRATION
+            # ----------------------------------------------
+
+            "registration_phase":
+                participant.registration_phase,
+
+            "registration_status":
+                participant.registration_status,
+
+            # ----------------------------------------------
+            # PAYMENT
+            # ----------------------------------------------
+
+            "payment_status":
+                payment_status,
+
+            # ----------------------------------------------
+            # SPONSORSHIP
+            # ----------------------------------------------
+
+            "sponsorship_status":
+                sponsorship_status,
+
+            # ----------------------------------------------
+            # MERCHANDISE
+            # ----------------------------------------------
+
+            "merchandise_status":
+                merchandise_status,
+
+            "tshirt_status":
+                participant.tshirt_status or "Unpaid",
+
+            "lanyard_status":
+                participant.lanyard_status or "Unpaid",
+
+            # ----------------------------------------------
+            # EVALUATION
+            # ----------------------------------------------
+
+            "participant_tier":
+                participant_tier
+        })
+
+    return result
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # ============================================================
 # REPORT DASHBOARD DATA
 # Add this endpoint to main(6).py
