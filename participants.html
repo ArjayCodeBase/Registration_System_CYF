@@ -60,11 +60,34 @@ function statusClass(v){let s=String(v||'').toLowerCase();return s.includes('con
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800)}
 async function api(path,options={}){const r=await fetch(API_BASE+path,{headers:{'Content-Type':'application/json',...(options.headers||{})},...options});let data;try{data=await r.json()}catch{data={}}if(!r.ok)throw new Error(data.detail||data.message||`Request failed (${r.status})`);return data}
 async function loadParticipants(){
- document.getElementById('participantBody').innerHTML='<tr><td colspan="7" class="empty"><div class="empty-icon">⌕</div>Search for a participant using at least 2 characters.</td></tr>';
- participants=[];
- updateStats([]);
- document.getElementById('resultText').textContent=' • Search required';
- document.getElementById('pageText').textContent='0 participants';
+    document.getElementById('participantBody').innerHTML =
+        '<tr><td colspan="7" class="empty"><div class="empty-icon">◷</div>Loading participants...</td></tr>';
+
+    try{
+        participants = await api(
+            '/registration_view_active_participants'
+        );
+
+        renderParticipants(participants);
+        populateFilters(participants);
+
+    }catch(e){
+
+        document.getElementById('participantBody').innerHTML =
+            `<tr>
+                <td colspan="7" class="empty">
+                    <div class="empty-icon">!</div>
+                    ${esc(e.message)}
+                    <br>
+                    <small>
+                        Check that the FastAPI server is running
+                        and API_BASE is correct.
+                    </small>
+                </td>
+            </tr>`;
+
+        showToast(e.message);
+    }
 }
 function populateFilters(list){
  const add=(id,values,label)=>{const el=document.getElementById(id),old=el.value;el.innerHTML=`<option value="">${label}</option>`;[...new Set(values.filter(Boolean).map(String))].sort().forEach(v=>el.innerHTML+=`<option value="${esc(v)}">${esc(v)}</option>`);el.value=old};
