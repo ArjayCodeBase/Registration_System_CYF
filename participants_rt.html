@@ -741,35 +741,34 @@ async function api(path,options={}){
 
 
 async function loadParticipants(){
+    document.getElementById('participantBody').innerHTML =
+        '<tr><td colspan="7" class="empty"><div class="empty-icon">◷</div>Loading participants...</td></tr>';
 
-  document.getElementById('participantBody').innerHTML=
-    '<tr><td colspan="7" class="empty"><div class="empty-icon">◷</div>Loading participants...</td></tr>';
+    try{
+        participants = await api(
+            '/registration_view_active_participants'
+        );
 
-  try{
+        renderParticipants(participants);
+        populateFilters(participants);
 
-    participants=
-      await api('/registration_search_participant?keyword=');
+    }catch(e){
 
-    renderParticipants(participants);
+        document.getElementById('participantBody').innerHTML =
+            `<tr>
+                <td colspan="7" class="empty">
+                    <div class="empty-icon">!</div>
+                    ${esc(e.message)}
+                    <br>
+                    <small>
+                        Check that the FastAPI server is running
+                        and API_BASE is correct.
+                    </small>
+                </td>
+            </tr>`;
 
-    populateFilters(participants);
-
-  }catch(e){
-
-    document.getElementById('participantBody').innerHTML=
-      `<tr><td colspan="7" class="empty">
-        <div class="empty-icon">!</div>
-        ${esc(e.message)}
-        <br>
-        <small>
-          Check that the FastAPI server is running and API_BASE is correct.
-        </small>
-      </td></tr>`;
-
-    showToast(e.message);
-
-  }
-
+        showToast(e.message);
+    }
 }
 
 
