@@ -1949,6 +1949,127 @@
 
 
         /* =========================================================
+           MANUAL FINDING SPONSOR
+        ========================================================= */
+
+        .manual-sponsor-card {
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            box-shadow: var(--shadow);
+            padding: 18px;
+            margin-bottom: 18px;
+        }
+
+        .manual-sponsor-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .manual-sponsor-title {
+            font-size: 15px;
+            font-weight: 900;
+            color: var(--dark);
+        }
+
+        .manual-sponsor-subtitle {
+            font-size: 10px;
+            color: var(--muted);
+            margin-top: 4px;
+        }
+
+        .manual-sponsor-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .toggle {
+            position: relative;
+            width: 48px;
+            height: 26px;
+            display: inline-block;
+        }
+
+        .toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            inset: 0;
+            cursor: pointer;
+            background: #d1d5db;
+            border-radius: 999px;
+            transition: .2s;
+        }
+
+        .toggle-slider::before {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            left: 3px;
+            top: 3px;
+            background: #fff;
+            border-radius: 50%;
+            transition: .2s;
+            box-shadow: 0 1px 3px rgba(0,0,0,.2);
+        }
+
+        .toggle input:checked + .toggle-slider {
+            background: var(--green);
+        }
+
+        .toggle input:checked + .toggle-slider::before {
+            transform: translateX(22px);
+        }
+
+        .manual-search-row {
+            display: flex;
+            gap: 9px;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+        }
+
+        .manual-search-row .form-control {
+            flex: 1;
+            min-width: 240px;
+        }
+
+        .manual-results {
+            overflow-x: auto;
+        }
+
+        .manual-results table {
+            min-width: 900px;
+        }
+
+        .manual-results + .manual-results {
+            margin-top: 18px;
+        }
+
+        .manual-section-label {
+            font-size: 12px;
+            font-weight: 900;
+            color: var(--dark);
+            margin: 16px 0 9px;
+        }
+
+        @media(max-width: 800px) {
+            .manual-sponsor-header {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+        }
+
+        /* =========================================================
            RESPONSIVE
         ========================================================= */
 
@@ -2614,6 +2735,68 @@
 
 
             <!-- =================================================
+                 MANUAL FINDING SPONSOR
+            ================================================== -->
+
+            <section class="manual-sponsor-card" id="manualSponsorSection">
+
+                <div class="manual-sponsor-header">
+                    <div>
+                        <div class="manual-sponsor-title">Manual Finding Sponsor</div>
+                        <div class="manual-sponsor-subtitle">
+                            Search a Finding Sponsor participant, manually allocate the current cash donation fund, or cancel an existing allocation.
+                        </div>
+                    </div>
+
+                    <div class="manual-sponsor-status">
+                        <span id="manualSponsorStatusBadge" class="badge badge-green">Checking...</span>
+                        <label class="toggle" title="Turn Manual Finding Sponsor ON or OFF">
+                            <input type="checkbox" id="manualSponsorToggle" onchange="toggleManualSponsor()">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="manual-search-row">
+                    <input
+                        type="search"
+                        id="manualSponsorSearchInput"
+                        class="form-control"
+                        placeholder="Search Finding Sponsor participant by name..."
+                        oninput="scheduleManualSponsorSearch()"
+                    >
+                    <button
+                        type="button"
+                        class="btn btn-primary"
+                        id="manualSponsorSearchBtn"
+                        onclick="searchManualSponsorParticipants()"
+                    >
+                        Search Participant
+                    </button>
+                    <button
+                        type="button"
+                        class="btn btn-light"
+                        onclick="loadManualSponsorAllocations()"
+                    >
+                        ↻ Allocations
+                    </button>
+                </div>
+
+                <div id="manualSponsorSearchResults" class="manual-results">
+                    <div class="empty">
+                        <div class="empty-icon">🔎</div>
+                        Search for a Finding Sponsor participant to manually sponsor.
+                    </div>
+                </div>
+
+                <div class="manual-section-label">Manual Sponsorship Allocations</div>
+                <div id="manualSponsorAllocations" class="manual-results">
+                    <div class="loading">Loading manual sponsorship allocations...</div>
+                </div>
+
+            </section>
+
+            <!-- =================================================
                  TABS
             ================================================== -->
 
@@ -3168,6 +3351,8 @@
     };
 
     let searchTimer = null;
+    let manualSponsorSearchTimer = null;
+    let manualSponsorEnabled = false;
 
 
     /* =========================================================
@@ -4299,6 +4484,509 @@ function formatCurrency(value) {
 
         }
 
+    }
+
+
+    /* =========================================================
+       MANUAL FINDING SPONSOR ADMIN APIs
+    ========================================================= */
+
+    async function loadManualSponsorStatus() {
+        try {
+            const data = await api(
+                "/admin/manual-sponsor/status"
+            );
+
+            manualSponsorEnabled = Boolean(data.enabled);
+
+            const toggle = document.getElementById(
+                "manualSponsorToggle"
+            );
+            const badge = document.getElementById(
+                "manualSponsorStatusBadge"
+            );
+            const searchInput = document.getElementById(
+                "manualSponsorSearchInput"
+            );
+            const searchButton = document.getElementById(
+                "manualSponsorSearchBtn"
+            );
+
+            toggle.checked = manualSponsorEnabled;
+            badge.className = manualSponsorEnabled
+                ? "badge badge-green"
+                : "badge badge-red";
+            badge.textContent = manualSponsorEnabled
+                ? "ON"
+                : "OFF";
+
+            searchInput.disabled = !manualSponsorEnabled;
+            searchButton.disabled = !manualSponsorEnabled;
+
+            if (!manualSponsorEnabled) {
+                document.getElementById(
+                    "manualSponsorSearchResults"
+                ).innerHTML = `
+                    <div class="empty">
+                        <div class="empty-icon">⛔</div>
+                        Manual Finding Sponsor is OFF. Turn it ON to search and manually sponsor participants.
+                    </div>
+                `;
+            }
+
+            updateFindingSponsorButton();
+        }
+        catch (error) {
+            console.error(
+                "Unable to load Manual Finding Sponsor status:",
+                error
+            );
+            showToast(
+                error.message,
+                "error"
+            );
+        }
+    }
+
+
+    async function toggleManualSponsor() {
+        const toggle = document.getElementById(
+            "manualSponsorToggle"
+        );
+        const enabled = toggle.checked;
+
+        toggle.disabled = true;
+
+        try {
+            const data = await api(
+                "/admin/manual-sponsor/toggle",
+                {
+                    method: "PUT",
+                    body: JSON.stringify({
+                        enabled: enabled
+                    })
+                }
+            );
+
+            manualSponsorEnabled = Boolean(data.enabled);
+
+            await loadManualSponsorStatus();
+            await loadManualSponsorAllocations();
+
+            showToast(
+                data.message || (
+                    manualSponsorEnabled
+                        ? "Manual Finding Sponsor function turned ON."
+                        : "Manual Finding Sponsor function turned OFF."
+                ),
+                "success"
+            );
+        }
+        catch (error) {
+            toggle.checked = !enabled;
+            showToast(
+                error.message,
+                "error"
+            );
+        }
+        finally {
+            toggle.disabled = false;
+        }
+    }
+
+
+    function updateFindingSponsorButton() {
+        const button = document.getElementById(
+            "findSponsorBtn"
+        );
+
+        if (!button) {
+            return;
+        }
+
+        button.disabled = !manualSponsorEnabled;
+        button.title = manualSponsorEnabled
+            ? "Process Finding Sponsor queue"
+            : "Manual Finding Sponsor function is OFF";
+    }
+
+
+    function scheduleManualSponsorSearch() {
+        clearTimeout(
+            manualSponsorSearchTimer
+        );
+
+        const value = document.getElementById(
+            "manualSponsorSearchInput"
+        ).value.trim();
+
+        if (value.length < 2) {
+            return;
+        }
+
+        manualSponsorSearchTimer = setTimeout(
+            function() {
+                searchManualSponsorParticipants();
+            },
+            300
+        );
+    }
+
+
+    async function searchManualSponsorParticipants() {
+        if (!manualSponsorEnabled) {
+            showToast(
+                "Manual Finding Sponsor function is OFF. Please turn it ON to use this function again.",
+                "error"
+            );
+            return;
+        }
+
+        const input = document.getElementById(
+            "manualSponsorSearchInput"
+        );
+        const button = document.getElementById(
+            "manualSponsorSearchBtn"
+        );
+        const container = document.getElementById(
+            "manualSponsorSearchResults"
+        );
+        const query = input.value.trim();
+
+        if (query.length < 2) {
+            container.innerHTML = `
+                <div class="empty">
+                    <div class="empty-icon">🔎</div>
+                    Enter at least 2 characters to search.
+                </div>
+            `;
+            return;
+        }
+
+        button.disabled = true;
+        button.textContent = "Searching...";
+        container.innerHTML = `
+            <div class="loading">Searching Finding Sponsor participants...</div>
+        `;
+
+        try {
+            const data = await api(
+                "/admin/manual-sponsor/search?q=" +
+                encodeURIComponent(query)
+            );
+
+            renderManualSponsorSearchResults(
+                data.participants || []
+            );
+        }
+        catch (error) {
+            container.innerHTML = `
+                <div class="empty">
+                    <div class="empty-icon">!</div>
+                    ${escapeHtml(error.message)}
+                </div>
+            `;
+            showToast(
+                error.message,
+                "error"
+            );
+        }
+        finally {
+            button.disabled = !manualSponsorEnabled;
+            button.textContent = "Search Participant";
+        }
+    }
+
+
+    function renderManualSponsorSearchResults(list) {
+        const container = document.getElementById(
+            "manualSponsorSearchResults"
+        );
+
+        if (!list.length) {
+            container.innerHTML = `
+                <div class="empty">
+                    <div class="empty-icon">🔎</div>
+                    No Finding Sponsor participant found.
+                </div>
+            `;
+            return;
+        }
+
+        const rows = list.map(function(participant) {
+            const alreadySponsored = Boolean(
+                participant.already_manual_sponsored
+            );
+
+            return `
+                <tr>
+                    <td>
+                        <div class="primary-text">
+                            ${escapeHtml(participant.fullname)}
+                        </div>
+                        <div class="secondary-text">
+                            ${escapeHtml(participant.registration_number || "No registration number")}
+                        </div>
+                    </td>
+                    <td>
+                        <div class="secondary-text">
+                            ${escapeHtml(participant.email || "—")}
+                        </div>
+                    </td>
+                    <td>
+                        ${statusBadge(participant.tshirt_status)}
+                    </td>
+                    <td>
+                        ${statusBadge(participant.lanyard_status)}
+                    </td>
+                    <td>
+                        ${alreadySponsored
+                            ? `
+                                <span class="badge badge-green">
+                                    Sponsored
+                                </span>
+                            `
+                            : `
+                                <span class="badge badge-orange">
+                                    Available
+                                </span>
+                            `}
+                    </td>
+                    <td>
+                        <button
+                            type="button"
+                            class="btn ${alreadySponsored ? "btn-light" : "btn-success"}"
+                            ${alreadySponsored ? "disabled" : ""}
+                            onclick="triggerManualSponsor(${Number(participant.participant_id)})"
+                        >
+                            ${alreadySponsored ? "Already Sponsored" : "Manual Sponsor Trigger by Admin"}
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join("");
+
+        container.innerHTML = `
+            <table>
+                <thead>
+                    <tr>
+                        <th>Participant</th>
+                        <th>Email</th>
+                        <th>T-Shirt</th>
+                        <th>Lanyard</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rows}
+                </tbody>
+            </table>
+        `;
+    }
+
+
+    async function triggerManualSponsor(participantId) {
+        if (!manualSponsorEnabled) {
+            showToast(
+                "Manual Finding Sponsor function is OFF. Please turn it ON to use this function again.",
+                "error"
+            );
+            return;
+        }
+
+        const confirmed = window.confirm(
+            "Manually sponsor this participant? The current T-shirt + Lanyard cost will be deducted from the cash donation fund."
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
+        try {
+            const result = await api(
+                "/admin/manual-sponsor/trigger",
+                {
+                    method: "POST",
+                    body: JSON.stringify({
+                        participant_id: Number(participantId)
+                    })
+                }
+            );
+
+            showToast(
+                result.message || "Manual sponsorship completed.",
+                "success"
+            );
+
+            await Promise.allSettled([
+                loadSponsorDashboardStats(),
+                loadItemSponsors(),
+                loadCashSponsors(),
+                loadInventory(),
+                searchManualSponsorParticipants(),
+                loadManualSponsorAllocations()
+            ]);
+        }
+        catch (error) {
+            showToast(
+                error.message,
+                "error"
+            );
+        }
+    }
+
+
+    async function loadManualSponsorAllocations() {
+        const container = document.getElementById(
+            "manualSponsorAllocations"
+        );
+
+        container.innerHTML = `
+            <div class="loading">Loading manual sponsorship allocations...</div>
+        `;
+
+        try {
+            const data = await api(
+                "/admin/manual-sponsor/allocations"
+            );
+
+            renderManualSponsorAllocations(
+                data.allocations || []
+            );
+        }
+        catch (error) {
+            container.innerHTML = `
+                <div class="empty">
+                    <div class="empty-icon">!</div>
+                    ${escapeHtml(error.message)}
+                </div>
+            `;
+        }
+    }
+
+
+    function renderManualSponsorAllocations(list) {
+        const container = document.getElementById(
+            "manualSponsorAllocations"
+        );
+
+        if (!list.length) {
+            container.innerHTML = `
+                <div class="empty">
+                    <div class="empty-icon">🤝</div>
+                    No manual sponsorship allocations found.
+                </div>
+            `;
+            return;
+        }
+
+        const rows = list.map(function(allocation) {
+            const active = String(
+                allocation.status || ""
+            ).toLowerCase() === "active";
+
+            return `
+                <tr>
+                    <td>
+                        <div class="primary-text">
+                            ${escapeHtml(allocation.fullname)}
+                        </div>
+                        <div class="secondary-text">
+                            ${escapeHtml(allocation.registration_number || "—")}
+                        </div>
+                    </td>
+                    <td>${formatPesoCurrency(allocation.amount)}</td>
+                    <td>${formatPesoCurrency(allocation.tshirt_amount)}</td>
+                    <td>${formatPesoCurrency(allocation.lanyard_amount)}</td>
+                    <td>${active
+                        ? `<span class="badge badge-green">Active</span>`
+                        : `<span class="badge badge-red">Cancelled</span>`}
+                    </td>
+                    <td>${escapeHtml(allocation.admin_username || "—")}</td>
+                    <td>${formatDate(allocation.created_at)}</td>
+                    <td>
+                        ${active
+                            ? `
+                                <button
+                                    type="button"
+                                    class="btn btn-danger"
+                                    onclick="cancelManualSponsor(${Number(allocation.id)})"
+                                >
+                                    Cancel / Retrieve
+                                </button>
+                            `
+                            : `
+                                <span class="secondary-text">
+                                    ${formatDate(allocation.cancelled_at)}
+                                </span>
+                            `}
+                    </td>
+                </tr>
+            `;
+        }).join("");
+
+        container.innerHTML = `
+            <table>
+                <thead>
+                    <tr>
+                        <th>Participant</th>
+                        <th>Total</th>
+                        <th>T-Shirt</th>
+                        <th>Lanyard</th>
+                        <th>Status</th>
+                        <th>Admin</th>
+                        <th>Created</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rows}
+                </tbody>
+            </table>
+        `;
+    }
+
+
+    async function cancelManualSponsor(allocationId) {
+        const confirmed = window.confirm(
+            "Cancel/retrieve this manual sponsorship? The exact amount will be returned to the cash donation fund and the participant's previous merchandise status will be restored."
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
+        try {
+            const result = await api(
+                "/admin/manual-sponsor/" +
+                encodeURIComponent(allocationId) +
+                "/cancel",
+                {
+                    method: "POST"
+                }
+            );
+
+            showToast(
+                result.message || "Manual sponsorship cancelled/retrieved.",
+                "success"
+            );
+
+            await Promise.allSettled([
+                loadSponsorDashboardStats(),
+                loadItemSponsors(),
+                loadCashSponsors(),
+                loadInventory(),
+                loadManualSponsorAllocations(),
+                searchManualSponsorParticipants()
+            ]);
+        }
+        catch (error) {
+            showToast(
+                error.message,
+                "error"
+            );
+        }
     }
 
 
@@ -6121,7 +6809,11 @@ function formatCurrency(value) {
 
                 loadInventory(),
 
-                loadSponsorDashboardStats()
+                loadSponsorDashboardStats(),
+
+                loadManualSponsorStatus(),
+
+                loadManualSponsorAllocations()
 
             ]
         );
