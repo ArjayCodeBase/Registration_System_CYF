@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -6854,6 +6855,102 @@ function formatCurrency(value) {
             "Data refreshed.",
             "success"
         );
+
+    }
+
+
+    /* =========================================================
+       AUTOMATIC SPONSOR MANAGEMENT REFRESH
+    =========================================================
+    * Keeps cash-fund and sponsorship inventory synchronized with
+    * successful payments/webhooks without requiring a browser reload.
+    * The server remains the source of truth; this only refreshes UI.
+    ========================================================= */
+
+    let sponsorManagementRefreshTimer = null;
+
+    async function refreshSponsorManagementData() {
+        try {
+            await Promise.allSettled([
+                loadSponsorDashboardStats(),
+                loadCashSponsors(),
+                loadInventory(),
+                loadManualSponsorAllocations()
+            ]);
+
+            const manualSearchInput = document.getElementById(
+                "manualSponsorSearchInput"
+            );
+
+            if (
+                manualSponsorEnabled &&
+                manualSearchInput &&
+                manualSearchInput.value.trim().length >= 2
+            ) {
+                await searchManualSponsorParticipants();
+            }
+        }
+        catch (error) {
+            console.error(
+                "Automatic Sponsor Management refresh failed:",
+                error
+            );
+        }
+    }
+
+    function startSponsorManagementAutoRefresh() {
+        if (sponsorManagementRefreshTimer) {
+            clearInterval(sponsorManagementRefreshTimer);
+        }
+
+        /*
+         * Payment webhooks update the database asynchronously.
+         * Poll every 10 seconds so the admin page reflects the
+         * new cash fund and inventory without a manual browser reload.
+         */
+        sponsorManagementRefreshTimer = setInterval(
+            refreshSponsorManagementData,
+            100000
+        );
+    }
+
+
+    /* =========================================================
+       INITIALIZE
+    ========================================================= */
+
+    async function initialize() {
+
+        /*
+         * Load all three datasets so that
+         * dashboard statistics are immediately
+         * available.
+         */
+
+        await Promise.allSettled(
+            [
+
+                loadItemSponsors(),
+
+                loadCashSponsors(),
+
+                loadInventory(),
+
+                loadSponsorDashboardStats(),
+
+                loadManualSponsorStatus(),
+
+                loadManualSponsorAllocations()
+
+            ]
+        );
+
+
+        switchTab(
+            "items"
+        );
+
+        startSponsorManagementAutoRefresh();
 
     }
 
