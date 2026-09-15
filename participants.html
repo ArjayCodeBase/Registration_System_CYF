@@ -29,14 +29,14 @@
     Logout
 </a>
   </nav>
-  <div class="sidebar-footer">CYF Registration System<br>Administrator Panel</div>
+
 </aside>
 <main class="main">
 <header class="topbar"><div style="display:flex;align-items:center;gap:14px"><button class="menu-toggle" onclick="toggleSidebar()">☰</button><div><div class="top-title">Participant Management</div><div class="top-role">Registration and participant records</div></div></div><div style="font-size:13px;color:var(--muted)">Administrator</div></header>
 <section class="content">
   <div class="heading"><div><h1>Participants</h1><p>Search, review, filter, update, and archive registered participants.</p></div><div class="heading-actions"><button class="btn btn-light" onclick="loadParticipants()">↻ Refresh</button><button class="btn btn-red" onclick="openArchived()">Archived Participants</button></div></div>
   <div class="stats"><div class="stat"><div><div class="stat-label">TOTAL PARTICIPANTS</div><div class="stat-value" id="totalCount">0</div></div><div class="stat-icon">♙</div></div><div class="stat"><div><div class="stat-label">CONFIRMED</div><div class="stat-value" id="confirmedCount">0</div></div><div class="stat-icon">✓</div></div><div class="stat"><div><div class="stat-label">PENDING</div><div class="stat-value" id="pendingCount">0</div></div><div class="stat-icon">◷</div></div><div class="stat"><div><div class="stat-label">PAID</div><div class="stat-value" id="paidCount">0</div></div><div class="stat-icon">₱</div></div></div>
-  <div class="toolbar"><div class="toolbar-row"><div class="search">⌕<input id="searchInput" placeholder="Search name, registration no., email, event, status..." oninput="debouncedSearch()"></div><select id="phaseFilter" class="filter" onchange="applyFilter()"><option value="">All Registration Phases</option></select><select id="statusFilter" class="filter" onchange="applyFilter()"><option value="">All Registration Status</option></select><select id="tierFilter" class="filter" onchange="applyFilter()"><option value="">All Participant Tiers</option></select><button class="btn btn-light" onclick="clearFilters()">Clear</button></div></div>
+  <div class="toolbar"><div class="toolbar-row"><div class="search">⌕<input id="searchInput" placeholder="Search name, registration no., or event (minimum 2 characters)..." oninput="debouncedSearch()"></div><select id="phaseFilter" class="filter" onchange="applyFilter()"><option value="">All Registration Phases</option></select><select id="statusFilter" class="filter" onchange="applyFilter()"><option value="">All Registration Status</option></select><select id="tierFilter" class="filter" onchange="applyFilter()"><option value="">All Participant Tiers</option></select><button class="btn btn-light" onclick="clearFilters()">Clear</button></div></div>
   <div class="table-card"><div class="table-head"><div><strong>Registered Participants</strong><span id="resultText">Loading...</span></div><span>Active records only</span></div><div class="table-wrap"><table><thead><tr><th>Participant</th><th>Event</th><th>Registration</th><th>Payment</th><th>Merchandise</th><th>Tier</th><th>Actions</th></tr></thead><tbody id="participantBody"><tr><td colspan="7" class="empty"><div class="empty-icon">◷</div>Loading participants...</td></tr></tbody></table></div><div class="pagination"><span id="pageText">0 participants</span><span>API: registration participant endpoints</span></div></div>
 </section>
 </main></div>
@@ -60,8 +60,11 @@ function statusClass(v){let s=String(v||'').toLowerCase();return s.includes('con
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800)}
 async function api(path,options={}){const r=await fetch(API_BASE+path,{headers:{'Content-Type':'application/json',...(options.headers||{})},...options});let data;try{data=await r.json()}catch{data={}}if(!r.ok)throw new Error(data.detail||data.message||`Request failed (${r.status})`);return data}
 async function loadParticipants(){
- document.getElementById('participantBody').innerHTML='<tr><td colspan="7" class="empty"><div class="empty-icon">◷</div>Loading participants...</td></tr>';
- try{participants=await api('/registration_search_participant?keyword=');renderParticipants(participants);populateFilters(participants)}catch(e){document.getElementById('participantBody').innerHTML=`<tr><td colspan="7" class="empty"><div class="empty-icon">!</div>${esc(e.message)}<br><small>Check that the FastAPI server is running and API_BASE is correct.</small></td></tr>`;showToast(e.message)}
+ document.getElementById('participantBody').innerHTML='<tr><td colspan="7" class="empty"><div class="empty-icon">⌕</div>Search for a participant using at least 2 characters.</td></tr>';
+ participants=[];
+ updateStats([]);
+ document.getElementById('resultText').textContent=' • Search required';
+ document.getElementById('pageText').textContent='0 participants';
 }
 function populateFilters(list){
  const add=(id,values,label)=>{const el=document.getElementById(id),old=el.value;el.innerHTML=`<option value="">${label}</option>`;[...new Set(values.filter(Boolean).map(String))].sort().forEach(v=>el.innerHTML+=`<option value="${esc(v)}">${esc(v)}</option>`);el.value=old};
@@ -74,7 +77,30 @@ function renderParticipants(list){
  body.innerHTML=list.map(p=>`<tr><td><div class="person"><div class="person-avatar">${initials(p.fullname)}</div><div><div class="person-name">${esc(p.fullname||'Unnamed')}</div><div class="person-id">${esc(p.registration_number||'No registration number')}</div></div></div></td><td>${esc(p.event_name||'—')}</td><td>${badge(p.registration_status,statusClass(p.registration_status))}<div style="font-size:11px;color:#8a7e76;margin-top:5px">${esc(p.registration_phase||'')}</div></td><td>${badge(p.payment_status,paymentClass(p.payment_status))}</td><td><div>${badge('T-shirt: '+(p.tshirt_status||'Unpaid'),paymentClass(p.tshirt_status))}</div><div style="margin-top:5px">${badge('Lanyard: '+(p.lanyard_status||'Unpaid'),paymentClass(p.lanyard_status))}</div></td><td>${badge(p.participant_tier||'Not evaluated','status')}</td><td><button class="action-btn" onclick="viewParticipant(${p.participant_id})">View</button><button class="action-btn" onclick="editParticipant(${p.participant_id})">Edit</button><button class="action-btn" onclick="archiveParticipant(${p.participant_id},'${esc(p.fullname)}')">Archive</button></td></tr>`).join('')
 }
 function debouncedSearch(){clearTimeout(searchTimer);searchTimer=setTimeout(searchParticipants,300)}
-async function searchParticipants(){const q=document.getElementById('searchInput').value.trim();try{const data=await api('/registration_search_participant?keyword='+encodeURIComponent(q));participants=data;renderParticipants(data)}catch(e){showToast(e.message)}}
+async function searchParticipants(){
+ const q=document.getElementById('searchInput').value.trim();
+
+ if(q.length<2){
+  participants=[];
+  updateStats([]);
+  document.getElementById('resultText').textContent=q.length?' • Type at least 2 characters':' • Search required';
+  document.getElementById('pageText').textContent='0 participants';
+  document.getElementById('participantBody').innerHTML='<tr><td colspan="7" class="empty"><div class="empty-icon">⌕</div>Enter at least 2 characters to search.</td></tr>';
+  return;
+ }
+
+ document.getElementById('participantBody').innerHTML='<tr><td colspan="7" class="empty"><div class="empty-icon">◷</div>Searching participants...</td></tr>';
+
+ try{
+  const data=await api('/registration_search_participant?keyword='+encodeURIComponent(q));
+  participants=data;
+  populateFilters(data);
+  renderParticipants(data);
+ }catch(e){
+  document.getElementById('participantBody').innerHTML=`<tr><td colspan="7" class="empty"><div class="empty-icon">!</div>${esc(e.message)}</td></tr>`;
+  showToast(e.message);
+ }
+}
 async function applyFilter(){
  const phase=document.getElementById('phaseFilter').value,status=document.getElementById('statusFilter').value,tier=document.getElementById('tierFilter').value;
  if(tier){try{const d=await api('/registration_filter_participant_tier?participant_tier='+encodeURIComponent(tier));renderParticipants(d.map(x=>({...x,fullname:x.fullname,payment_status:'—',tshirt_status:'—',lanyard_status:'—',registration_status:'—',registration_phase:'—'})));return}catch(e){showToast(e.message)}}
