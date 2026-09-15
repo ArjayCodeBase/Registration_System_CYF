@@ -715,6 +715,43 @@
 
 
 /* =========================================================
+   QUEUE DISABLED
+   ========================================================= */
+
+.queue-disabled {
+  display: none;
+
+  margin-top: 20px;
+
+  padding: 20px;
+
+  background: #fffaf0;
+
+  border: 1px solid #f3dfb0;
+
+  border-radius: 10px;
+
+  color: #856404;
+
+  font-size: 14px;
+
+  line-height: 1.5;
+
+  text-align: center;
+}
+
+.queue-disabled strong {
+  display: block;
+
+  margin-bottom: 8px;
+
+  color: #7a5b00;
+
+  font-size: 16px;
+}
+
+
+/* =========================================================
    PAGE
    ========================================================= */
 
@@ -1252,7 +1289,6 @@ body {
            CONTACT
            ===================================================== -->
 
-
 <div class="form-group">
 
     <label for="contact">
@@ -1276,6 +1312,7 @@ body {
 
 </div>
 
+
       <!-- =====================================================
            EMAIL
            ===================================================== -->
@@ -1286,9 +1323,8 @@ body {
 
           Email
 
-            <span class="required">
-              *
-            </span>
+          <span class="required">
+            *
           </span>
 
         </label>
@@ -1577,7 +1613,7 @@ body {
 
 
       <!-- =====================================================
-           AUTOMATIC QUEUE PROCESSING
+           AUTOMATIC PROCESSING
            
            NO BUTTON IS PROVIDED.
            
@@ -1611,6 +1647,35 @@ body {
         >
           Processing sponsorship queue...
         </div>
+
+      </div>
+
+
+      <!-- =====================================================
+           QUEUE DISABLED
+           
+           Payment remains successful.
+           This is shown when Admin has turned OFF
+           the Finding Sponsor queue.
+           ===================================================== -->
+
+      <div
+        id="queueDisabled"
+        class="queue-disabled"
+      >
+
+        <strong>
+          Finding Sponsor Queue Currently Disabled
+        </strong>
+
+        Your payment was successfully received.
+
+        <br><br>
+
+        The Finding Sponsor queue is currently turned off
+        by the administrator. Your sponsorship fund has been
+        recorded and will remain available for processing
+        when the Finding Sponsor function is turned on.
 
       </div>
 
@@ -1902,6 +1967,12 @@ document.addEventListener(
     const processError =
       document.getElementById(
         "processError"
+      );
+
+
+    const queueDisabled =
+      document.getElementById(
+        "queueDisabled"
       );
 
 
@@ -2388,6 +2459,10 @@ document.addEventListener(
         "none";
 
 
+      queueDisabled.style.display =
+        "none";
+
+
       paymentWaiting.style.display =
         "block";
 
@@ -2451,6 +2526,10 @@ document.addEventListener(
 
 
       processError.style.display =
+        "none";
+
+
+      queueDisabled.style.display =
         "none";
 
 
@@ -2558,6 +2637,93 @@ document.addEventListener(
           "Finding Sponsor processing response:",
           result
         );
+
+
+        /* =================================================
+           FINDING SPONSOR QUEUE DISABLED
+           
+           HTTP 403 means the administrator has turned
+           the Finding Sponsor function OFF.
+           
+           IMPORTANT:
+           
+           The payment is already successful.
+           This is NOT a payment failure.
+           
+           The cash sponsorship remains recorded and
+           the payment remains valid.
+           ================================================= */
+
+        if (
+          response.status === 403
+        ) {
+
+          console.log(
+            "Finding Sponsor queue is currently OFF."
+          );
+
+
+          console.log(
+            "Payment remains confirmed."
+          );
+
+
+          console.log(
+            "Cash sponsorship remains recorded."
+          );
+
+
+          /*
+           * Hide automatic processing UI.
+           */
+
+          processingMessage.style.display =
+            "none";
+
+
+          processError.style.display =
+            "none";
+
+
+          /*
+           * Keep Payment Successful visible.
+           */
+
+          paymentSuccess.style.display =
+            "block";
+
+
+          /*
+           * Show the dedicated queue-disabled message.
+           */
+
+          queueDisabled.style.display =
+            "block";
+
+
+          refreshMessage.textContent =
+            "Payment confirmed. Finding Sponsor queue is currently turned off by the administrator.";
+
+
+          /*
+           * Do NOT reload the page.
+           *
+           * Do NOT call the queue again.
+           *
+           * Do NOT show payment failure.
+           */
+
+          queueDisabled.scrollIntoView(
+            {
+              behavior: "smooth",
+              block: "center"
+            }
+          );
+
+
+          return;
+
+        }
 
 
         /* =================================================
@@ -2734,6 +2900,10 @@ document.addEventListener(
           "none";
 
 
+        queueDisabled.style.display =
+          "none";
+
+
         processError.style.display =
           "block";
 
@@ -2762,8 +2932,8 @@ document.addEventListener(
     /* =======================================================
        SHOW PAYMENT SUCCESS
        
-       PAYMENT SUCCESS NOW TRIGGERS THE MANUAL PROCESS
-       AUTOMATICALLY.
+       PAYMENT SUCCESS NOW TRIGGERS THE FINDING SPONSOR
+       PROCESS AUTOMATICALLY.
        ======================================================= */
 
     async function showPaymentSuccess() {
@@ -2800,6 +2970,22 @@ document.addEventListener(
 
 
       paymentResult.style.display =
+        "none";
+
+
+      /*
+       * Hide previous queue messages.
+       */
+
+      processingMessage.style.display =
+        "none";
+
+
+      processError.style.display =
+        "none";
+
+
+      queueDisabled.style.display =
         "none";
 
 
@@ -3017,8 +3203,6 @@ document.addEventListener(
 
 
           /*
-           * THIS IS THE IMPORTANT PART.
-           *
            * Once PayMongo payment is confirmed,
            * showPaymentSuccess() automatically calls:
            *
@@ -3205,6 +3389,10 @@ document.addEventListener(
 
 
         processError.style.display =
+          "none";
+
+
+        queueDisabled.style.display =
           "none";
 
 
