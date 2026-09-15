@@ -3074,6 +3074,109 @@ def migrate_payment_receipt_sent():
 migrate_payment_receipt_sent()
 
 
+
+
+
+
+
+
+
+
+
+# ============================================================
+# MANUAL FINDING SPONSOR CONTROL / ALLOCATION TABLES
+# ============================================================
+# These tables are created with SQL so existing production
+# databases do not require Base.metadata.create_all().
+# ============================================================
+
+def ensure_manual_sponsor_tables():
+    with engine.begin() as connection:
+        connection.execute(text("""
+            CREATE TABLE IF NOT EXISTS manual_sponsor_settings (
+                id INTEGER PRIMARY KEY,
+                enabled INTEGER NOT NULL DEFAULT 1,
+                updated_at DATETIME
+            )
+        """))
+
+        connection.execute(text("""
+            INSERT OR IGNORE INTO manual_sponsor_settings
+                (id, enabled, updated_at)
+            VALUES
+                (1, 1, CURRENT_TIMESTAMP)
+        """))
+
+        connection.execute(text("""
+            CREATE TABLE IF NOT EXISTS manual_sponsor_allocations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                participant_id INTEGER NOT NULL,
+                amount REAL NOT NULL,
+                tshirt_amount REAL NOT NULL DEFAULT 0,
+                lanyard_amount REAL NOT NULL DEFAULT 0,
+                previous_tshirt_status VARCHAR(20),
+                previous_lanyard_status VARCHAR(20),
+                previous_registration_status VARCHAR(30),
+                previous_sponsor_review_status VARCHAR(30),
+                sponsor_review_field VARCHAR(50),
+                admin_username VARCHAR(100),
+                status VARCHAR(20) NOT NULL DEFAULT 'Active',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                cancelled_at DATETIME,
+                FOREIGN KEY(participant_id) REFERENCES participants(id)
+            )
+        """))
+
+        connection.execute(text("""
+            CREATE INDEX IF NOT EXISTS
+            ix_manual_sponsor_allocations_participant
+            ON manual_sponsor_allocations(participant_id)
+        """))
+
+        connection.execute(text("""
+            CREATE UNIQUE INDEX IF NOT EXISTS
+            ux_manual_sponsor_allocations_active_participant
+            ON manual_sponsor_allocations(participant_id)
+            WHERE status = 'Active'
+        """))
+
+
+ensure_manual_sponsor_tables()
+
+
+def is_manual_finding_sponsor_enabled(db: Session) -> bool:
+    row = db.execute(text("""
+        SELECT enabled
+        FROM manual_sponsor_settings
+        WHERE id = 1
+    """)).first()
+    return bool(row and int(row[0]) == 1)
+
+
+def require_admin_session(request: Request):
+    session_user = request.session.get("user") or {}
+    if session_user.get("role") != "Admin":
+        raise HTTPException(
+            status_code=403,
+            detail="Administrator access is required."
+        )
+    return session_user
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # ======================================================
 # PYDANTIC SCHEMAS
 # ======================================================
