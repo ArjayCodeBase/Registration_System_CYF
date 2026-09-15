@@ -3479,7 +3479,23 @@ class PaymentCreateSchema(BaseModel):
     
     
     
-    
+
+
+# ============================================================
+# MANUAL FINDING SPONSOR SCHEMAS
+# ============================================================
+
+class ManualFindingSponsorTriggerSchema(BaseModel):
+    participant_id: int
+
+
+class ManualFindingSponsorToggleSchema(BaseModel):
+    enabled: bool
+
+
+
+
+
     
     
 
