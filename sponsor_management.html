@@ -2744,7 +2744,7 @@
                     <div>
                         <div class="manual-sponsor-title">Manual Finding Sponsor</div>
                         <div class="manual-sponsor-subtitle">
-                            Search a Finding Sponsor participant, manually allocate the current cash donation fund, or cancel an existing allocation.
+                            Search a Finding Sponsor participant. Only participants with both T-shirt and Lanyard unpaid can be sponsored. Paid items are never re-sponsored; active manual sponsorships can be cancelled/retrieved.
                         </div>
                     </div>
 
@@ -4718,6 +4718,93 @@ function formatCurrency(value) {
                 participant.already_manual_sponsored
             );
 
+            const tshirtPaid =
+                String(participant.tshirt_status || "")
+                    .trim()
+                    .toLowerCase() === "paid";
+
+            const lanyardPaid =
+                String(participant.lanyard_status || "")
+                    .trim()
+                    .toLowerCase() === "paid";
+
+            const anyItemPaid = tshirtPaid || lanyardPaid;
+            const bothItemsPaid = tshirtPaid && lanyardPaid;
+
+            let statusHtml = "";
+            let actionHtml = "";
+
+            if (alreadySponsored) {
+                statusHtml = `
+                    <span class="badge badge-green">
+                        Sponsored by Donation Fund
+                    </span>
+                `;
+
+                actionHtml = `
+                    <button
+                        type="button"
+                        class="btn btn-danger"
+                        onclick="cancelManualSponsor(${Number(participant.manual_sponsorship_id)})"
+                    >
+                        Cancel / Retrieve Sponsorship
+                    </button>
+                `;
+            }
+            else if (bothItemsPaid) {
+                statusHtml = `
+                    <span class="badge badge-green">
+                        Already Paid
+                    </span>
+                `;
+
+                actionHtml = `
+                    <button
+                        type="button"
+                        class="btn btn-light"
+                        disabled
+                        title="This participant already paid for both the T-shirt and Lanyard."
+                    >
+                        Already Paid — No Sponsor Trigger
+                    </button>
+                `;
+            }
+            else if (anyItemPaid) {
+                statusHtml = `
+                    <span class="badge badge-orange">
+                        Partially Paid
+                    </span>
+                `;
+
+                actionHtml = `
+                    <button
+                        type="button"
+                        class="btn btn-light"
+                        disabled
+                        title="Manual sponsorship requires both T-shirt and Lanyard to be unpaid."
+                    >
+                        Cannot Sponsor — Item Already Paid
+                    </button>
+                `;
+            }
+            else {
+                statusHtml = `
+                    <span class="badge badge-orange">
+                        Available for Sponsorship
+                    </span>
+                `;
+
+                actionHtml = `
+                    <button
+                        type="button"
+                        class="btn btn-success"
+                        onclick="triggerManualSponsor(${Number(participant.participant_id)})"
+                    >
+                        Manual Sponsor Trigger by Admin
+                    </button>
+                `;
+            }
+
             return `
                 <tr>
                     <td>
@@ -4740,27 +4827,10 @@ function formatCurrency(value) {
                         ${statusBadge(participant.lanyard_status)}
                     </td>
                     <td>
-                        ${alreadySponsored
-                            ? `
-                                <span class="badge badge-green">
-                                    Sponsored
-                                </span>
-                            `
-                            : `
-                                <span class="badge badge-orange">
-                                    Available
-                                </span>
-                            `}
+                        ${statusHtml}
                     </td>
                     <td>
-                        <button
-                            type="button"
-                            class="btn ${alreadySponsored ? "btn-light" : "btn-success"}"
-                            ${alreadySponsored ? "disabled" : ""}
-                            onclick="triggerManualSponsor(${Number(participant.participant_id)})"
-                        >
-                            ${alreadySponsored ? "Already Sponsored" : "Manual Sponsor Trigger by Admin"}
-                        </button>
+                        ${actionHtml}
                     </td>
                 </tr>
             `;
@@ -4784,7 +4854,6 @@ function formatCurrency(value) {
             </table>
         `;
     }
-
 
     async function triggerManualSponsor(participantId) {
         if (!manualSponsorEnabled) {
@@ -4824,6 +4893,7 @@ function formatCurrency(value) {
                 loadItemSponsors(),
                 loadCashSponsors(),
                 loadInventory(),
+                loadManualSponsorStatus(),
                 searchManualSponsorParticipants(),
                 loadManualSponsorAllocations()
             ]);
@@ -4977,6 +5047,7 @@ function formatCurrency(value) {
                 loadItemSponsors(),
                 loadCashSponsors(),
                 loadInventory(),
+                loadManualSponsorStatus(),
                 loadManualSponsorAllocations(),
                 searchManualSponsorParticipants()
             ]);
@@ -6789,6 +6860,62 @@ function formatCurrency(value) {
 
 
     /* =========================================================
+       AUTOMATIC SPONSOR MANAGEMENT REFRESH
+    =========================================================
+    * Keeps cash-fund and sponsorship inventory synchronized with
+    * successful payments/webhooks without requiring a browser reload.
+    * The server remains the source of truth; this only refreshes UI.
+    ========================================================= */
+
+    let sponsorManagementRefreshTimer = null;
+
+    async function refreshSponsorManagementData() {
+        try {
+            await Promise.allSettled([
+                loadSponsorDashboardStats(),
+                loadCashSponsors(),
+                loadInventory(),
+                loadManualSponsorAllocations()
+            ]);
+
+            const manualSearchInput = document.getElementById(
+                "manualSponsorSearchInput"
+            );
+
+            if (
+                manualSponsorEnabled &&
+                manualSearchInput &&
+                manualSearchInput.value.trim().length >= 2
+            ) {
+                await searchManualSponsorParticipants();
+            }
+        }
+        catch (error) {
+            console.error(
+                "Automatic Sponsor Management refresh failed:",
+                error
+            );
+        }
+    }
+
+    function startSponsorManagementAutoRefresh() {
+        if (sponsorManagementRefreshTimer) {
+            clearInterval(sponsorManagementRefreshTimer);
+        }
+
+        /*
+         * Payment webhooks update the database asynchronously.
+         * Poll every 10 seconds so the admin page reflects the
+         * new cash fund and inventory without a manual browser reload.
+         */
+        sponsorManagementRefreshTimer = setInterval(
+            refreshSponsorManagementData,
+            10000
+        );
+    }
+
+
+    /* =========================================================
        INITIALIZE
     ========================================================= */
 
@@ -6822,6 +6949,8 @@ function formatCurrency(value) {
         switchTab(
             "items"
         );
+
+        startSponsorManagementAutoRefresh();
 
     }
 
