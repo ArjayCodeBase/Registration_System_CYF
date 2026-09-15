@@ -1606,7 +1606,7 @@ body {
           id="refreshMessage"
           class="refresh-message"
         >
-          Processing sponsorship queue...
+          Payment confirmed. Processing sponsorship queue...
         </div>
 
       </div>
@@ -1997,21 +1997,16 @@ document.addEventListener(
     let findingSponsorProcessingStarted = false;
 
 
+    /*
+     * Prevent duplicate page refresh timers.
+     */
+
+    let paymentRefreshTimer = null;
+
+
     /* =======================================================
        FASTAPI BASE URL
        ======================================================= */
-
-    /*
-     * Empty string means the frontend and FastAPI are
-     * served from the same domain.
-     *
-     * Example:
-     *
-     * https://your-railway-app.up.railway.app
-     *
-     * If your frontend is hosted separately, change this to
-     * your FastAPI URL.
-     */
 
     const API_BASE_URL = "";
 
@@ -2438,6 +2433,52 @@ document.addEventListener(
 
 
     /* =======================================================
+       SCHEDULE PAYMENT SUCCESS REFRESH
+       
+       IMPORTANT:
+       
+       The 3-second countdown starts immediately when
+       PayMongo payment is confirmed.
+       
+       It does NOT wait for the Finding Sponsor queue
+       API to finish.
+       ======================================================= */
+
+    function schedulePaymentSuccessRefresh() {
+
+      /*
+       * Prevent duplicate refresh timers.
+       */
+
+      if (
+        paymentRefreshTimer
+      ) {
+
+        clearTimeout(
+          paymentRefreshTimer
+        );
+
+      }
+
+
+      refreshMessage.textContent =
+        "Payment confirmed. Refreshing the page in 3 seconds...";
+
+
+      paymentRefreshTimer =
+        setTimeout(
+          function () {
+
+            window.location.reload();
+
+          },
+          3000
+        );
+
+    }
+
+
+    /* =======================================================
        SHOW WAITING FOR PAYMENT
        ======================================================= */
 
@@ -2484,9 +2525,15 @@ document.addEventListener(
     /* =======================================================
        PROCESS FINDING SPONSOR QUEUE
        
-       THIS IS NOW AUTOMATIC.
+       THIS IS AUTOMATIC.
        
        NO BUTTON IS REQUIRED.
+       
+       IMPORTANT:
+       
+       This function does NOT control payment.
+       It only attempts to process the queue AFTER
+       payment has already been confirmed.
        ======================================================= */
 
     async function processFindingSponsorQueue() {
@@ -2578,6 +2625,11 @@ document.addEventListener(
 
 
       console.log(
+        "Page refresh is already scheduled for 3 seconds after payment confirmation."
+      );
+
+
+      console.log(
         "================================================"
       );
 
@@ -2647,11 +2699,13 @@ document.addEventListener(
            
            IMPORTANT:
            
-           The payment is already successful.
+           Payment is already successful.
            This is NOT a payment failure.
            
-           The cash sponsorship remains recorded and
-           the payment remains valid.
+           Cash sponsorship remains recorded.
+           
+           The page will still refresh according to the
+           3-second payment-success timer.
            ================================================= */
 
         if (
@@ -2694,24 +2748,20 @@ document.addEventListener(
 
 
           /*
-           * Show the dedicated queue-disabled message.
+           * Show dedicated queue-disabled message.
            */
 
           queueDisabled.style.display =
             "block";
 
 
-          refreshMessage.textContent =
-            "Payment confirmed. Finding Sponsor queue is currently turned off by the administrator.";
-
-
           /*
-           * Do NOT reload the page.
-           *
-           * Do NOT call the queue again.
-           *
-           * Do NOT show payment failure.
+           * The refresh timer is already running.
            */
+
+          refreshMessage.textContent =
+            "Payment confirmed. Finding Sponsor queue is currently turned off. Refreshing the page...";
+
 
           queueDisabled.scrollIntoView(
             {
@@ -2860,19 +2910,14 @@ document.addEventListener(
         }
 
 
-        /* =================================================
-           REFRESH PAGE
-           ================================================= */
-
-        setTimeout(
-          function () {
-
-            window.location.reload();
-
-          },
-          3000
-        );
-
+        /*
+         * IMPORTANT:
+         *
+         * DO NOT create another setTimeout here.
+         *
+         * The refresh timer was already started immediately
+         * when payment was confirmed.
+         */
 
       } catch (
         error
@@ -2887,9 +2932,11 @@ document.addEventListener(
         /*
          * IMPORTANT:
          *
-         * The payment is already confirmed.
+         * Payment is already confirmed.
          *
          * Therefore we DO NOT say that payment failed.
+         *
+         * The page refresh timer is already running.
          */
 
         paymentSuccess.style.display =
@@ -2909,7 +2956,17 @@ document.addEventListener(
 
 
         refreshMessage.textContent =
-          "Payment confirmed, but automatic sponsorship processing failed.";
+          "Payment confirmed. Refreshing the page...";
+
+
+        processError.innerHTML =
+          "<strong>Payment Confirmed</strong>" +
+          "<br><br>" +
+          "Your payment was successfully received, but the " +
+          "Finding Sponsor queue could not be processed automatically." +
+          "<br><br>" +
+          "Please contact the administrator if the sponsorship " +
+          "fund does not appear after the queue is enabled.";
 
 
         console.error(
@@ -2919,9 +2976,10 @@ document.addEventListener(
 
 
         /*
-         * We intentionally do NOT automatically reload here.
+         * DO NOT reload here.
          *
-         * This allows the administrator to see the error.
+         * The original payment-success refresh timer
+         * will handle the page refresh.
          */
 
       }
@@ -2934,6 +2992,8 @@ document.addEventListener(
        
        PAYMENT SUCCESS NOW TRIGGERS THE FINDING SPONSOR
        PROCESS AUTOMATICALLY.
+       
+       THE PAGE REFRESH COUNTDOWN STARTS HERE.
        ======================================================= */
 
     async function showPaymentSuccess() {
@@ -3010,7 +3070,25 @@ document.addEventListener(
 
 
       /*
+       * IMPORTANT:
+       *
+       * Start the 3-second refresh timer NOW.
+       *
+       * This happens immediately after payment is confirmed.
+       *
+       * The queue processing happens separately and does
+       * not delay the refresh.
+       */
+
+      schedulePaymentSuccessRefresh();
+
+
+      /*
        * Automatically process the Finding Sponsor queue.
+       *
+       * The page will refresh after 3 seconds regardless
+       * of whether the queue is ON, OFF, or encounters
+       * another processing error.
        */
 
       await processFindingSponsorQueue();
@@ -3198,15 +3276,23 @@ document.addEventListener(
 
 
           console.log(
+            "Page will refresh 3 seconds after this confirmation."
+          );
+
+
+          console.log(
             "================================================"
           );
 
 
           /*
            * Once PayMongo payment is confirmed,
-           * showPaymentSuccess() automatically calls:
+           * showPaymentSuccess() automatically:
            *
-           * POST /process_finding_sponsor_queue
+           * 1. Stops payment polling.
+           * 2. Shows payment success.
+           * 3. Starts the 3-second refresh timer.
+           * 4. Calls POST /process_finding_sponsor_queue.
            */
 
           await showPaymentSuccess();
@@ -3334,6 +3420,28 @@ document.addEventListener(
 
       findingSponsorProcessingStarted =
         false;
+
+
+      /*
+       * Reset refresh timer.
+
+       * This is normally null because a payment has not
+       * yet been confirmed.
+       */
+
+      if (
+        paymentRefreshTimer
+      ) {
+
+        clearTimeout(
+          paymentRefreshTimer
+        );
+
+
+        paymentRefreshTimer =
+          null;
+
+      }
 
 
       paymentStatusText.textContent =
