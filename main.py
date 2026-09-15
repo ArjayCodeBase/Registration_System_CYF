@@ -24290,3 +24290,546 @@ def report_dashboard_data(
             events
     }
     
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# ============================================================
+# MANUAL FINDING SPONSOR ADMIN APIs
+# ============================================================
+#
+# Manual sponsorship is deliberately separate from the automatic
+# Finding Sponsor queue.  The admin can disable the manual feature,
+# and every manual endpoint checks the same switch server-side.
+#
+# A manual sponsorship:
+#   - searches a Finding Sponsor participant
+#   - requires enough current cash donation fund
+#   - marks T-shirt and Lanyard Paid
+#   - deducts the current T-shirt + Lanyard cost
+#   - creates an allocation record
+#   - can later be cancelled/retrieved, restoring the fund and
+#     the participant's previous merchandise status.
+#
+# ============================================================
+
+
+@app.get("/admin/manual-sponsor/status")
+def get_manual_finding_sponsor_status(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    require_admin_session(request)
+    enabled = is_manual_finding_sponsor_enabled(db)
+    return {
+        "success": True,
+        "enabled": enabled,
+        "message": (
+            "Manual Finding Sponsor is ON."
+            if enabled
+            else
+            "Manual Finding Sponsor is OFF."
+        )
+    }
+
+
+@app.put("/admin/manual-sponsor/toggle")
+def toggle_manual_finding_sponsor(
+    data: ManualFindingSponsorToggleSchema,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    session_user = require_admin_session(request)
+
+    db.execute(text("""
+        UPDATE manual_sponsor_settings
+        SET enabled = :enabled,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = 1
+    """), {"enabled": 1 if data.enabled else 0})
+    db.commit()
+
+    return {
+        "success": True,
+        "enabled": data.enabled,
+        "message": (
+            "Manual Finding Sponsor function turned ON."
+            if data.enabled
+            else
+            "Manual Finding Sponsor function turned OFF."
+        ),
+        "admin_username": session_user.get("username")
+    }
+
+
+@app.get("/admin/manual-sponsor/search")
+def search_manual_finding_sponsor_participants(
+    q: str,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    require_admin_session(request)
+
+    if not is_manual_finding_sponsor_enabled(db):
+        raise HTTPException(
+            status_code=403,
+            detail="Manual Finding Sponsor function is OFF. Please turn it ON to use this function again."
+        )
+
+    search = q.strip()
+    if len(search) < 2:
+        raise HTTPException(
+            status_code=400,
+            detail="Enter at least 2 characters to search for a participant."
+        )
+
+    pattern = f"%{search}%"
+
+    participants = (
+        db.query(Participant)
+        .filter(
+            Participant.is_archived == 0,
+            Participant.participant_type.ilike("Finding Sponsor"),
+            or_(
+                Participant.fname.ilike(pattern),
+                Participant.mname.ilike(pattern),
+                Participant.lname.ilike(pattern),
+                func.concat(
+                    func.coalesce(Participant.fname, ""),
+                    " ",
+                    func.coalesce(Participant.lname, "")
+                ).ilike(pattern)
+            )
+        )
+        .order_by(Participant.fname.asc(), Participant.lname.asc())
+        .limit(20)
+        .all()
+    )
+
+    results = []
+    for participant in participants:
+        active_allocation = db.execute(text("""
+            SELECT id, amount, created_at
+            FROM manual_sponsor_allocations
+            WHERE participant_id = :participant_id
+              AND status = 'Active'
+            LIMIT 1
+        """), {"participant_id": participant.id}).first()
+
+        results.append({
+            "participant_id": participant.id,
+            "registration_number": participant.registration_number,
+            "fullname": " ".join(
+                x for x in [
+                    participant.fname,
+                    participant.mname,
+                    participant.lname
+                ] if x
+            ).strip(),
+            "email": participant.email,
+            "participant_type": participant.participant_type,
+            "tshirt_status": participant.tshirt_status or "Unpaid",
+            "lanyard_status": participant.lanyard_status or "Unpaid",
+            "registration_status": participant.registration_status,
+            "already_manual_sponsored": bool(active_allocation),
+            "manual_sponsorship_id": active_allocation[0] if active_allocation else None,
+            "manual_sponsored_amount": float(active_allocation[1]) if active_allocation else 0,
+        })
+
+    return {
+        "success": True,
+        "exists": len(results) > 0,
+        "count": len(results),
+        "participants": results
+    }
+
+
+@app.post("/admin/manual-sponsor/trigger")
+async def manual_finding_sponsor_trigger(
+    data: ManualFindingSponsorTriggerSchema,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    session_user = require_admin_session(request)
+
+    if not is_manual_finding_sponsor_enabled(db):
+        raise HTTPException(
+            status_code=403,
+            detail="Manual Finding Sponsor function is OFF. Please turn it ON to use this function again."
+        )
+
+    participant = (
+        db.query(Participant)
+        .filter(
+            Participant.id == data.participant_id,
+            Participant.is_archived == 0
+        )
+        .first()
+    )
+
+    if not participant:
+        raise HTTPException(status_code=404, detail="Participant not found.")
+
+    if str(participant.participant_type or "").strip().lower() != "finding sponsor":
+        raise HTTPException(
+            status_code=400,
+            detail="Only Finding Sponsor participants can be manually sponsored."
+        )
+
+    active = db.execute(text("""
+        SELECT id
+        FROM manual_sponsor_allocations
+        WHERE participant_id = :participant_id
+          AND status = 'Active'
+        LIMIT 1
+    """), {"participant_id": participant.id}).first()
+
+    if active:
+        raise HTTPException(
+            status_code=409,
+            detail="This participant already has an active manual sponsorship."
+        )
+
+    tshirt_item = (
+        db.query(RegistrationItem)
+        .filter(
+            RegistrationItem.item_name.ilike("T-Shirt"),
+            RegistrationItem.is_active == True
+        )
+        .first()
+    )
+    lanyard_item = (
+        db.query(RegistrationItem)
+        .filter(
+            RegistrationItem.item_name.ilike("Lanyard"),
+            RegistrationItem.is_active == True
+        )
+        .first()
+    )
+
+    if not tshirt_item or not lanyard_item:
+        raise HTTPException(
+            status_code=404,
+            detail="T-shirt and Lanyard registration items must both be configured and active."
+        )
+
+    tshirt_amount = int(tshirt_item.price or 0) / 100
+    lanyard_amount = int(lanyard_item.price or 0) / 100
+    sponsorship_amount = tshirt_amount + lanyard_amount
+
+    if sponsorship_amount <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="T-shirt and Lanyard prices must be greater than zero."
+        )
+
+    previous_tshirt_status = participant.tshirt_status or "Unpaid"
+    previous_lanyard_status = participant.lanyard_status or "Unpaid"
+    previous_registration_status = participant.registration_status
+
+    if str(previous_tshirt_status).strip().lower() == "paid" or str(previous_lanyard_status).strip().lower() == "paid":
+        raise HTTPException(
+            status_code=409,
+            detail="This participant already has a paid T-shirt or Lanyard. Manual sponsorship requires both items to be unpaid."
+        )
+
+    sponsor_review_field = None
+    previous_sponsor_review_status = None
+    if hasattr(participant, "sponsor_review_status"):
+        sponsor_review_field = "sponsor_review_status"
+        previous_sponsor_review_status = getattr(participant, "sponsor_review_status", None)
+    elif hasattr(participant, "sponsorship_review_status"):
+        sponsor_review_field = "sponsorship_review_status"
+        previous_sponsor_review_status = getattr(participant, "sponsorship_review_status", None)
+
+    donation_total = (
+        db.query(CashDonationTotal)
+        .order_by(CashDonationTotal.id.asc())
+        .first()
+    )
+
+    if not donation_total:
+        raise HTTPException(
+            status_code=400,
+            detail="No cash donation fund is available."
+        )
+
+    current_balance = float(donation_total.total_amount or 0)
+
+    if current_balance < sponsorship_amount:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Not enough cash donation fund. Required: ₱{sponsorship_amount:,.2f}. "
+                f"Available: ₱{current_balance:,.2f}."
+            )
+        )
+
+    try:
+        donation_total.total_amount = round(
+            current_balance - sponsorship_amount, 2
+        )
+
+        participant.tshirt_status = "Paid"
+        participant.lanyard_status = "Paid"
+        participant.registration_status = "Confirmed"
+
+        if sponsor_review_field:
+            setattr(participant, sponsor_review_field, "Approved")
+
+        if hasattr(participant, "updated_at"):
+            participant.updated_at = datetime.datetime.now()
+
+        allocation = {
+            "participant_id": participant.id,
+            "amount": sponsorship_amount,
+            "tshirt_amount": tshirt_amount,
+            "lanyard_amount": lanyard_amount,
+            "previous_tshirt_status": previous_tshirt_status,
+            "previous_lanyard_status": previous_lanyard_status,
+            "previous_registration_status": previous_registration_status,
+            "previous_sponsor_review_status": previous_sponsor_review_status,
+            "sponsor_review_field": sponsor_review_field,
+            "admin_username": session_user.get("username"),
+        }
+
+        db.execute(text("""
+            INSERT INTO manual_sponsor_allocations (
+                participant_id,
+                amount,
+                tshirt_amount,
+                lanyard_amount,
+                previous_tshirt_status,
+                previous_lanyard_status,
+                previous_registration_status,
+                previous_sponsor_review_status,
+                sponsor_review_field,
+                admin_username,
+                status,
+                created_at
+            ) VALUES (
+                :participant_id,
+                :amount,
+                :tshirt_amount,
+                :lanyard_amount,
+                :previous_tshirt_status,
+                :previous_lanyard_status,
+                :previous_registration_status,
+                :previous_sponsor_review_status,
+                :sponsor_review_field,
+                :admin_username,
+                'Active',
+                CURRENT_TIMESTAMP
+            )
+        """), allocation)
+
+        db.commit()
+
+    except Exception as exc:
+        db.rollback()
+        if "UNIQUE constraint failed" in str(exc):
+            raise HTTPException(
+                status_code=409,
+                detail="This participant already has an active manual sponsorship."
+            )
+        raise HTTPException(
+            status_code=500,
+            detail="Unable to create the manual sponsorship."
+        )
+
+    db.refresh(participant)
+    db.refresh(donation_total)
+
+    name = " ".join(
+        x for x in [participant.fname, participant.mname, participant.lname]
+        if x
+    ).strip()
+
+    # Send the same sponsorship confirmation used by the automatic flow.
+    email_sent = False
+    try:
+        email_function = globals().get("send_sponsored_participant_confirmation_email")
+        if email_function:
+            email_sent = bool(
+                await email_function(participant, sponsorship_amount)
+            )
+    except Exception as exc:
+        print("MANUAL SPONSOR CONFIRMATION EMAIL FAILED:", repr(exc))
+
+    return {
+        "success": True,
+        "message": f"Manual sponsor trigger completed for {name}.",
+        "manual_sponsorship_id": db.execute(text("""
+            SELECT id FROM manual_sponsor_allocations
+            WHERE participant_id = :participant_id AND status = 'Active'
+            ORDER BY id DESC LIMIT 1
+        """), {"participant_id": participant.id}).scalar(),
+        "participant_id": participant.id,
+        "fullname": name,
+        "tshirt_status": participant.tshirt_status,
+        "lanyard_status": participant.lanyard_status,
+        "registration_status": participant.registration_status,
+        "sponsored_amount": sponsorship_amount,
+        "sponsored_amount_display": f"₱{sponsorship_amount:,.2f}",
+        "remaining_cash_donation": float(donation_total.total_amount or 0),
+        "remaining_cash_donation_display": f"₱{float(donation_total.total_amount or 0):,.2f}",
+        "participant_email_sent": email_sent
+    }
+
+
+@app.get("/admin/manual-sponsor/allocations")
+def get_manual_sponsor_allocations(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    require_admin_session(request)
+
+    rows = db.execute(text("""
+        SELECT
+            a.id,
+            a.participant_id,
+            a.amount,
+            a.tshirt_amount,
+            a.lanyard_amount,
+            a.status,
+            a.admin_username,
+            a.created_at,
+            a.cancelled_at,
+            p.registration_number,
+            p.fname,
+            p.mname,
+            p.lname
+        FROM manual_sponsor_allocations a
+        JOIN participants p ON p.id = a.participant_id
+        ORDER BY a.id DESC
+    """)).mappings().all()
+
+    return {
+        "success": True,
+        "allocations": [
+            {
+                "id": row["id"],
+                "participant_id": row["participant_id"],
+                "registration_number": row["registration_number"],
+                "fullname": " ".join(
+                    x for x in [row["fname"], row["mname"], row["lname"]] if x
+                ).strip(),
+                "amount": float(row["amount"] or 0),
+                "amount_display": f"₱{float(row['amount'] or 0):,.2f}",
+                "tshirt_amount": float(row["tshirt_amount"] or 0),
+                "lanyard_amount": float(row["lanyard_amount"] or 0),
+                "status": row["status"],
+                "admin_username": row["admin_username"],
+                "created_at": row["created_at"],
+                "cancelled_at": row["cancelled_at"]
+            }
+            for row in rows
+        ]
+    }
+
+
+@app.post("/admin/manual-sponsor/{allocation_id}/cancel")
+def cancel_manual_finding_sponsor(
+    allocation_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    session_user = require_admin_session(request)
+
+    if not is_manual_finding_sponsor_enabled(db):
+        raise HTTPException(
+            status_code=403,
+            detail="Manual Finding Sponsor function is OFF. Please turn it ON to manage manual sponsorships."
+        )
+
+    row = db.execute(text("""
+        SELECT *
+        FROM manual_sponsor_allocations
+        WHERE id = :id
+        LIMIT 1
+    """), {"id": allocation_id}).mappings().first()
+
+    if not row:
+        raise HTTPException(status_code=404, detail="Manual sponsorship record not found.")
+
+    if str(row["status"] or "").lower() != "active":
+        raise HTTPException(
+            status_code=409,
+            detail="This manual sponsorship has already been cancelled or retrieved."
+        )
+
+    participant = db.query(Participant).filter(Participant.id == row["participant_id"]).first()
+    donation_total = (
+        db.query(CashDonationTotal)
+        .order_by(CashDonationTotal.id.asc())
+        .first()
+    )
+
+    if not participant or not donation_total:
+        raise HTTPException(status_code=404, detail="Required sponsorship records were not found.")
+
+    try:
+        # Return the exact amount that this manual sponsorship consumed.
+        donation_total.total_amount = round(
+            float(donation_total.total_amount or 0) + float(row["amount"] or 0),
+            2
+        )
+
+        participant.tshirt_status = row["previous_tshirt_status"] or "Unpaid"
+        participant.lanyard_status = row["previous_lanyard_status"] or "Unpaid"
+        participant.registration_status = row["previous_registration_status"]
+
+        review_field = row["sponsor_review_field"]
+        if review_field in ("sponsor_review_status", "sponsorship_review_status") and hasattr(participant, review_field):
+            setattr(
+                participant,
+                review_field,
+                row["previous_sponsor_review_status"]
+            )
+
+        if hasattr(participant, "updated_at"):
+            participant.updated_at = datetime.datetime.now()
+
+        db.execute(text("""
+            UPDATE manual_sponsor_allocations
+            SET status = 'Cancelled',
+                cancelled_at = CURRENT_TIMESTAMP
+            WHERE id = :id
+        """), {"id": allocation_id})
+
+        db.commit()
+
+    except Exception:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="Unable to cancel/retrieve the manual sponsorship."
+        )
+
+    return {
+        "success": True,
+        "message": "Manual sponsorship cancelled/retrieved. The T-shirt and Lanyard are unpaid again.",
+        "allocation_id": allocation_id,
+        "participant_id": participant.id,
+        "tshirt_status": participant.tshirt_status,
+        "lanyard_status": participant.lanyard_status,
+        "registration_status": participant.registration_status,
+        "returned_amount": float(row["amount"] or 0),
+        "returned_amount_display": f"₱{float(row['amount'] or 0):,.2f}",
+        "remaining_cash_donation": float(donation_total.total_amount or 0),
+        "remaining_cash_donation_display": f"₱{float(donation_total.total_amount or 0):,.2f}",
+        "cancelled_by": session_user.get("username")
+    }
