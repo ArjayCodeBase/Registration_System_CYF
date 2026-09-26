@@ -62,7 +62,12 @@ import hashlib
 import time
 import uuid
 import os
+import logging
+from collections import defaultdict
 from dotenv import load_dotenv
+
+logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
+logger = logging.getLogger("cyf_registration")
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.image import MIMEImage
@@ -72,6 +77,8 @@ import qrcode
 # ======================================================
 # APP CONFIGURATION
 # ======================================================
+
+load_dotenv()
 
 app = FastAPI()
 
@@ -124,29 +131,37 @@ REGISTRATION_PROTECTED_PAGES = {
 # UPLOADED FILES
 # ============================================================
 
-DATA_DIR = os.getenv("DATA_DIR", "/app/data")
-UPLOADS_DIR = Path(os.getenv("UPLOADS_DIR", os.path.join(DATA_DIR, "uploads")))
-STORE_UPLOAD_DIR = UPLOADS_DIR / "store"
-
-UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
-STORE_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-
 app.mount(
     "/uploads",
     StaticFiles(
-        directory=str(UPLOADS_DIR)
+        directory="/app/data/uploads"
     ),
     name="uploads"
 )
 
 
 
+# ------------------------------------------------------
+# PRODUCTION CORS
+# ------------------------------------------------------
+# Set CORS_ALLOWED_ORIGINS in Railway as a comma-separated list, e.g.
+# https://your-domain.com,https://www.your-domain.com
+# Local development may use http://localhost:8000.
+CORS_ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv(
+        "CORS_ALLOWED_ORIGINS",
+        "http://localhost:8000,http://127.0.0.1:8000"
+    ).split(",")
+    if origin.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=CORS_ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
 )
 
 
@@ -580,10 +595,7 @@ def send_gmail(
 
     except Exception as exc:
 
-        print(
-            "GMAIL SEND ERROR:",
-            repr(exc)
-        )
+        logger.exception("GMAIL SEND ERROR")
 
         raise RuntimeError(
             f"Unable to send Gmail message: {exc}"
@@ -647,22 +659,16 @@ async def send_gmail_async(
 
 
 
-DATA_DIR = Path(os.getenv("DATA_DIR", "/app/data"))
-UPLOADS_DIR = Path(os.getenv("UPLOADS_DIR", str(DATA_DIR / "uploads")))
-STORE_UPLOAD_DIR = UPLOADS_DIR / "store"
-
-DATA_DIR.mkdir(parents=True, exist_ok=True)
-UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
-STORE_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 # ======================================================
 # SQLITE DATABASE
 # ======================================================
 
-DATABASE_URL = f"sqlite:///{DATA_DIR / 'registration_system.db'}"
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "sqlite:////app/data/registration_system.db"
+)
 
-# DATABASE_URL = "sqlite:////app/data/registration_system.db"
-# DATABASE_URL = "sqlite:///./registration_system.db"
 
 engine = create_engine(
     DATABASE_URL,
@@ -712,6 +718,15 @@ def verify_password(
         plain_password,
         hashed_password
     )
+
+
+MANILA_TZ = ZoneInfo("Asia/Manila")
+
+def manila_now():
+    return datetime.datetime.now(MANILA_TZ).replace(tzinfo=None)
+
+def manila_today():
+    return datetime.datetime.now(MANILA_TZ).date()
 
 
 
@@ -2048,11 +2063,7 @@ class CashDonationTotal(Base):
 
 
 
-# ======================================================
-# CREATE DATABASE TABLES
-# ======================================================
 
-Base.metadata.create_all(bind=engine)
 
 
 
@@ -2963,15 +2974,9 @@ Base.metadata.create_all(bind=engine)
 # # CREATE TABLES
 # # ======================================================
 
-
-
-
-
-
-
-
-
-
+# Base.metadata.create_all(
+#     bind=engine
+# )
 
 
 # # ======================================================
@@ -3002,6 +3007,46 @@ Base.metadata.create_all(bind=engine)
 
 
 
+# ============================================================
+# MIGRATE PAYMENT TABLE
+# ADD STORE ORDER ID
+# ============================================================
+
+def migrate_payment_store_order_id():
+
+    with engine.connect() as connection:
+
+        result = connection.execute(
+            text("PRAGMA table_info(payments)")
+        )
+
+        columns = [
+            row[1]
+            for row in result
+        ]
+
+        # ----------------------------------------------------
+        # STORE ORDER ID
+        # ----------------------------------------------------
+
+        if "store_order_id" not in columns:
+
+            connection.execute(
+                text("""
+                    ALTER TABLE payments
+                    ADD COLUMN store_order_id
+                    VARCHAR(100)
+                """)
+            )
+
+        # ----------------------------------------------------
+        # COMMIT
+        # ----------------------------------------------------
+
+        connection.commit()
+
+
+migrate_payment_store_order_id()
 
 
 
@@ -3041,7 +3086,133 @@ Base.metadata.create_all(bind=engine)
 
 
 
+# ============================================================
+# MIGRATE PAYMENT TABLE
+# ADD RECEIPT_SENT
+# ============================================================
 
+def migrate_payment_receipt_sent():
+    with engine.connect() as connection:
+        result = connection.execute(text("PRAGMA table_info(payments)"))
+        columns = [row[1] for row in result]
+        if "receipt_sent" not in columns:
+            connection.execute(text("""
+                ALTER TABLE payments
+                ADD COLUMN receipt_sent BOOLEAN NOT NULL DEFAULT 0
+            """))
+        connection.commit()
+
+migrate_payment_receipt_sent()
+
+
+
+
+
+
+
+
+
+
+
+# ============================================================
+# MANUAL FINDING SPONSOR CONTROL / ALLOCATION TABLES
+# ============================================================
+# These tables are created with SQL so existing production
+# databases do not require Base.metadata.create_all().
+# ============================================================
+
+def ensure_manual_sponsor_tables():
+    with engine.begin() as connection:
+        connection.execute(text("""
+            CREATE TABLE IF NOT EXISTS manual_sponsor_settings (
+                id INTEGER PRIMARY KEY,
+                enabled INTEGER NOT NULL DEFAULT 1,
+                updated_at DATETIME
+            )
+        """))
+
+        connection.execute(text("""
+            INSERT OR IGNORE INTO manual_sponsor_settings
+                (id, enabled, updated_at)
+            VALUES
+                (1, 1, CURRENT_TIMESTAMP)
+        """))
+
+        connection.execute(text("""
+            CREATE TABLE IF NOT EXISTS manual_sponsor_allocations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                participant_id INTEGER NOT NULL,
+                amount REAL NOT NULL,
+                tshirt_amount REAL NOT NULL DEFAULT 0,
+                lanyard_amount REAL NOT NULL DEFAULT 0,
+                previous_tshirt_status VARCHAR(20),
+                previous_lanyard_status VARCHAR(20),
+                previous_registration_status VARCHAR(30),
+                previous_sponsor_review_status VARCHAR(30),
+                sponsor_review_field VARCHAR(50),
+                admin_username VARCHAR(100),
+                status VARCHAR(20) NOT NULL DEFAULT 'Active',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                cancelled_at DATETIME,
+                FOREIGN KEY(participant_id) REFERENCES participants(id)
+            )
+        """))
+
+        connection.execute(text("""
+            CREATE INDEX IF NOT EXISTS
+            ix_manual_sponsor_allocations_participant
+            ON manual_sponsor_allocations(participant_id)
+        """))
+
+        connection.execute(text("""
+            CREATE UNIQUE INDEX IF NOT EXISTS
+            ux_manual_sponsor_allocations_active_participant
+            ON manual_sponsor_allocations(participant_id)
+            WHERE status = 'Active'
+        """))
+
+
+ensure_manual_sponsor_tables()
+
+
+def is_manual_finding_sponsor_enabled(db: Session) -> bool:
+    row = db.execute(text("""
+        SELECT enabled
+        FROM manual_sponsor_settings
+        WHERE id = 1
+    """)).first()
+    return bool(row and int(row[0]) == 1)
+
+
+def require_authenticated_session(request: Request):
+    session_user = request.session.get("user") or {}
+
+    if not session_user.get("user_id") or not session_user.get("role"):
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication is required."
+        )
+
+    if session_user.get("role") not in {"Admin", "Registration Team"}:
+        request.session.clear()
+        raise HTTPException(
+            status_code=403,
+            detail="Invalid account role."
+        )
+
+    return session_user
+
+
+def require_admin_session(request: Request):
+    session_user = require_authenticated_session(request)
+
+    if session_user.get("role") != "Admin":
+        raise HTTPException(
+            status_code=403,
+            detail="Administrator access is required."
+        )
+
+    return session_user
 
 
 
@@ -4319,7 +4490,7 @@ def verify_admin(db: Session, username: str):
 
 def get_registration_phase(event):
 
-    today = datetime.date.today()
+    today = manila_today()
 
     if today < event.registration_start:
 
@@ -4343,6 +4514,8 @@ def get_registration_phase(event):
 # DEFAULT ADMIN
 # ======================================================
 
+DEFAULT_ADMIN_PASSWORD = os.getenv("DEFAULT_ADMIN_PASSWORD")
+
 def create_default_admin():
 
     db = SessionLocal()
@@ -4357,6 +4530,13 @@ def create_default_admin():
 
         return
 
+    if not DEFAULT_ADMIN_PASSWORD:
+        db.close()
+        raise RuntimeError(
+            "DEFAULT_ADMIN_PASSWORD environment variable is required "
+            "when no administrator account exists."
+        )
+
     admin = User(
 
         fname="System",
@@ -4367,7 +4547,7 @@ def create_default_admin():
 
         age=0,
 
-        birthday=datetime.date.today(),
+        birthday=manila_today(),
 
         address="",
 
@@ -4383,7 +4563,7 @@ def create_default_admin():
 
         username="admin",
 
-        password=hash_password("admin123"),
+        password=hash_password(DEFAULT_ADMIN_PASSWORD),
 
         role="Admin"
     )
@@ -4439,7 +4619,7 @@ def registration_duplicate_validation(
 
 def registration_phase_validation(event):
 
-    today = datetime.date.today()
+    today = manila_today()
 
     if today <= event.registration_end:
 
@@ -4657,7 +4837,7 @@ def calculate_registration_age(
 
 ):
 
-    today = datetime.date.today()
+    today = manila_today()
 
     age = today.year - birthdate.year
 
@@ -5712,6 +5892,98 @@ async def session_auth_middleware(request: Request, call_next):
                 status_code=303
             )
 
+    # ------------------------------------------------------
+    # API / DATA ENDPOINT PROTECTION
+    # ------------------------------------------------------
+    # HTML pages are protected above. This section protects the
+    # data endpoints as well, so knowing an API URL is not enough
+    # to read or modify private registration data.
+    #
+    # Public endpoints are intentionally limited to operations that
+    # must work before login: login/logout, public registration,
+    # payment checkout/status, public store/sponsorship pages,
+    # PayMongo webhooks, and the contact form.
+    # ------------------------------------------------------
+    public_api_paths = {
+        "/auth_login_user",
+        "/auth_logout_user",
+        "/contact",
+        "/registration_create_participant",
+        "/registration_search_participant",
+        "/questionnaire_submit_answers",
+        "/rules_accept_event_agreement",
+        "/registration_complete_registration",
+        "/registration_submit_all",
+        "/create_payment",
+        "/webhooks/paymongo",
+        "/sponsorship/create_cash",
+        "/sponsorship/items",
+        "/sponsorship/payment/status",
+        "/sponsorship/create_item",
+        "/store",
+        "/store/categories",
+        "/store/purchase",
+        "/store/purchase/status",
+        "/store/items",
+        "/payment_status",
+        "/registration_items",
+    }
+
+    is_public_api = (
+        path in public_api_paths
+        or any(path.startswith(prefix + "/") for prefix in public_api_paths)
+    )
+
+    # Non-page, non-static routes are private by default.
+    # This is deliberately deny-by-default for API/data routes.
+    is_static_or_page = (
+        path.endswith((
+            ".html", ".css", ".js", ".png", ".jpg", ".jpeg",
+            ".gif", ".webp", ".svg", ".ico", ".xml", ".txt"
+        ))
+        or path.startswith("/uploads/")
+    )
+
+    if (
+        not is_public_api
+        and not is_static_or_page
+        and path not in {"/", "/privacy", "/terms"}
+    ):
+        session_user = request.session.get("user") or {}
+
+        if not session_user.get("user_id") or not session_user.get("role"):
+            return JSONResponse(
+                status_code=401,
+                content={
+                    "detail": "Authentication is required."
+                }
+            )
+
+        if session_user.get("role") not in {"Admin", "Registration Team"}:
+            request.session.clear()
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "detail": "Invalid account role."
+                }
+            )
+
+        # Administrator account-management and manual sponsor APIs
+        # must never be available to Registration Team accounts.
+        admin_only = (
+            path == "/admin/dashboard"
+            or path.startswith("/admin_")
+            or path.startswith("/admin/")
+        )
+
+        if admin_only and session_user.get("role") != "Admin":
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "detail": "Administrator access is required."
+                }
+            )
+
     return await call_next(request)
 
 
@@ -5728,7 +6000,7 @@ if not SESSION_SECRET_KEY:
     )
 
 SESSION_HTTPS_ONLY = (
-    os.getenv("SESSION_HTTPS_ONLY", "false").lower() == "true"
+    os.getenv("SESSION_HTTPS_ONLY", "true").lower() == "true"
 )
 
 app.add_middleware(
@@ -6052,6 +6324,64 @@ def favicon_page():
 # AUTHENTICATION
 # ======================================================
 
+LOGIN_MAX_FAILURES = int(os.getenv("LOGIN_MAX_FAILURES", "5"))
+LOGIN_WINDOW_SECONDS = int(os.getenv("LOGIN_WINDOW_SECONDS", "900"))
+LOGIN_LOCKOUT_SECONDS = int(os.getenv("LOGIN_LOCKOUT_SECONDS", "900"))
+_login_attempts = defaultdict(list)
+_login_locked_until = {}
+
+
+def _client_ip(request: Request) -> str:
+    # Only use forwarded headers when the deployment proxy supplies them.
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def _check_login_rate_limit(request: Request):
+    key = _client_ip(request)
+    now = time.time()
+
+    locked_until = _login_locked_until.get(key, 0)
+    if locked_until > now:
+        retry_after = max(1, int(locked_until - now))
+        raise HTTPException(
+            status_code=429,
+            detail=f"Too many failed login attempts. Try again in {retry_after} seconds."
+        )
+
+    attempts = [
+        timestamp
+        for timestamp in _login_attempts.get(key, [])
+        if now - timestamp < LOGIN_WINDOW_SECONDS
+    ]
+    _login_attempts[key] = attempts
+
+
+def _record_login_failure(request: Request):
+    key = _client_ip(request)
+    now = time.time()
+    attempts = _login_attempts.get(key, [])
+    attempts = [
+        timestamp
+        for timestamp in attempts
+        if now - timestamp < LOGIN_WINDOW_SECONDS
+    ]
+    attempts.append(now)
+    _login_attempts[key] = attempts
+
+    if len(attempts) >= LOGIN_MAX_FAILURES:
+        _login_locked_until[key] = now + LOGIN_LOCKOUT_SECONDS
+        _login_attempts[key] = []
+
+
+def _clear_login_failures(request: Request):
+    key = _client_ip(request)
+    _login_attempts.pop(key, None)
+    _login_locked_until.pop(key, None)
+
+
 @app.post(
     "/auth_login_user",
     response_model=LoginResponseSchema
@@ -6062,6 +6392,8 @@ def auth_login_user(
     db: Session = Depends(get_db)
 ):
 
+    _check_login_rate_limit(request)
+
     user = db.query(User).filter(
 
         User.username == login.username
@@ -6070,12 +6402,10 @@ def auth_login_user(
 
     if not user:
 
+        _record_login_failure(request)
         raise HTTPException(
-
             status_code=401,
-
             detail="Invalid username or password."
-
         )
 
     if not verify_password(
@@ -6086,15 +6416,14 @@ def auth_login_user(
 
     ):
 
+        _record_login_failure(request)
         raise HTTPException(
-
             status_code=401,
-
             detail="Invalid username or password."
-
         )
 
-    user.last_login = datetime.datetime.now()
+    _clear_login_failures(request)
+    user.last_login = manila_now()
 
     db.commit()
 
@@ -6195,18 +6524,24 @@ def dashboard_registration_team_home():
 def admin_change_admin_credentials(
 
     data: AdminUpdateCredentialSchema,
+    request: Request,
 
     db: Session = Depends(get_db)
 
 ):
 
-    admin = verify_admin(
+    session_user = require_admin_session(request)
 
-        db,
+    admin = db.query(User).filter(
+        User.id == session_user.get("user_id"),
+        User.role == "Admin"
+    ).first()
 
-        data.username
-
-    )
+    if not admin:
+        raise HTTPException(
+            status_code=403,
+            detail="Administrator account not found."
+        )
 
     if not verify_password(
 
@@ -6244,13 +6579,20 @@ def admin_change_admin_credentials(
 
     admin.username = data.new_username
 
+    request.session["user"] = {
+        **(request.session.get("user") or {}),
+        "username": data.new_username,
+        "user_id": admin.id,
+        "role": "Admin",
+    }
+
     admin.password = hash_password(
 
         data.new_password
 
     )
 
-    admin.updated_at = datetime.datetime.now()
+    admin.updated_at = manila_now()
 
     db.commit()
 
@@ -6265,22 +6607,17 @@ def admin_change_admin_credentials(
 def admin_create_registration_team_user(
 
     data: AdminCreateRegistrationTeamSchema,
+    request: Request,
 
     db: Session = Depends(get_db)
 
 ):
 
     # ======================================================
-    # VERIFY ADMIN
+    # VERIFY THE CURRENT SESSION
     # ======================================================
 
-    verify_admin(
-
-        db,
-
-        data.admin_username
-
-    )
+    require_admin_session(request)
 
     # ======================================================
     # USERNAME VALIDATION
@@ -6434,9 +6771,9 @@ def admin_create_registration_team_user(
 
         role="Registration Team",
 
-        created_at=datetime.datetime.now(),
+        created_at=manila_now(),
 
-        updated_at=datetime.datetime.now()
+        updated_at=manila_now()
 
     )
 
@@ -7040,7 +7377,7 @@ def register_update_staff(
 
     staff.local_church = data.local_church
     staff.sector = data.sector
-    staff.updated_at = datetime.datetime.now()
+    staff.updated_at = manila_now()
 
     db.commit()
     db.refresh(staff)
@@ -7141,7 +7478,7 @@ def register_archive_staff(
 
     staff.is_archived = 1
 
-    staff.updated_at = datetime.datetime.now()
+    staff.updated_at = manila_now()
 
     db.commit()
 
@@ -7212,19 +7549,13 @@ def register_view_archived_staff(
 @app.get("/admin_view_registration_team_users")
 def admin_view_registration_team_users(
 
-    admin_username: str,
+    request: Request,
 
     db: Session = Depends(get_db)
 
 ):
 
-    verify_admin(
-
-        db,
-
-        admin_username
-
-    )
+    require_admin_session(request)
 
     users = db.query(User).filter(
 
@@ -7428,7 +7759,7 @@ def event_view_all_events(
 
     ).all()
 
-    today = datetime.date.today()
+    today = manila_today()
 
     results = []
 
@@ -7615,7 +7946,7 @@ def event_restore_event(
 
     event.is_archived = 0
 
-    event.updated_at = datetime.datetime.now()
+    event.updated_at = manila_now()
 
     db.commit()
 
@@ -7707,7 +8038,7 @@ def event_view_current_active_event(
 
 ):
 
-    today = datetime.date.today()
+    today = manila_today()
 
     event = db.query(Event).filter(
 
@@ -7903,7 +8234,7 @@ def event_update_event(
 
     event.wrapup_date = data.wrapup_date
 
-    event.updated_at = datetime.datetime.now()
+    event.updated_at = manila_now()
 
     db.commit()
 
@@ -8024,7 +8355,7 @@ def event_archive_event(
     # CHECK EVENT HAS ENDED
     # ======================================================
 
-    today = datetime.date.today()
+    today = manila_today()
 
     if today <= event.wrapup_date:
 
@@ -8066,7 +8397,7 @@ def event_archive_event(
 
     event.is_archived = 1
 
-    event.updated_at = datetime.datetime.now()
+    event.updated_at = manila_now()
 
     db.commit()
 
@@ -8202,7 +8533,7 @@ def registration_create_participant(
     # CHECK REGISTRATION PERIOD
     # ======================================================
 
-    today = datetime.date.today()
+    today = manila_today()
 
     if today < event.registration_start:
 
@@ -9157,7 +9488,7 @@ def registration_update_participant(
     # UPDATE TIMESTAMP
     # ======================================================
 
-    participant.updated_at = datetime.datetime.now()
+    participant.updated_at = manila_now()
 
     # ======================================================
     # SAVE CHANGES
@@ -9244,7 +9575,7 @@ def registration_archive_participant(
 
     participant.is_archived = 1
 
-    participant.updated_at = datetime.datetime.now()
+    participant.updated_at = manila_now()
 
     db.commit()
 
@@ -9290,7 +9621,7 @@ def registration_restore_participant(
 
     participant.is_archived = 0
 
-    participant.updated_at = datetime.datetime.now()
+    participant.updated_at = manila_now()
 
     db.commit()
 
@@ -9491,7 +9822,7 @@ def questionnaire_update_answers(
     questionnaire.small_group = data.small_group
     questionnaire.gospel_sharing = data.gospel_sharing
     questionnaire.temptation_response = data.temptation_response
-    questionnaire.updated_at = datetime.datetime.now()
+    questionnaire.updated_at = manila_now()
 
     db.commit()
 
@@ -9543,7 +9874,7 @@ def rules_accept_event_agreement(
     if agreement:
 
         agreement.agreed = data.agreed
-        agreement.agreed_at = datetime.datetime.now()
+        agreement.agreed_at = manila_now()
 
     else:
 
@@ -9553,7 +9884,7 @@ def rules_accept_event_agreement(
 
             agreed=data.agreed,
 
-            agreed_at=datetime.datetime.now() if data.agreed else None
+            agreed_at=manila_now() if data.agreed else None
 
         )
 
@@ -9769,7 +10100,7 @@ def registration_complete_registration(
 
         evaluation.participant_tier = participant_tier
 
-        evaluation.updated_at = datetime.datetime.now()
+        evaluation.updated_at = manila_now()
 
     else:
 
@@ -9795,7 +10126,7 @@ def registration_complete_registration(
 
     participant.registration_status = "Completed"
 
-    participant.updated_at = datetime.datetime.now()
+    participant.updated_at = manila_now()
 
     db.commit()
 
@@ -10160,7 +10491,7 @@ def payment_status(
         participant,
         "updated_at"
     ):
-        participant.updated_at = datetime.datetime.now()
+        participant.updated_at = manila_now()
 
     db.commit()
 
@@ -10765,7 +11096,7 @@ def registration_submit_all(
         # CHECK REGISTRATION PERIOD
         # ==================================================
 
-        today = datetime.date.today()
+        today = manila_today()
 
         if today < event.registration_start:
 
@@ -11068,7 +11399,7 @@ def registration_submit_all(
 
             agreed=1,
 
-            agreed_at=datetime.datetime.now()
+            agreed_at=manila_now()
 
         )
 
@@ -11307,7 +11638,7 @@ def dashboard_event_summary(
 
     ).count()
 
-    today = datetime.date.today()
+    today = manila_today()
 
     active_events = db.query(Event).filter(
 
@@ -11427,7 +11758,7 @@ def questionnaire_recalculate_scores(
 
         evaluation.participant_tier = participant_tier
 
-        evaluation.updated_at = datetime.datetime.now()
+        evaluation.updated_at = manila_now()
 
     else:
 
@@ -13901,7 +14232,7 @@ async def process_finding_sponsor_queue_logic(
             ):
 
                 participant.updated_at = (
-                    datetime.datetime.now()
+                    manila_now()
                 )
 
             # =================================================
@@ -14065,7 +14396,7 @@ async def process_finding_sponsor_queue_logic(
         ):
 
             donation_total.updated_at = (
-                datetime.datetime.now()
+                manila_now()
             )
 
         # ====================================================
@@ -15629,7 +15960,7 @@ async def paymongo_webhook(
         ):
 
             donation_total.updated_at = (
-                datetime.datetime.now()
+                manila_now()
             )
 
         # ----------------------------------------------------
@@ -15655,7 +15986,7 @@ async def paymongo_webhook(
         ):
 
             cash_sponsorship.paid_at = (
-                datetime.datetime.now()
+                manila_now()
             )
 
         if hasattr(
@@ -15664,7 +15995,7 @@ async def paymongo_webhook(
         ):
 
             cash_sponsorship.updated_at = (
-                datetime.datetime.now()
+                manila_now()
             )
 
         if hasattr(
@@ -16402,7 +16733,7 @@ async def paymongo_webhook(
 
         processed_participants = []
 
-        now = datetime.datetime.now()
+        now = manila_now()
 
         for participant_payment in participant_payments:
 
@@ -17684,7 +18015,7 @@ async def paymongo_webhook(
 
         processed_items = []
 
-        now = datetime.datetime.now()
+        now = manila_now()
 
         for entry in store_items_to_update:
 
@@ -19578,7 +19909,7 @@ def create_store_item(
     # CREATE
     # --------------------------------------------------------
 
-    now = datetime.datetime.now()
+    now = manila_now()
 
     item = StoreItem(
         item_name=item_name,
@@ -19749,7 +20080,7 @@ def update_store_item(
 
     item.sizes = json.dumps(sizes)
 
-    item.updated_at = datetime.datetime.now()
+    item.updated_at = manila_now()
 
     db.commit()
 
@@ -19790,7 +20121,7 @@ def delete_store_item(
 
     item.is_archived = True
 
-    item.updated_at = datetime.datetime.now()
+    item.updated_at = manila_now()
 
     db.commit()
 
@@ -20207,7 +20538,7 @@ def create_store_purchase(
 
     store_order_id = (
         "STORE-"
-        + datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+        + manila_now().strftime("%Y%m%d%H%M%S")
         + "-"
         + uuid.uuid4().hex[:8].upper()
     )
@@ -20915,11 +21246,11 @@ def view_store_items(
 
 
 # =========================================================
-# STORE IMAGE UPLOAD "/app/data/uploads/store"
+# STORE IMAGE UPLOAD
 # =========================================================
 
 STORE_UPLOAD_DIR = Path(
-    "/app/data/uploads/"
+    "/app/data/uploads/store"
 )
 
 STORE_UPLOAD_DIR.mkdir(
@@ -20939,8 +21270,12 @@ ALLOWED_IMAGE_TYPES = {
 
 @app.post("/upload_store_image")
 async def upload_store_image(
-    file: UploadFile = File(...)
+    request: Request,
+    file: UploadFile = File(...),
 ):
+    # Uploads modify server storage and therefore require an authenticated
+    # administrator/registration-team session.
+    require_authenticated_session(request)
 
     # -----------------------------------------------------
     # Validate file type
@@ -20956,6 +21291,32 @@ async def upload_store_image(
             )
         )
 
+
+    # -----------------------------------------------------
+    # Read and validate the actual file content
+    # -----------------------------------------------------
+    MAX_STORE_IMAGE_SIZE = 5 * 1024 * 1024
+    content = await file.read(MAX_STORE_IMAGE_SIZE + 1)
+
+    if len(content) > MAX_STORE_IMAGE_SIZE:
+        raise HTTPException(
+            status_code=413,
+            detail="Image is too large. Maximum size is 5 MB."
+        )
+
+    signatures = {
+        "image/jpeg": content.startswith(b"\xff\xd8\xff"),
+        "image/jpg": content.startswith(b"\xff\xd8\xff"),
+        "image/png": content.startswith(b"\x89PNG\r\n\x1a\n"),
+        "image/gif": content.startswith((b"GIF87a", b"GIF89a")),
+        "image/webp": content.startswith(b"RIFF") and content[8:12] == b"WEBP",
+    }
+
+    if not signatures.get(file.content_type, False):
+        raise HTTPException(
+            status_code=400,
+            detail="The uploaded file is not a valid supported image."
+        )
 
     # -----------------------------------------------------
     # Generate unique filename
@@ -20984,11 +21345,7 @@ async def upload_store_image(
     try:
 
         with file_path.open("wb") as buffer:
-
-            shutil.copyfileobj(
-                file.file,
-                buffer
-            )
+            buffer.write(content)
 
     except Exception as e:
 
@@ -22580,7 +22937,7 @@ async def process_finding_sponsor_queue(
             ):
 
                 participant.updated_at = (
-                    datetime.datetime.now()
+                    manila_now()
                 )
 
             # =================================================
@@ -22756,7 +23113,7 @@ async def process_finding_sponsor_queue(
         ):
 
             donation_total.updated_at = (
-                datetime.datetime.now()
+                manila_now()
             )
 
         # ====================================================
@@ -23924,7 +24281,7 @@ def report_dashboard_data(
     db: Session = Depends(get_db)
 ):
 
-    today = datetime.date.today()
+    today = manila_today()
 
     # ========================================================
     # PARTICIPANTS
@@ -25178,13 +25535,13 @@ async def manual_finding_sponsor_trigger(
             )
 
         if hasattr(participant, "updated_at"):
-            participant.updated_at = datetime.datetime.now()
+            participant.updated_at = manila_now()
 
         if hasattr(tshirt_stock, "updated_at"):
-            tshirt_stock.updated_at = datetime.datetime.now()
+            tshirt_stock.updated_at = manila_now()
 
         if hasattr(lanyard_stock, "updated_at"):
-            lanyard_stock.updated_at = datetime.datetime.now()
+            lanyard_stock.updated_at = manila_now()
 
         # --------------------------------------------------------
         # SAVE ALLOCATION
@@ -25538,13 +25895,13 @@ def cancel_manual_finding_sponsor(
             )
 
         if hasattr(participant, "updated_at"):
-            participant.updated_at = datetime.datetime.now()
+            participant.updated_at = manila_now()
 
         if hasattr(tshirt_stock, "updated_at"):
-            tshirt_stock.updated_at = datetime.datetime.now()
+            tshirt_stock.updated_at = manila_now()
 
         if hasattr(lanyard_stock, "updated_at"):
-            lanyard_stock.updated_at = datetime.datetime.now()
+            lanyard_stock.updated_at = manila_now()
 
         # --------------------------------------------------------
         # CLOSE ALLOCATION
