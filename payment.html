@@ -293,6 +293,50 @@ td{padding:13px;border-bottom:1px solid #eee;font-size:14px}
     .item-left{flex:1}
     .bulk-payment-details{grid-template-columns:1fr}
 }
+
+
+/* =========================================================
+   PENDING PAYMENT CHECKOUT BUTTON
+   ========================================================= */
+.pending-payment-actions {
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-top:8px;
+}
+
+.continue-payment-button {
+    border:0;
+    border-radius:8px;
+    padding:8px 12px;
+    background:#9d2b20;
+    color:#fff;
+    font-size:12px;
+    font-weight:800;
+    cursor:pointer;
+    transition:.2s;
+}
+
+.continue-payment-button:hover {
+    background:#741d16;
+}
+
+.continue-payment-button:disabled {
+    opacity:.55;
+    cursor:not-allowed;
+}
+
+.pending-payment-note {
+    margin-top:8px;
+    padding:10px 12px;
+    border-radius:9px;
+    background:#fff7df;
+    color:#7a4b00;
+    border:1px solid #f0d88a;
+    font-size:12px;
+    line-height:1.5;
+}
+
 </style>
 </head>
 
@@ -636,6 +680,142 @@ function getStatusText(status) {
     return String(status).charAt(0).toUpperCase()
         + String(status).slice(1).toLowerCase();
 
+}
+
+
+/* =========================================================
+   PENDING PAYMENT HELPERS
+   ========================================================= */
+
+function getPaymentCheckoutUrl(payment) {
+    if (!payment || typeof payment !== "object") {
+        return "";
+    }
+
+    return String(
+        payment.checkout_url ||
+        payment.payment_url ||
+        payment.url ||
+        ""
+    ).trim();
+}
+
+function isPendingPayment(payment) {
+    return String(payment?.status || "").trim().toLowerCase() === "pending";
+}
+
+function getLatestPendingPayment(payments) {
+    if (!Array.isArray(payments)) {
+        return null;
+    }
+
+    return payments
+        .filter(payment => isPendingPayment(payment) && getPaymentCheckoutUrl(payment))
+        .sort((a, b) => {
+            const ad = new Date(a?.created_at || 0).getTime();
+            const bd = new Date(b?.created_at || 0).getTime();
+            return bd - ad;
+        })[0] || null;
+}
+
+function openPendingPayment(paymentOrId) {
+    let payment = null;
+
+    if (paymentOrId && typeof paymentOrId === "object") {
+        payment = paymentOrId;
+    } else {
+        const targetId = String(paymentOrId ?? "");
+        const payments = Array.isArray(paymentData?.payments)
+            ? paymentData.payments
+            : [];
+
+        payment = payments.find(p =>
+            String(p?.payment_id ?? p?.id ?? "") === targetId
+        ) || null;
+
+        if (!payment && isBulkMode) {
+            for (const participant of bulkParticipants) {
+                const found = (participant?.payments || []).find(p =>
+                    String(p?.payment_id ?? p?.id ?? "") === targetId
+                );
+                if (found) {
+                    payment = found;
+                    break;
+                }
+            }
+        }
+    }
+
+    const checkoutUrl = getPaymentCheckoutUrl(payment);
+
+    if (!checkoutUrl) {
+        alert("This pending payment does not have a checkout URL. Please contact the administrator.");
+        return;
+    }
+
+    const opened = window.open(checkoutUrl, "_blank", "noopener,noreferrer");
+
+    if (!opened) {
+        alert("Your browser blocked the payment window. Please allow pop-ups for this site and try again.");
+        return;
+    }
+
+    try {
+        opened.focus();
+    } catch {}
+
+    if (isBulkMode) {
+        bulkPaymentWindow = opened;
+        bulkPaymentCreated = true;
+        startBulkPaymentPolling();
+    } else {
+        paymentWindow = opened;
+        paymentCreated = true;
+        currentPaymentRequest = {
+            paymentId: payment?.payment_id ?? payment?.id ?? null,
+            checkoutUrl,
+            tshirtSelected: Boolean(payment?.tshirt_selected),
+            lanyardSelected: Boolean(payment?.lanyard_selected),
+            tshirtSize: payment?.tshirt_size || null
+        };
+        paymentStartState = {
+            lanyardPaid: Boolean(paymentData?.lanyard && isPaid(paymentData.lanyard)),
+            tshirtPaid: Boolean(paymentData?.tshirt && isPaid(paymentData.tshirt))
+        };
+        startPaymentPolling();
+    }
+}
+
+function getSinglePendingPayment() {
+    return getLatestPendingPayment(paymentData?.payments || []);
+}
+
+function getBulkPendingPayments() {
+    const map = new Map();
+
+    bulkParticipants.forEach(participant => {
+        (participant?.payments || []).forEach(payment => {
+            if (!isPendingPayment(payment)) return;
+            const checkoutUrl = getPaymentCheckoutUrl(payment);
+            if (!checkoutUrl) return;
+
+            const key = String(payment?.payment_id ?? payment?.id ?? checkoutUrl);
+            if (!map.has(key)) {
+                map.set(key, {
+                    ...payment,
+                    participant_name: participant.fullname,
+                    registration_number: participant.registration_number,
+                    participant_id: participant.participant_id
+                });
+            }
+        });
+    });
+
+    return Array.from(map.values()).sort((a, b) => {
+        const ad = new Date(a?.created_at || 0).getTime();
+        const bd = new Date(b?.created_at || 0).getTime();
+        return bd - ad;
+    });
 }
 
 /* =========================================================
@@ -1216,9 +1396,27 @@ function updateBulkCheckoutUI() {
 
     updateBulkTotal();
 
+    const pendingPayments = getBulkPendingPayments();
+    const pendingPayment = pendingPayments[0] || null;
+    const pendingCheckoutUrl = getPaymentCheckoutUrl(pendingPayment);
+
     if (button && !creatingBulkPayment && !bulkPaymentCreated) {
-        button.disabled = !hasUnpaid || (!bulkLanyardSelection && selectedTshirts.length === 0);
-        button.textContent = "Proceed to Payment";
+        button.disabled = !hasUnpaid || (!pendingCheckoutUrl && !bulkLanyardSelection && selectedTshirts.length === 0);
+        button.textContent = pendingCheckoutUrl
+            ? "Continue Pending Payment"
+            : "Proceed to Payment";
+    }
+
+    const waiting = document.getElementById("bulkPaymentWaiting");
+    if (waiting && pendingCheckoutUrl && !creatingBulkPayment && !bulkPaymentCreated) {
+        waiting.style.display = "block";
+        waiting.innerHTML = `
+            <div class="pending-payment-note">
+                A pending bulk payment already exists.
+                <strong>Payment #${escapeHtml(pendingPayment.payment_id ?? pendingPayment.id ?? "—")}</strong>
+                is waiting for payment. Click <strong>Continue Pending Payment</strong> to reopen the PayMongo checkout.
+            </div>
+        `;
     }
 }
 
@@ -1262,7 +1460,11 @@ function renderBulkPaymentHistory() {
         if (payment.tshirt_selected) items.push(`T-Shirt${payment.tshirt_size ? ` (${escapeHtml(payment.tshirt_size)})` : ""}`);
         if (payment.lanyard_selected) items.push("Lanyard");
         if (!items.length) items.push("Registration");
-        return `<tr><td>${escapeHtml(payment.participant_name || "—")}<br><small>${escapeHtml(payment.registration_number || "—")}</small></td><td>#${escapeHtml(payment.payment_id ?? payment.id ?? "—")}</td><td>${escapeHtml(items.join(", "))}</td><td>${formatCurrency(payment.amount)}</td><td><span class="status ${getStatusClass(payment.status)}">${escapeHtml(getStatusText(payment.status))}</span></td><td>${escapeHtml(formatDate(payment.created_at))}</td><td>${escapeHtml(payment.paymongo_reference || "—")}</td></tr>`;
+        const checkoutUrl = getPaymentCheckoutUrl(payment);
+        const pendingAction = isPendingPayment(payment) && checkoutUrl
+            ? `<div class="pending-payment-actions"><button type="button" class="continue-payment-button" onclick="openPendingPayment('${escapeHtml(payment.payment_id ?? payment.id ?? "")}')">Continue Payment</button></div>`
+            : "";
+        return `<tr><td>${escapeHtml(payment.participant_name || "—")}<br><small>${escapeHtml(payment.registration_number || "—")}</small></td><td>#${escapeHtml(payment.payment_id ?? payment.id ?? "—")}</td><td>${escapeHtml(items.join(", "))}</td><td>${formatCurrency(payment.amount)}</td><td><span class="status ${getStatusClass(payment.status)}">${escapeHtml(getStatusText(payment.status))}</span>${pendingAction}</td><td>${escapeHtml(formatDate(payment.created_at))}</td><td>${escapeHtml(payment.paymongo_reference || "—")}</td></tr>`;
     }).join("");
     container.innerHTML = `<table><thead><tr><th>Participant</th><th>Payment #</th><th>Items</th><th>Amount</th><th>Status</th><th>Date</th><th>Reference</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
@@ -1334,52 +1536,49 @@ function hasUnpaidSingleItems() {
 
 function updateCheckoutVisibilitySingle() {
 
-    const checkoutSection =
-        document.getElementById("checkoutSection");
+    const checkoutSection = document.getElementById("checkoutSection");
+    if (!checkoutSection) return;
 
-    if (!checkoutSection) {
-        return;
-    }
+    const hasUnpaidItems = hasUnpaidSingleItems();
+    const pendingPayment = getSinglePendingPayment();
+    const pendingUrl = getPaymentCheckoutUrl(pendingPayment);
 
-    /*
-     * The Proceed button is controlled ONLY by the actual
-     * unpaid registration items returned by the backend.
-     *
-     * This is important after refresh:
-     * Lanyard can be PAID while T-shirt is still UNPAID.
-     * mandatory_payment_complete only describes the mandatory
-     * Lanyard state, so it must not hide the checkout button.
-     */
-    const hasUnpaidItems =
-        hasUnpaidSingleItems();
+    checkoutSection.style.display = hasUnpaidItems ? "block" : "none";
 
-    checkoutSection.style.display =
-        hasUnpaidItems ? "block" : "none";
-
-    const button =
-        document.getElementById("payButton");
-
-    const waiting =
-        document.getElementById("paymentWaiting");
+    const button = document.getElementById("payButton");
+    const waiting = document.getElementById("paymentWaiting");
 
     if (!hasUnpaidItems) {
-
         if (button) {
             button.disabled = true;
             button.textContent = "Payment Completed";
         }
+        if (waiting) waiting.style.display = "none";
+        return;
+    }
 
-        if (waiting) {
-            waiting.style.display = "none";
-        }
+    if (paymentCreated || creatingPayment) {
+        return;
+    }
 
-    } else if (!paymentCreated && !creatingPayment) {
+    if (button) {
+        button.disabled = false;
+        button.textContent = pendingUrl
+            ? "Continue Pending Payment"
+            : "Proceed to Payment";
+    }
 
-        if (button) {
-            button.disabled = false;
-            button.textContent = "Proceed to Payment";
-        }
-
+    if (pendingUrl && waiting) {
+        waiting.style.display = "block";
+        waiting.innerHTML = `
+            <div class="pending-payment-note">
+                A pending payment already exists.
+                <strong>Payment #${escapeHtml(pendingPayment.payment_id ?? pendingPayment.id ?? "—")}</strong>
+                is waiting for payment. Use the button above or the payment history below to continue it.
+            </div>
+        `;
+    } else if (waiting) {
+        waiting.style.display = "none";
     }
 
 }
@@ -1913,15 +2112,32 @@ function renderPaymentHistory() {
             items.push("Registration");
         }
 
+        const checkoutUrl = getPaymentCheckoutUrl(payment);
+        const pendingAction =
+            isPendingPayment(payment) && checkoutUrl
+                ? `
+                    <div class="pending-payment-actions">
+                        <button
+                            type="button"
+                            class="continue-payment-button"
+                            onclick="openPendingPayment('${escapeHtml(payment.payment_id ?? payment.id ?? "")}')"
+                        >
+                            Continue Payment
+                        </button>
+                    </div>
+                `
+                : "";
+
         rows += `
             <tr>
-                <td>#${escapeHtml(payment.payment_id)}</td>
+                <td>#${escapeHtml(payment.payment_id ?? payment.id ?? "—")}</td>
                 <td>${escapeHtml(items.join(", "))}</td>
                 <td>${formatCurrency(payment.amount)}</td>
                 <td>
                     <span class="status ${statusClass}">
                         ${escapeHtml(statusText)}
                     </span>
+                    ${pendingAction}
                 </td>
                 <td>${escapeHtml(formatDate(payment.created_at))}</td>
                 <td>${escapeHtml(payment.paymongo_reference || "—")}</td>
@@ -1987,6 +2203,20 @@ function resetPaymentButton() {
 async function proceedToPayment() {
 
     if (creatingPayment) {
+        return;
+    }
+
+    /*
+     * IMPORTANT:
+     * If /create_payment previously created a Pending payment,
+     * do NOT create another PayMongo link. Re-open the existing
+     * checkout URL instead.
+     */
+    const pendingPayment = getSinglePendingPayment();
+    const pendingCheckoutUrl = getPaymentCheckoutUrl(pendingPayment);
+
+    if (pendingCheckoutUrl) {
+        openPendingPayment(pendingPayment);
         return;
     }
 
@@ -2568,6 +2798,14 @@ async function checkPaymentStatus() {
 async function proceedToBulkPayment() {
     if (creatingBulkPayment || bulkPaymentCreated) return;
     if (!bulkParticipants.length) { alert("No participants are available for bulk payment."); return; }
+
+    /* Re-open an existing pending PayMongo checkout instead of creating a duplicate. */
+    const pendingPayment = getBulkPendingPayments()[0] || null;
+    const pendingCheckoutUrl = getPaymentCheckoutUrl(pendingPayment);
+    if (pendingCheckoutUrl) {
+        openPendingPayment(pendingPayment);
+        return;
+    }
 
     const selectedTshirts = getSelectedBulkTshirts();
     const unpaidLanyard = hasUnpaidBulkLanyard() && bulkLanyardSelection;
