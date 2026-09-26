@@ -2970,13 +2970,19 @@ class CashDonationTotal(Base):
 #         connection.execute(text("PRAGMA foreign_keys=ON"))
 
 
-# # ======================================================
-# # CREATE TABLES
-# # ======================================================
+# ======================================================
+# CREATE ALL DATABASE TABLES
+# ======================================================
+#
+# This MUST run after every SQLAlchemy model has been defined
+# and BEFORE any migration function queries an existing table.
+# It is safe for existing SQLite databases because create_all()
+# only creates tables that do not already exist.
+# ======================================================
 
-# Base.metadata.create_all(
-#     bind=engine
-# )
+Base.metadata.create_all(
+    bind=engine
+)
 
 
 # # ======================================================
@@ -4575,7 +4581,162 @@ def create_default_admin():
     db.close()
 
     print("Default Admin Created")
-    
+
+
+# ======================================================
+# ONE-TIME ADMIN PASSWORD RESET
+# ======================================================
+#
+# Railway environment variables:
+#
+#   ADMIN_PASSWORD_RESET_ONCE
+#       = the new password to apply
+#
+#   ADMIN_PASSWORD_RESET_ID
+#       = a unique one-time reset identifier, for example:
+#         2026-09-26-admin-reset-01
+#
+# The reset is applied only once for each reset ID. A database
+# record prevents the password from being reset again on every
+# Railway restart, even if the environment variables are still
+# present. After the reset succeeds, remove the two variables
+# from Railway as an additional safety measure.
+#
+# This mechanism does NOT delete users, events, participants,
+# payments, or any other existing data.
+# ======================================================
+
+ADMIN_PASSWORD_RESET_ONCE = os.getenv(
+    "ADMIN_PASSWORD_RESET_ONCE"
+)
+
+ADMIN_PASSWORD_RESET_ID = os.getenv(
+    "ADMIN_PASSWORD_RESET_ID"
+)
+
+
+def reset_admin_password_once():
+
+    reset_password = (
+        ADMIN_PASSWORD_RESET_ONCE
+        or ""
+    ).strip()
+
+    reset_id = (
+        ADMIN_PASSWORD_RESET_ID
+        or ""
+    ).strip()
+
+    # Nothing to do when the one-time reset is not enabled.
+    if not reset_password and not reset_id:
+        return
+
+    if not reset_password or not reset_id:
+        raise RuntimeError(
+            "Both ADMIN_PASSWORD_RESET_ONCE and "
+            "ADMIN_PASSWORD_RESET_ID must be set together "
+            "for a one-time admin password reset."
+        )
+
+    # Require a reasonably strong temporary reset password.
+    if len(reset_password) < 12:
+        raise RuntimeError(
+            "ADMIN_PASSWORD_RESET_ONCE must contain at least "
+            "12 characters."
+        )
+
+    db = SessionLocal()
+
+    try:
+        # Create the reset-tracking table without affecting existing data.
+        db.execute(text("""
+            CREATE TABLE IF NOT EXISTS admin_password_reset_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                reset_id VARCHAR(255) NOT NULL UNIQUE,
+                username VARCHAR(100) NOT NULL,
+                reset_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        """))
+        db.commit()
+
+        already_applied = db.execute(
+            text("""
+                SELECT id
+                FROM admin_password_reset_log
+                WHERE reset_id = :reset_id
+                LIMIT 1
+            """),
+            {"reset_id": reset_id}
+        ).first()
+
+        if already_applied:
+            print(
+                "Admin password reset skipped: "
+                f"reset ID '{reset_id}' was already applied."
+            )
+            return
+
+        admin = (
+            db.query(User)
+            .filter(User.role == "Admin")
+            .first()
+        )
+
+        if not admin:
+            raise RuntimeError(
+                "One-time admin password reset could not run "
+                "because no administrator account exists."
+            )
+
+        admin.password = hash_password(reset_password)
+
+        db.execute(
+            text("""
+                INSERT INTO admin_password_reset_log
+                    (reset_id, username)
+                VALUES
+                    (:reset_id, :username)
+            """),
+            {
+                "reset_id": reset_id,
+                "username": admin.username
+            }
+        )
+
+        db.commit()
+
+        print(
+            "One-time admin password reset completed for "
+            f"username '{admin.username}'. "
+            f"Reset ID: '{reset_id}'."
+        )
+
+    except Exception:
+        db.rollback()
+        raise
+
+    finally:
+        db.close()
+
+
+# ======================================================
+# INITIALIZE DATABASE + ADMIN
+# ======================================================
+#
+# Ordering is intentional:
+#
+#   1. Base.metadata.create_all() has already created missing tables.
+#   2. Existing-database migrations can now safely query their tables.
+#   3. The default administrator is created only when no Admin exists.
+#   4. The optional one-time reset can safely update the existing Admin.
+#
+# Do NOT move these calls above the model definitions or above
+# Base.metadata.create_all().
+# ======================================================
+
+create_default_admin()
+reset_admin_password_once()
+
 
 # ======================================================
 # PARTICIPANT HELPER FUNCTIONS
