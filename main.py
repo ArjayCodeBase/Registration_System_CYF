@@ -12139,6 +12139,13 @@ def event_participant_count(
 # ======================================================
 # CREATE PAYMONGO PAYMENT
 # SUPPORTS SINGLE + BULK PARTICIPANTS
+#
+# IMPORTANT:
+# - Uses RegistrationItem prices
+# - Reuses existing pending PayMongo checkout
+# - Does NOT create duplicate payment links
+# - Supports participant-specific T-shirt sizes
+# - Supports single + bulk payments
 # ======================================================
 
 @app.post("/create_payment")
@@ -12207,10 +12214,10 @@ def create_payment(
             )
         )
 
-    # --------------------------------------------------
+    # ==================================================
     # REMOVE DUPLICATES
     # PRESERVE ORDER
-    # --------------------------------------------------
+    # ==================================================
 
     participant_ids = list(
         dict.fromkeys(
@@ -12626,59 +12633,103 @@ def create_payment(
 
     # ==================================================
     # LOAD CURRENT REGISTRATION ITEM PRICES
+    #
     # RegistrationItem.price is stored in CENTAVOS.
-    # Never fall back to a hardcoded amount.
-    # A missing, inactive, or zero-priced item cannot be charged.
+    #
+    # IMPORTANT:
+    # Never use a hardcoded price.
+    #
+    # Missing/inactive/zero-priced item = payment
+    # cannot continue.
     # ==================================================
 
     needs_tshirt_price = bool(
-        tshirt_requested or participant_tshirt_map
+        tshirt_requested
+        or participant_tshirt_map
     )
-    needs_lanyard_price = bool(lanyard_requested)
+
+    needs_lanyard_price = bool(
+        lanyard_requested
+    )
 
     tshirt_price_centavos = None
     lanyard_price_centavos = None
 
-    def load_required_item_price(item_name: str) -> int:
+    def load_required_item_price(
+        item_name: str
+    ) -> int:
+
         item = (
             db.query(RegistrationItem)
             .filter(
-                func.lower(RegistrationItem.item_name) == item_name.lower(),
+                func.lower(
+                    RegistrationItem.item_name
+                ) == item_name.lower(),
+
                 RegistrationItem.is_active == True
             )
             .first()
         )
 
         if item is None:
+
             raise HTTPException(
                 status_code=400,
                 detail=(
-                    f"{item_name} is not configured or is inactive. "
-                    "Ask an administrator to configure its price before payment."
+                    f"{item_name} is not configured "
+                    "or is inactive. "
+                    "Ask an administrator to configure "
+                    "its price before payment."
                 )
             )
 
         try:
-            price = int(item.price)
-        except (TypeError, ValueError):
+
+            price = int(
+                item.price
+            )
+
+        except (
+            TypeError,
+            ValueError
+        ):
+
             price = 0
 
         if price <= 0:
+
             raise HTTPException(
                 status_code=400,
                 detail=(
-                    f"{item_name} has no valid price configured. "
-                    "An administrator must set a price greater than zero before payment."
+                    f"{item_name} has no valid "
+                    "price configured. "
+                    "An administrator must set "
+                    "a price greater than zero "
+                    "before payment."
                 )
             )
 
         return price
 
     if needs_tshirt_price:
-        tshirt_price_centavos = load_required_item_price("T-Shirt")
+
+        tshirt_price_centavos = (
+            load_required_item_price(
+                "T-Shirt"
+            )
+        )
 
     if needs_lanyard_price:
-        lanyard_price_centavos = load_required_item_price("Lanyard")
+
+        lanyard_price_centavos = (
+            load_required_item_price(
+                "Lanyard"
+            )
+        )
+
+    # ==================================================
+    # SUCCESSFUL PAYMENT STATUSES
+    # ==================================================
 
     successful_statuses = {
         "paid",
@@ -12694,6 +12745,22 @@ def create_payment(
     all_participant_items = []
 
     participant_payment_summary = []
+
+    # ==================================================
+    # EXISTING PENDING PAYMENT INFORMATION
+    #
+    # Used to prevent duplicate PayMongo links.
+    #
+    # For SINGLE:
+    # return the existing checkout immediately.
+    #
+    # For BULK:
+    # only reuse a checkout when ALL requested
+    # participants already belong to the same pending
+    # PayMongo checkout.
+    # ==================================================
+
+    existing_pending_payments = []
 
     # ==================================================
     # PROCESS EACH PARTICIPANT
@@ -12800,6 +12867,7 @@ def create_payment(
             ).strip().lower()
 
             if existing_tshirt_status == "paid":
+
                 tshirt_paid = True
 
             existing_lanyard_status = str(
@@ -12811,6 +12879,7 @@ def create_payment(
             ).strip().lower()
 
             if existing_lanyard_status == "paid":
+
                 lanyard_paid = True
 
         # ==================================================
@@ -12967,6 +13036,13 @@ def create_payment(
 
         # ==================================================
         # CHECK EXISTING PENDING PAYMENT
+        #
+        # IMPORTANT:
+        #
+        # A pending payment is NOT automatically an error.
+        #
+        # If checkout_url exists, the participant can
+        # continue paying the existing PayMongo checkout.
         # ==================================================
 
         existing_payment = (
@@ -12998,27 +13074,18 @@ def create_payment(
 
             if existing_payment.checkout_url:
 
-                db.rollback()
+                existing_pending_payments.append(
+                    existing_payment
+                )
 
-                raise HTTPException(
-                    status_code=400,
-                    detail={
-                        "message": (
-                            "A pending payment "
-                            "already exists for "
-                            "participant "
-                            f"{participant.registration_number}."
-                        ),
+                print(
+                    "EXISTING PENDING PAYMENT FOUND:",
+                    existing_payment.id
+                )
 
-                        "participant_id":
-                            participant.id,
-
-                        "payment_id":
-                            existing_payment.id,
-
-                        "checkout_url":
-                            existing_payment.checkout_url
-                    }
+                print(
+                    "CHECKOUT URL:",
+                    existing_payment.checkout_url
                 )
 
         # ==================================================
@@ -13107,50 +13174,329 @@ def create_payment(
                 f"₱{participant_amount / 100:,.2f}"
         })
 
+    # ==================================================
+    # HANDLE EXISTING PENDING PAYMENTS
+    #
+    # SINGLE:
+    #
+    # If the requested participant already has the
+    # matching pending payment, return its checkout.
+    #
+    # BULK:
+    #
+    # Reuse an existing checkout only when ALL requested
+    # participants have pending payments pointing to the
+    # SAME PayMongo checkout.
+    #
+    # This prevents accidentally combining:
+    #
+    # Participant A -> old checkout
+    # Participant B -> new checkout
+    #
+    # ==================================================
+
+    if existing_pending_payments:
+
         # ==================================================
-        # CREATE LOCAL PAYMENT ROW
-        #
-        # IMPORTANT:
-        #
-        # Each participant receives their own
-        # tshirt_size.
+        # SINGLE PARTICIPANT
         # ==================================================
 
-        payment = Payment(
+        if not is_bulk_payment:
 
-            participant_id =
-                participant.id,
+            existing_payment = (
+                existing_pending_payments[0]
+            )
 
-            amount =
-                participant_amount,
+            db.rollback()
 
-            currency =
-                "PHP",
+            existing_amount = int(
+                existing_payment.amount or 0
+            )
 
-            status =
-                "Pending",
+            existing_tshirt_size = (
+                getattr(
+                    existing_payment,
+                    "tshirt_size",
+                    None
+                )
+                or None
+            )
 
-            payment_type =
-                "Participant",
+            existing_participant = participants[0]
 
-            tshirt_selected =
-                int(
-                    participant_tshirt_requested
-                ),
+            return {
 
-            lanyard_selected =
-                int(
-                    participant_lanyard_requested
-                ),
+                "success":
+                    True,
 
-            tshirt_size =
-                participant_tshirt_size
-        )
+                "existing_payment":
+                    True,
 
-        db.add(payment)
+                "payment_status":
+                    "Pending",
 
-        payment_rows.append(
-            payment
+                "message":
+                    (
+                        "A pending payment already exists "
+                        "for participant "
+                        f"{existing_participant.registration_number}. "
+                        "You can continue the existing payment."
+                    ),
+
+                "participant_id":
+                    existing_participant.id,
+
+                "registration_number":
+                    existing_participant.registration_number,
+
+                "payment_id":
+                    existing_payment.id,
+
+                "amount":
+                    existing_amount,
+
+                "amount_display":
+                    f"₱{existing_amount / 100:,.2f}",
+
+                "tshirt_selected":
+                    bool(
+                        getattr(
+                            existing_payment,
+                            "tshirt_selected",
+                            False
+                        )
+                    ),
+
+                "tshirt_size":
+                    existing_tshirt_size,
+
+                "lanyard_selected":
+                    bool(
+                        getattr(
+                            existing_payment,
+                            "lanyard_selected",
+                            False
+                        )
+                    ),
+
+                "checkout_url":
+                    existing_payment.checkout_url,
+
+                "paymongo_link_id":
+                    getattr(
+                        existing_payment,
+                        "paymongo_link_id",
+                        None
+                    ),
+
+                "paymongo_reference":
+                    getattr(
+                        existing_payment,
+                        "paymongo_reference",
+                        None
+                    )
+            }
+
+        # ==================================================
+        # BULK PAYMENT
+        #
+        # Only reuse if EVERY requested participant has
+        # an existing pending payment with a checkout URL.
+        # ==================================================
+
+        if (
+            is_bulk_payment
+            and len(existing_pending_payments)
+            == len(participants)
+        ):
+
+            checkout_urls = {
+                payment.checkout_url
+                for payment
+                in existing_pending_payments
+                if payment.checkout_url
+            }
+
+            # All participants point to exactly one
+            # common checkout.
+            if len(checkout_urls) == 1:
+
+                existing_payment = (
+                    existing_pending_payments[0]
+                )
+
+                existing_checkout_url = (
+                    existing_payment.checkout_url
+                )
+
+                existing_payment_ids = [
+                    payment.id
+                    for payment
+                    in existing_pending_payments
+                ]
+
+                existing_participant_ids = [
+                    payment.participant_id
+                    for payment
+                    in existing_pending_payments
+                ]
+
+                existing_total = sum(
+                    int(payment.amount or 0)
+                    for payment
+                    in existing_pending_payments
+                )
+
+                db.rollback()
+
+                return {
+
+                    "success":
+                        True,
+
+                    "existing_payment":
+                        True,
+
+                    "payment_status":
+                        "Pending",
+
+                    "payment_type":
+                        "bulk",
+
+                    "message":
+                        (
+                            "A pending bulk payment already "
+                            "exists for these participants. "
+                            "You can continue the existing payment."
+                        ),
+
+                    "participant_count":
+                        len(participants),
+
+                    "participant_ids":
+                        existing_participant_ids,
+
+                    "payment_ids":
+                        existing_payment_ids,
+
+                    "amount":
+                        existing_total,
+
+                    "amount_display":
+                        f"₱{existing_total / 100:,.2f}",
+
+                    "checkout_url":
+                        existing_checkout_url,
+
+                    "paymongo_link_id":
+                        getattr(
+                            existing_payment,
+                            "paymongo_link_id",
+                            None
+                        ),
+
+                    "paymongo_reference":
+                        getattr(
+                            existing_payment,
+                            "paymongo_reference",
+                            None
+                        )
+                }
+
+            # ==================================================
+            # BULK REQUEST HAS MIXED PENDING CHECKOUTS
+            #
+            # Do not create another payment automatically.
+            # ==================================================
+
+            db.rollback()
+
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "message":
+                        (
+                            "One or more participants already "
+                            "have pending payments, but they do "
+                            "not belong to the same payment checkout."
+                        ),
+
+                    "existing_payment":
+                        True,
+
+                    "requires_action":
+                        True,
+
+                    "payment_ids":
+                        [
+                            payment.id
+                            for payment
+                            in existing_pending_payments
+                        ],
+
+                    "participant_ids":
+                        [
+                            payment.participant_id
+                            for payment
+                            in existing_pending_payments
+                        ],
+
+                    "checkout_urls":
+                        list(
+                            checkout_urls
+                        )
+                }
+            )
+
+        # ==================================================
+        # BULK REQUEST WITH ONLY SOME PARTICIPANTS PENDING
+        #
+        # Do not create another PayMongo payment because
+        # that could cause duplicate payments for the
+        # participants that already have a pending checkout.
+        # ==================================================
+
+        db.rollback()
+
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message":
+                    (
+                        "One or more participants already "
+                        "have a pending payment. "
+                        "Please continue the existing payment "
+                        "before creating another bulk payment."
+                    ),
+
+                "existing_payment":
+                    True,
+
+                "requires_action":
+                    True,
+
+                "payment_ids":
+                    [
+                        payment.id
+                        for payment
+                        in existing_pending_payments
+                    ],
+
+                "participant_ids":
+                    [
+                        payment.participant_id
+                        for payment
+                        in existing_pending_payments
+                    ],
+
+                "checkout_urls":
+                    list({
+                        payment.checkout_url
+                        for payment
+                        in existing_pending_payments
+                        if payment.checkout_url
+                    })
+            }
         )
 
     # ==================================================
@@ -13167,6 +13513,52 @@ def create_payment(
                 "There is no remaining "
                 "amount to pay."
             )
+        )
+
+    # ==================================================
+    # CREATE LOCAL PAYMENT ROWS
+    #
+    # We intentionally create these only after checking
+    # for existing pending payments.
+    # ==================================================
+
+    for item in all_participant_items:
+
+        payment = Payment(
+
+            participant_id =
+                item["participant_id"],
+
+            amount =
+                item["amount"],
+
+            currency =
+                "PHP",
+
+            status =
+                "Pending",
+
+            payment_type =
+                "Participant",
+
+            tshirt_selected =
+                int(
+                    item["tshirt_selected"]
+                ),
+
+            lanyard_selected =
+                int(
+                    item["lanyard_selected"]
+                ),
+
+            tshirt_size =
+                item["tshirt_size"]
+        )
+
+        db.add(payment)
+
+        payment_rows.append(
+            payment
         )
 
     # ==================================================
@@ -13287,13 +13679,13 @@ def create_payment(
         for payment in payment_rows
     )
 
-    # --------------------------------------------------
+    # ==================================================
     # PARTICIPANT T-SHIRT METADATA
     #
     # Example:
     #
     # 51:S,52:2XL
-    # --------------------------------------------------
+    # ==================================================
 
     participant_tshirt_metadata = ",".join(
 
@@ -13383,7 +13775,6 @@ def create_payment(
                     or ""
                 ),
 
-            # IMPORTANT:
             # Individual participant sizes.
             "participant_tshirt_selections":
                 participant_tshirt_metadata
@@ -13746,6 +14137,12 @@ def create_payment(
 
     return {
 
+        "success":
+            True,
+
+        "existing_payment":
+            False,
+
         "message":
             (
                 "Bulk payment link created successfully."
@@ -13825,6 +14222,7 @@ def create_payment(
 
                 for item
                 in all_participant_items
+
                 if item["tshirt_selected"]
             ],
 
@@ -13846,7 +14244,6 @@ def create_payment(
         "bulk_reference":
             local_bulk_reference
     }
-
 
 
 
