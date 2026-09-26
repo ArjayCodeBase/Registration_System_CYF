@@ -124,13 +124,13 @@ REGISTRATION_PROTECTED_PAGES = {
 # UPLOADED FILES
 # ============================================================
 
-app.mount(
-    "/uploads",
-    StaticFiles(
-        directory="/app/data/uploads"
-    ),
-    name="uploads"
-)
+#app.mount(
+#    "/uploads",
+#    StaticFiles(
+#        directory="/app/data/uploads"
+#    ),
+#    name="uploads"
+#)
 
 
 
@@ -21037,9 +21037,9 @@ def view_store_items(
 # STORE IMAGE UPLOAD "/app/data/uploads/store"
 # =========================================================
 
-STORE_UPLOAD_DIR = Path(
-    ""
-)
+#STORE_UPLOAD_DIR = Path(
+#    "/app/data/uploads/"
+#)
 
 STORE_UPLOAD_DIR.mkdir(
     parents=True,
