@@ -12625,15 +12625,60 @@ def create_payment(
         )
 
     # ==================================================
-    # PRICES
-    # STORED IN CENTAVOS
-    #
-    # ₱350 = 35000
-    # ₱90  = 9000
+    # LOAD CURRENT REGISTRATION ITEM PRICES
+    # RegistrationItem.price is stored in CENTAVOS.
+    # Never fall back to a hardcoded amount.
+    # A missing, inactive, or zero-priced item cannot be charged.
     # ==================================================
 
-    TSHIRT_PRICE = 35000
-    LANYARD_PRICE = 9000
+    needs_tshirt_price = bool(
+        tshirt_requested or participant_tshirt_map
+    )
+    needs_lanyard_price = bool(lanyard_requested)
+
+    tshirt_price_centavos = None
+    lanyard_price_centavos = None
+
+    def load_required_item_price(item_name: str) -> int:
+        item = (
+            db.query(RegistrationItem)
+            .filter(
+                func.lower(RegistrationItem.item_name) == item_name.lower(),
+                RegistrationItem.is_active == True
+            )
+            .first()
+        )
+
+        if item is None:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"{item_name} is not configured or is inactive. "
+                    "Ask an administrator to configure its price before payment."
+                )
+            )
+
+        try:
+            price = int(item.price)
+        except (TypeError, ValueError):
+            price = 0
+
+        if price <= 0:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"{item_name} has no valid price configured. "
+                    "An administrator must set a price greater than zero before payment."
+                )
+            )
+
+        return price
+
+    if needs_tshirt_price:
+        tshirt_price_centavos = load_required_item_price("T-Shirt")
+
+    if needs_lanyard_price:
+        lanyard_price_centavos = load_required_item_price("Lanyard")
 
     successful_statuses = {
         "paid",
@@ -12886,7 +12931,7 @@ def create_payment(
         if participant_tshirt_requested:
 
             participant_amount += (
-                TSHIRT_PRICE
+                tshirt_price_centavos
             )
 
             participant_items.append(
@@ -12896,7 +12941,7 @@ def create_payment(
         if participant_lanyard_requested:
 
             participant_amount += (
-                LANYARD_PRICE
+                lanyard_price_centavos
             )
 
             participant_items.append(
@@ -13843,17 +13888,9 @@ def create_payment(
 # CashDonationTotal.total_amount
 #     = STORED IN PESOS
 #
-# Example:
-#
-# T-shirt:
-#     35000 = ₱350.00
-#
-# Lanyard:
-#     9000 = ₱90.00
-#
-# Required:
-#     ₱350 + ₱90 = ₱440
-#
+# Prices are read from the active RegistrationItem records.
+# No fixed amount is assumed.
+
 # ============================================================
 
 
@@ -13913,10 +13950,7 @@ async def process_finding_sponsor_queue_logic(
     #
     # RegistrationItem.price = CENTAVOS
     #
-    # Example:
-    #
-    # 35000 = ₱350.00
-    # 9000  = ₱90.00
+    # Prices come from the configured RegistrationItem records.
     #
     # ========================================================
 
@@ -22028,8 +22062,11 @@ def view_single_lanyard_payment(
 )
 def create_registration_item(
     data: RegistrationItemCreate,
+    request: Request,
     db: Session = Depends(get_db)
 ):
+
+    require_admin_session(request)
 
     item_name = data.item_name.strip()
 
@@ -22177,8 +22214,11 @@ def view_single_registration_item(
 def update_registration_item(
     item_id: int,
     data: RegistrationItemUpdate,
+    request: Request,
     db: Session = Depends(get_db)
 ):
+
+    require_admin_session(request)
 
     item = (
         db.query(RegistrationItem)
@@ -22268,8 +22308,11 @@ def update_registration_item(
 )
 def deactivate_registration_item(
     item_id: int,
+    request: Request,
     db: Session = Depends(get_db)
 ):
+
+    require_admin_session(request)
 
     item = (
         db.query(RegistrationItem)
@@ -22312,8 +22355,11 @@ def deactivate_registration_item(
 )
 def activate_registration_item(
     item_id: int,
+    request: Request,
     db: Session = Depends(get_db)
 ):
+
+    require_admin_session(request)
 
     item = (
         db.query(RegistrationItem)
@@ -22407,23 +22453,9 @@ def get_registration_items(
 # RegistrationItem.price:
 #     STORED IN CENTAVOS
 #
-# Example:
-#
-# T-shirt:
-#     35000 centavos = ₱350.00
-#
-# Lanyard:
-#     9000 centavos = ₱90.00
-#
-# Required per participant:
-#     ₱350 + ₱90 = ₱440
-#
-# If sponsorship fund = ₱1,250:
-#
-# Participant 1 = ₱440
-# Participant 2 = ₱440
-# Remaining     = ₱370
-#
+# The current item prices are read from RegistrationItem.
+# Sponsorship totals are calculated from those configured prices.
+
 # After sponsorship:
 #
 # - T-shirt = Paid
@@ -22550,8 +22582,7 @@ async def process_finding_sponsor_queue(
     #
     # RegistrationItem.price = CENTAVOS
     #
-    # 35000 = ₱350.00
-    # 9000  = ₱90.00
+    # Both prices are read from the active RegistrationItem records.
     # ========================================================
 
     try:
@@ -23816,8 +23847,7 @@ def sponsor_dashboard_stats(
     #
     # RegistrationItem.price is stored in CENTAVOS.
     #
-    # Example:
-    # 35000 = ₱350.00
+    # Price comes from the configured RegistrationItem record.
     # ========================================================
 
     tshirt_item = (
@@ -23854,8 +23884,7 @@ def sponsor_dashboard_stats(
     #
     # RegistrationItem.price is stored in CENTAVOS.
     #
-    # Example:
-    # 9000 = ₱90.00
+    # Price comes from the configured RegistrationItem record.
     # ========================================================
 
     lanyard_item = (
@@ -23894,11 +23923,7 @@ def sponsor_dashboard_stats(
     #
     # T-Shirt + Lanyard
     #
-    # Example:
-    # T-Shirt = ₱350
-    # Lanyard = ₱90
-    #
-    # Sponsorship cost = ₱440 per participant
+    # Sponsorship cost is calculated from the current configured item prices.
     # ========================================================
 
     sponsorship_amount_per_participant = (
