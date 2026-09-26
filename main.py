@@ -124,10 +124,17 @@ REGISTRATION_PROTECTED_PAGES = {
 # UPLOADED FILES
 # ============================================================
 
+DATA_DIR = os.getenv("DATA_DIR", "/app/data")
+UPLOADS_DIR = Path(os.getenv("UPLOADS_DIR", os.path.join(DATA_DIR, "uploads")))
+STORE_UPLOAD_DIR = UPLOADS_DIR / "store"
+
+UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+STORE_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
 app.mount(
     "/uploads",
     StaticFiles(
-        directory="/app/data/uploads"
+        directory=str(UPLOADS_DIR)
     ),
     name="uploads"
 )
@@ -640,13 +647,22 @@ async def send_gmail_async(
 
 
 
+DATA_DIR = Path(os.getenv("DATA_DIR", "/app/data"))
+UPLOADS_DIR = Path(os.getenv("UPLOADS_DIR", str(DATA_DIR / "uploads")))
+STORE_UPLOAD_DIR = UPLOADS_DIR / "store"
+
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+STORE_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 # ======================================================
 # SQLITE DATABASE
 # ======================================================
 
+DATABASE_URL = f"sqlite:///{DATA_DIR / 'registration_system.db'}"
+
 # DATABASE_URL = "sqlite:////app/data/registration_system.db"
-DATABASE_URL = "sqlite:///./registration_system.db"
+# DATABASE_URL = "sqlite:///./registration_system.db"
 
 engine = create_engine(
     DATABASE_URL,
