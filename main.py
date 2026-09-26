@@ -2992,46 +2992,7 @@ class CashDonationTotal(Base):
 
 
 
-# ============================================================
-# MIGRATE PAYMENT TABLE
-# ADD STORE ORDER ID
-# ============================================================
 
-def migrate_payment_store_order_id():
-
-    with engine.connect() as connection:
-
-        result = connection.execute(
-            text("PRAGMA table_info(payments)")
-        )
-
-        columns = [
-            row[1]
-            for row in result
-        ]
-
-        # ----------------------------------------------------
-        # STORE ORDER ID
-        # ----------------------------------------------------
-
-        if "store_order_id" not in columns:
-
-            connection.execute(
-                text("""
-                    ALTER TABLE payments
-                    ADD COLUMN store_order_id
-                    VARCHAR(100)
-                """)
-            )
-
-        # ----------------------------------------------------
-        # COMMIT
-        # ----------------------------------------------------
-
-        connection.commit()
-
-
-migrate_payment_store_order_id()
 
 
 
