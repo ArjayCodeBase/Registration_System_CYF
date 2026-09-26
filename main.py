@@ -2048,7 +2048,11 @@ class CashDonationTotal(Base):
 
 
 
+# ======================================================
+# CREATE DATABASE TABLES
+# ======================================================
 
+Base.metadata.create_all(bind=engine)
 
 
 
@@ -2958,10 +2962,6 @@ class CashDonationTotal(Base):
 # # ======================================================
 # # CREATE TABLES
 # # ======================================================
-
- Base.metadata.create_all(
-     bind=engine
- )
 
 
 
