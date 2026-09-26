@@ -2973,11 +2973,10 @@ class CashDonationTotal(Base):
 # ======================================================
 # CREATE ALL DATABASE TABLES
 # ======================================================
-#
-# This MUST run after every SQLAlchemy model has been defined
-# and BEFORE any migration function queries an existing table.
-# It is safe for existing SQLite databases because create_all()
-# only creates tables that do not already exist.
+# This must run after all SQLAlchemy models have been defined and
+# before migrations query tables such as users/payments.
+# create_all() is safe for an existing database because it only
+# creates tables that do not already exist.
 # ======================================================
 
 Base.metadata.create_all(
@@ -4584,26 +4583,14 @@ def create_default_admin():
 
 
 # ======================================================
-# ONE-TIME ADMIN PASSWORD RESET
+# SAFE ONE-TIME ADMIN PASSWORD RESET
 # ======================================================
-#
-# Railway environment variables:
-#
-#   ADMIN_PASSWORD_RESET_ONCE
-#       = the new password to apply
-#
-#   ADMIN_PASSWORD_RESET_ID
-#       = a unique one-time reset identifier, for example:
-#         2026-09-26-admin-reset-01
-#
-# The reset is applied only once for each reset ID. A database
-# record prevents the password from being reset again on every
-# Railway restart, even if the environment variables are still
-# present. After the reset succeeds, remove the two variables
-# from Railway as an additional safety measure.
-#
-# This mechanism does NOT delete users, events, participants,
-# payments, or any other existing data.
+# Set both environment variables in Railway for one deployment: 
+#   ADMIN_PASSWORD_RESET_ONCE=<strong password, 12+ chars>
+#   ADMIN_PASSWORD_RESET_ID=<unique one-time ID>
+# The reset ID is stored in the database, so a Railway restart cannot
+# apply the same reset twice. Remove both variables after successful
+# login. This is intentionally startup-only rather than a public API.
 # ======================================================
 
 ADMIN_PASSWORD_RESET_ONCE = os.getenv(
@@ -4618,16 +4605,13 @@ ADMIN_PASSWORD_RESET_ID = os.getenv(
 def reset_admin_password_once():
 
     reset_password = (
-        ADMIN_PASSWORD_RESET_ONCE
-        or ""
+        ADMIN_PASSWORD_RESET_ONCE or ""
     ).strip()
 
     reset_id = (
-        ADMIN_PASSWORD_RESET_ID
-        or ""
+        ADMIN_PASSWORD_RESET_ID or ""
     ).strip()
 
-    # Nothing to do when the one-time reset is not enabled.
     if not reset_password and not reset_id:
         return
 
@@ -4638,7 +4622,6 @@ def reset_admin_password_once():
             "for a one-time admin password reset."
         )
 
-    # Require a reasonably strong temporary reset password.
     if len(reset_password) < 12:
         raise RuntimeError(
             "ADMIN_PASSWORD_RESET_ONCE must contain at least "
@@ -4648,7 +4631,6 @@ def reset_admin_password_once():
     db = SessionLocal()
 
     try:
-        # Create the reset-tracking table without affecting existing data.
         db.execute(text("""
             CREATE TABLE IF NOT EXISTS admin_password_reset_log (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -4720,18 +4702,12 @@ def reset_admin_password_once():
 
 
 # ======================================================
-# INITIALIZE DATABASE + ADMIN
+# INITIALIZE ADMIN ACCOUNT / OPTIONAL RESET
 # ======================================================
-#
-# Ordering is intentional:
-#
-#   1. Base.metadata.create_all() has already created missing tables.
-#   2. Existing-database migrations can now safely query their tables.
-#   3. The default administrator is created only when no Admin exists.
-#   4. The optional one-time reset can safely update the existing Admin.
-#
-# Do NOT move these calls above the model definitions or above
-# Base.metadata.create_all().
+# create_default_admin() only creates an administrator when none
+# exists. It never overwrites an existing administrator password.
+# The optional reset runs only when the two reset environment
+# variables are intentionally supplied.
 # ======================================================
 
 create_default_admin()
@@ -6065,34 +6041,59 @@ async def session_auth_middleware(request: Request, call_next):
     # payment checkout/status, public store/sponsorship pages,
     # PayMongo webhooks, and the contact form.
     # ------------------------------------------------------
-    public_api_paths = {
+    # ======================================================
+    # PUBLIC API ENDPOINTS
+    # ======================================================
+    # These endpoints are intentionally available before login
+    # because they are used by public pages such as home.html,
+    # register.html, sponsorship pages, and store pages.
+    #
+    # Everything else remains PRIVATE by default.
+    # Do not use Referer/home.html as an authentication mechanism;
+    # a browser can reproduce the same API request directly.
+    # ======================================================
+    public_api_exact_paths = {
         "/auth_login_user",
         "/auth_logout_user",
         "/contact",
-        "/registration_create_participant",
+        "/event_participant_count",
+        "/event_view_all_events",
         "/registration_search_participant",
+        "/registration_submit_all",
+        "/register_find_staff",
+        "/register_chaperone",
+        "/sponsorship/items",
+        "/sponsorship/create_item",
+        "/sponsorship/create_cash",
+        "/process_finding_sponsor_queue",
+        "/create_payment",
+        "/store",
+        "/store/purchase",
+        "/webhooks/paymongo",
+        "/registration_create_participant",
         "/questionnaire_submit_answers",
         "/rules_accept_event_agreement",
         "/registration_complete_registration",
-        "/registration_submit_all",
-        "/create_payment",
-        "/webhooks/paymongo",
-        "/sponsorship/create_cash",
-        "/sponsorship/items",
-        "/sponsorship/payment/status",
-        "/sponsorship/create_item",
-        "/store",
-        "/store/categories",
-        "/store/purchase",
-        "/store/purchase/status",
-        "/store/items",
-        "/payment_status",
         "/registration_items",
+        "/store/categories",
+        "/store/items",
+    }
+
+    # Dynamic public endpoints. These are deliberately explicit so
+    # unrelated /admin or private API paths do not become public.
+    public_api_prefixes = {
+        "/sponsorship/payment/status/",
+        "/store/purchase/status/",
+        "/payment_status/",
+        "/register_update_staff/",
     }
 
     is_public_api = (
-        path in public_api_paths
-        or any(path.startswith(prefix + "/") for prefix in public_api_paths)
+        path in public_api_exact_paths
+        or any(
+            path.startswith(prefix)
+            for prefix in public_api_prefixes
+        )
     )
 
     # Non-page, non-static routes are private by default.
