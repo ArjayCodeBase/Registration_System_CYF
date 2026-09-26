@@ -645,8 +645,8 @@ async def send_gmail_async(
 # SQLITE DATABASE
 # ======================================================
 
-DATABASE_URL = "sqlite:////app/data/registration_system.db"
-# DATABASE_URL = "sqlite:///./registration_system.db"
+# DATABASE_URL = "sqlite:////app/data/registration_system.db"
+DATABASE_URL = "sqlite:///./registration_system.db"
 
 engine = create_engine(
     DATABASE_URL,
@@ -21034,11 +21034,11 @@ def view_store_items(
 
 
 # =========================================================
-# STORE IMAGE UPLOAD
+# STORE IMAGE UPLOAD "/app/data/uploads/store"
 # =========================================================
 
 STORE_UPLOAD_DIR = Path(
-    "/app/data/uploads/store"
+    ""
 )
 
 STORE_UPLOAD_DIR.mkdir(
