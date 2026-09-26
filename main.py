@@ -9295,96 +9295,231 @@ def registration_search_participant(
 
 
 # ======================================================
+# PARTICIPANT RESPONSE BUILDER
+# ======================================================
+
+def build_participant_response(participant: Participant, db: Session):
+
+    fullname = " ".join(
+        part for part in [
+            participant.fname,
+            participant.mname,
+            participant.lname
+        ]
+        if part
+    ).strip()
+
+    registration_number = str(
+        participant.registration_number or ""
+    ).strip()
+
+    participant_type = str(
+        participant.participant_type or ""
+    ).strip()
+
+    is_sponsor_participant = (
+        participant_type.lower() == "finding sponsor"
+    )
+
+    tshirt_status = str(
+        participant.tshirt_status or "Unpaid"
+    )
+
+    lanyard_status = str(
+        participant.lanyard_status or "Unpaid"
+    )
+
+    tshirt_status_lower = tshirt_status.lower()
+    lanyard_status_lower = lanyard_status.lower()
+
+    if (
+        tshirt_status_lower == "paid"
+        and lanyard_status_lower == "paid"
+    ):
+        payment_status = "Paid"
+    elif (
+        tshirt_status_lower == "paid"
+        or lanyard_status_lower == "paid"
+    ):
+        payment_status = "Partial"
+    else:
+        payment_status = "Unpaid"
+
+    if is_sponsor_participant:
+
+        sponsorship_status = "Sponsored in Review"
+
+        if (
+            tshirt_status_lower == "paid"
+            and lanyard_status_lower == "paid"
+        ):
+            merchandise_status = "Sponsored Confirmed"
+        elif (
+            tshirt_status_lower == "paid"
+            or lanyard_status_lower == "paid"
+        ):
+            merchandise_status = "Sponsored - Partial"
+        else:
+            merchandise_status = "Sponsored in Review"
+
+        payment_status = sponsorship_status
+
+    else:
+        sponsorship_status = None
+        merchandise_status = payment_status
+
+    evaluation = db.query(
+        ParticipantEvaluation
+    ).filter(
+        ParticipantEvaluation.participant_id == participant.id
+    ).first()
+
+    participant_tier = (
+        evaluation.participant_tier
+        if evaluation
+        else None
+    )
+
+    # QR content is the registration number only.
+    qr_code_base64 = None
+
+    if registration_number:
+        try:
+            qr = qrcode.QRCode(
+                version=None,
+                error_correction=qrcode.constants.ERROR_CORRECT_M,
+                box_size=10,
+                border=4
+            )
+
+            qr.add_data(registration_number)
+            qr.make(fit=True)
+
+            qr_image = qr.make_image(
+                fill_color="black",
+                back_color="white"
+            )
+
+            qr_buffer = io.BytesIO()
+            qr_image.save(qr_buffer, format="PNG")
+            qr_buffer.seek(0)
+
+            qr_code_base64 = (
+                "data:image/png;base64,"
+                + base64.b64encode(
+                    qr_buffer.getvalue()
+                ).decode("utf-8")
+            )
+
+        except Exception as e:
+            print(
+                "QR CODE GENERATION ERROR:",
+                repr(e)
+            )
+            qr_code_base64 = None
+
+    return {
+        "participant_id": participant.id,
+        "registration_number": registration_number,
+        "fullname": fullname,
+        "qr_code": qr_code_base64,
+        "qr_code_filename": (
+            f"{registration_number}-QR.png"
+            if registration_number
+            else f"participant-{participant.id}-QR.png"
+        ),
+        "event_id": participant.event_id,
+        "event_name": participant.event_name,
+        "participant_type": participant_type,
+        "is_sponsor_participant": is_sponsor_participant,
+        "registration_phase": participant.registration_phase,
+        "registration_status": participant.registration_status,
+        "payment_status": payment_status,
+        "sponsorship_status": sponsorship_status,
+        "merchandise_status": merchandise_status,
+        "tshirt_status": tshirt_status,
+        "lanyard_status": lanyard_status,
+        "participant_tier": participant_tier
+    }
+
+
+# ======================================================
 # FILTER REGISTRATION PHASE
-# ======================================================  
+# ======================================================
 
 @app.get("/registration_filter_registration_phase")
 def registration_filter_registration_phase(
-
     registration_phase: str,
-
     db: Session = Depends(get_db)
-
 ):
 
     participants = db.query(Participant).filter(
-
         Participant.registration_phase == registration_phase,
-
         Participant.is_archived == 0
-
     ).all()
 
-    return participants
+    return [
+        build_participant_response(participant, db)
+        for participant in participants
+    ]
 
 
 # ======================================================
 # FILTER REGISTRATION STATUS
-# ======================================================  
+# ======================================================
 
 @app.get("/registration_filter_registration_status")
 def registration_filter_registration_status(
-
     registration_status: str,
-
     db: Session = Depends(get_db)
-
 ):
 
     participants = db.query(Participant).filter(
-
         Participant.registration_status == registration_status,
-
         Participant.is_archived == 0
-
     ).all()
 
-    return participants
+    return [
+        build_participant_response(participant, db)
+        for participant in participants
+    ]
+
 
 # ======================================================
 # FILTER PARTICIPANTS BY EVENT
-# ======================================================  
+# ======================================================
 
 @app.get("/registration_filter_event")
 def registration_filter_event(
-
     event_id: int,
-
     db: Session = Depends(get_db)
-
 ):
 
     participants = db.query(Participant).filter(
-
         Participant.event_id == event_id,
-
         Participant.is_archived == 0
-
     ).all()
 
-    return participants
+    return [
+        build_participant_response(participant, db)
+        for participant in participants
+    ]
+
 
 # ======================================================
 # FILTER PARTICIPANT TIER
-# ======================================================  
+# ======================================================
 
 @app.get("/registration_filter_participant_tier")
 def registration_filter_participant_tier(
-
     participant_tier: str,
-
     db: Session = Depends(get_db)
-
 ):
 
     evaluations = db.query(
-
         ParticipantEvaluation
-
     ).filter(
-
         ParticipantEvaluation.participant_tier == participant_tier
-
     ).all()
 
     result = []
@@ -9392,53 +9527,40 @@ def registration_filter_participant_tier(
     for evaluation in evaluations:
 
         participant = db.query(Participant).filter(
-
             Participant.id == evaluation.participant_id,
-
             Participant.is_archived == 0
-
         ).first()
 
         if participant:
+            data = build_participant_response(participant, db)
 
-            result.append({
+            data["spiritual_score"] = evaluation.spiritual_score
+            data["influence_score"] = evaluation.influence_score
 
-                "participant_id": participant.id,
-
-                "registration_number": participant.registration_number,
-
-                "fullname": f"{participant.fname} {participant.mname} {participant.lname}",
-
-                "event_name": participant.event_name,
-
-                "participant_tier": evaluation.participant_tier,
-
-                "spiritual_score": evaluation.spiritual_score,
-
-                "influence_score": evaluation.influence_score
-
-            })
+            result.append(data)
 
     return result
-    
+
+
 # ======================================================
 # VIEW ALL PARTICIPANTS
-# ======================================================  
+# ======================================================
 
 @app.get("/registration_view_all_participants")
 def registration_view_all_participants(
-
     db: Session = Depends(get_db)
-
 ):
 
     participants = db.query(Participant).filter(
-
         Participant.is_archived == 0
-
+    ).order_by(
+        Participant.id.asc()
     ).all()
 
-    return participants
+    return [
+        build_participant_response(participant, db)
+        for participant in participants
+    ]
 
 
 # ======================================================
