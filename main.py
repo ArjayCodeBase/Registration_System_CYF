@@ -11307,32 +11307,6 @@ def payment_status(
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# ======================================================
-# COMPLETE ONLINE REGISTRATION
-# ======================================================
-
 @app.post("/registration_submit_all")
 def registration_submit_all(
     data: OnlineRegistrationSchema,
@@ -11351,7 +11325,6 @@ def registration_submit_all(
         ).first()
 
         if not event:
-
             raise HTTPException(
                 status_code=404,
                 detail="Event not found."
@@ -11366,11 +11339,7 @@ def registration_submit_all(
             "Finding Sponsor"
         ]
 
-        if (
-            data.participant.participant_type
-            not in allowed_participant_types
-        ):
-
+        if data.participant.participant_type not in allowed_participant_types:
             raise HTTPException(
                 status_code=400,
                 detail="Invalid participant type."
@@ -11383,14 +11352,12 @@ def registration_submit_all(
         today = manila_today()
 
         if today < event.registration_start:
-
             raise HTTPException(
                 status_code=400,
                 detail="Event registration has not started yet."
             )
 
         if today > event.kickoff_date:
-
             raise HTTPException(
                 status_code=400,
                 detail=(
@@ -11404,7 +11371,6 @@ def registration_submit_all(
         # ==================================================
 
         if not data.rules_agreed:
-
             raise HTTPException(
                 status_code=400,
                 detail=(
@@ -11418,7 +11384,6 @@ def registration_submit_all(
         # ==================================================
 
         if not data.confidentiality_agreed:
-
             raise HTTPException(
                 status_code=400,
                 detail=(
@@ -11432,7 +11397,6 @@ def registration_submit_all(
         # ==================================================
 
         questionnaire_fields = [
-
             "camp_attendance",
             "leadership_position",
             "church_involvement",
@@ -11445,7 +11409,6 @@ def registration_submit_all(
             "small_group",
             "gospel_sharing",
             "temptation_response"
-
         ]
 
         for field in questionnaire_fields:
@@ -11453,7 +11416,6 @@ def registration_submit_all(
             value = data.questionnaire.get(field)
 
             if not value or not str(value).strip():
-
                 raise HTTPException(
                     status_code=400,
                     detail=(
@@ -11467,23 +11429,15 @@ def registration_submit_all(
         # ==================================================
 
         duplicate = registration_duplicate_validation(
-
             db,
-
             data.participant.event_id,
-
             data.participant.fname,
-
             data.participant.mname,
-
             data.participant.lname,
-
             data.participant.birthdate
-
         )
 
         if duplicate:
-
             raise HTTPException(
                 status_code=400,
                 detail=(
@@ -11496,29 +11450,23 @@ def registration_submit_all(
         # REGISTRATION PHASE
         # ==================================================
 
-        registration_phase = (
-            registration_phase_validation(event)
-        )
+        registration_phase = registration_phase_validation(event)
 
         # ==================================================
         # CALCULATE AGE
         # ==================================================
 
-        registration_age = (
-            calculate_registration_age(
-                data.participant.birthdate
-            )
+        registration_age = calculate_registration_age(
+            data.participant.birthdate
         )
 
         # ==================================================
         # GENERATE REGISTRATION NUMBER
         # ==================================================
 
-        registration_number = (
-            registration_number_generator(
-                db,
-                event
-            )
+        registration_number = registration_number_generator(
+            db,
+            event
         )
 
         # ==================================================
@@ -11674,6 +11622,68 @@ def registration_submit_all(
         db.add(questionnaire)
 
         # ==================================================
+        # CALCULATE PARTICIPANT TIER
+        # ==================================================
+
+        influence_score = influence_score_calculator(
+            questionnaire
+        )
+
+        spiritual_score = spiritual_score_calculator(
+            questionnaire
+        )
+
+        creative_status = creative_identifier(
+            questionnaire
+        )
+
+        participant_tier = tier_assignment(
+            influence_score,
+            spiritual_score,
+            creative_status
+        )
+
+        # ==================================================
+        # SAVE / UPDATE PARTICIPANT EVALUATION
+        # ==================================================
+
+        evaluation = db.query(
+            ParticipantEvaluation
+        ).filter(
+            ParticipantEvaluation.participant_id
+            == participant.id
+        ).first()
+
+        if evaluation:
+
+            evaluation.influence_score = influence_score
+
+            evaluation.spiritual_score = spiritual_score
+
+            evaluation.creative_status = creative_status
+
+            evaluation.participant_tier = participant_tier
+
+            evaluation.updated_at = manila_now()
+
+        else:
+
+            evaluation = ParticipantEvaluation(
+
+                participant_id=participant.id,
+
+                influence_score=influence_score,
+
+                spiritual_score=spiritual_score,
+
+                creative_status=creative_status,
+
+                participant_tier=participant_tier
+            )
+
+            db.add(evaluation)
+
+        # ==================================================
         # CREATE RULES AGREEMENT
         # ==================================================
 
@@ -11684,7 +11694,6 @@ def registration_submit_all(
             agreed=1,
 
             agreed_at=manila_now()
-
         )
 
         db.add(agreement)
@@ -11716,15 +11725,11 @@ def registration_submit_all(
 
             item_data = {
 
-                "id":
-                    item.id,
+                "id": item.id,
 
-                "name":
-                    item.item_name,
+                "name": item.item_name,
 
-                "price":
-                    item.price
-
+                "price": item.price
             }
 
             if getattr(item, "is_required", False):
@@ -11750,6 +11755,8 @@ def registration_submit_all(
         db.refresh(questionnaire)
 
         db.refresh(agreement)
+
+        db.refresh(evaluation)
 
         # ==================================================
         # RESPONSE
@@ -11789,7 +11796,21 @@ def registration_submit_all(
 
                 "event_name":
                     participant.event_name
+            },
 
+            "evaluation": {
+
+                "influence_score":
+                    evaluation.influence_score,
+
+                "spiritual_score":
+                    evaluation.spiritual_score,
+
+                "creative_status":
+                    evaluation.creative_status,
+
+                "participant_tier":
+                    evaluation.participant_tier
             },
 
             "payment_required":
@@ -11800,7 +11821,6 @@ def registration_submit_all(
 
             "optional_items":
                 optional_items
-
         }
 
     except HTTPException:
@@ -11821,8 +11841,28 @@ def registration_submit_all(
                 "Registration could not be completed: "
                 f"{str(e)}"
             )
-
         )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
